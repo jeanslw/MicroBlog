@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}后台登录 - {{site_name}}{% endblock %}
+
+{% block extra_head %}
+<style>
+    body {
+        background: linear-gradient(135deg,#36d1dc,#5b86e5);
+    }
+    .login-box {
+        border-radius: 16px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+        margin-top:60px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-5">
+        <div class="card login-box p-5">
+            <h3 class="text-center mb-4 fw-bold">
+                <i class="bi bi-shield-lock text-primary"></i> 管理员登录
+            </h3>
+            {% set msgs = get_flashed_messages() %}
+            {% if msgs %}
+                <div class="alert alert-danger">{{ msgs[0] }}</div>
+            {% endif %}
+            <form method="POST">
+                <div class="mb-3">
+                    <label class="form-label">账号</label>
+                    <input type="text" name="username" class="form-control form-control-lg" placeholder="admin" required>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label">密码</label>
+                    <input type="password" name="password" class="form-control form-control-lg" required>
+                </div>
+                <button class="btn btn-dark w-100 py-2 fs-5">登录</button>
+            </form>
+            <div class="text-center mt-4">
+                <a href="/" class="text-secondary text-decoration-none">
+                    <i class="bi bi-arrow-left"></i> 返回博客首页
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

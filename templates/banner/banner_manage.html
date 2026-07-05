@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}轮播广告管理 - {{site_name}}{% endblock %}
+{% block content %}
+<h3 class="mb-4"><i class="bi bi-images"></i> Banner轮播管理</h3>
+{% set msg = get_flashed_messages() %}
+{% if msg %}<div class="alert alert-success">{{msg[0]}}</div>{% endif %}
+<button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#addModal">新增轮播图</button>
+<div class="card p-4">
+    <table class="table table-hover">
+        <thead>
+            <tr>
+                <th>预览</th>
+                <th>标题</th>
+                <th>跳转链接</th>
+                <th>排序权重</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in banner_list %}
+            <tr>
+                <td><img src="{{item.img_path}}" style="width:200px;height:90px;object-fit:cover"></td>
+                <td>{{item.title}}</td>
+                <td>{{item.link_url}}</td>
+                <td>{{item.sort}}</td>
+                <td>
+                    <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#edit{{item.id}}">编辑</button>
+                    <a href="/banner/del/{{item.id}}" class="btn btn-sm btn-danger" onclick="return confirm('确定删除？')">删除</a>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="5" class="text-center text-muted">暂无轮播广告</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="modal fade" id="addModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header"><h5>新增Banner</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+            <form action="/banner/add" method="post" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label>轮播图片</label>
+                        <input type="file" name="banner_img" class="form-control" required accept=".jpg,.png,.gif,.jpeg">
+                    </div>
+                    <div class="mb-3">
+                        <label>跳转链接（留空不跳转）</label>
+                        <input type="text" name="link_url" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label>标题</label>
+                        <input type="text" name="title" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label>描述文字</label>
+                        <input type="text" name="desc_text" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label>排序数字（越大越靠前）</label>
+                        <input type="number" name="sort_num" class="form-control" value="0">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button class="btn btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% for item in banner_list %}
+<div class="modal fade" id="edit{{item.id}}" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header"><h5>编辑Banner</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+            <form action="/banner/edit/{{item.id}}" method="post" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label>更换图片（不换留空）</label>
+                        <input type="file" name="banner_img" class="form-control" accept=".jpg,.png,.gif,.jpeg">
+                        <div class="form-text">当前：{{item.img_path}}</div>
+                    </div>
+                    <div class="mb-3">
+                        <label>跳转链接</label>
+                        <input type="text" name="link_url" class="form-control" value="{{item.link_url}}">
+                    </div>
+                    <div class="mb-3">
+                        <label>标题</label>
+                        <input type="text" name="title" class="form-control" value="{{item.title}}">
+                    </div>
+                    <div class="mb-3">
+                        <label>描述文字</label>
+                        <input type="text" name="desc_text" class="form-control" value="{{item.desc_text}}">
+                    </div>
+                    <div class="mb-3">
+                        <label>排序数字</label>
+                        <input type="number" name="sort_num" class="form-control" value="{{item.sort}}">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button class="btn btn-warning">保存修改</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}

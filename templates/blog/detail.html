@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}{{article.title}} - {{site_name}}{% endblock %}
+
+{% block content %}
+{% set msgs = get_flashed_messages() %}
+{% if msgs %}
+<div class="alert alert-success alert-dismissible fade show">
+    {{ msgs[0] }}
+    <button class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+{% endif %}
+
+<div class="row g-4">
+    <!-- 左侧栏目菜单 -->
+    <div class="col-lg-3">
+        <div class="sidebar-box">
+            <h5 class="fw-bold border-bottom pb-2"><i class="bi bi-list-ul"></i> 栏目分类</h5>
+            <ul class="nav flex-column mt-3">
+                <li class="nav-item mb-2">
+                    <a class="nav-link ps-0" href="/">全部文章({{all_article_count}})</a>
+                </li>
+                {% for cat in categories %}
+                <li class="nav-item mb-2">
+                    <a class="nav-link ps-0" href="/category/{{cat.id}}">
+                        {{cat.cat_name}} ({{cat.art_count}})
+                        {% if cat.tag_text %}<span class="badge bg-secondary ms-1">#{{cat.tag_text}}</span>{% endif %}
+                    </a>
+                </li>
+                {% else %}
+                <li class="text-muted small">管理员尚未创建栏目分类</li>
+                {% endfor %}
+            </ul>
+            {% if session.is_admin %}
+            <hr>
+            <h6 class="fw-semibold">新建栏目/标签</h6>
+            <form action="/admin/category_add" method="POST">
+                <input name="cat_name" class="form-control form-control-sm mb-2" placeholder="栏目名称" required>
+                <input name="tag_text" class="form-control form-control-sm mb-2" placeholder="标签（选填）">
+                <button class="btn btn-sm btn-primary w-100">添加分类</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 文章正文区域 -->
+    <div class="col-lg-9">
+        <div class="d-flex gap-2 mb-3">
+            {% if session.is_admin %}
+                <a href="/article/edit/{{ article.id }}" class="btn btn-outline-dark">
+                    <i class="bi bi-pencil"></i> 编辑
+                </a>
+                <a href="/article/del/{{ article.id }}" class="btn btn-danger" onclick="return confirm('确定删除？')">
+                    <i class="bi bi-trash"></i> 删除
+                </a>
+            {% endif %}
+            <a href="/vote/{{ article.id }}" class="btn btn-primary">
+                <i class="bi bi-hand-thumbs-up"></i> 点赞 {{ article.vote_num }}
+            </a>
+            <a href="/" class="btn btn-outline-dark">返回首页</a>
+        </div>
+        <div class="card p-5 mb-5">
+            <h2 class="fw-bold">{{ article.title }}</h2>
+            <p class="text-muted mb-4">
+                <i class="bi bi-calendar3"></i> 发布：{{ article.create_time }}
+            </p>
+            <hr>
+            <div class="fs-5 lh-lg">
+                {{ article.content|safe }}
+            </div>
+        </div>
+
+        <!-- 发表评论 -->
+        <div class="card p-4 mb-5" id="comment_box">
+            <h5 class="fw-bold mb-3"><i class="bi bi-chat-dots text-primary"></i> 发表评论</h5>
+            <form action="/comment/add/{{ article.id }}" method="POST">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <input type="text" name="username" class="form-control" placeholder="昵称（默认游客）">
+                    </div>
+                    <div class="col-md-7">
+                        <input type="text" name="content" class="form-control" placeholder="写下你的看法..." required>
+                    </div>
+                    <div class="col-md-2">
+                        <button class="btn btn-primary w-100">提交</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- 全部评论 -->
+        <h5 class="fw-bold mb-3"><i class="bi bi-chat-square-text"></i> 全部评论（{{comments|length}}）</h5>
+        {% for c in comments %}
+        <div class="mb-4 border-start border-primary ps-3 py-2">
+            <div class="fw-semibold">{{ c.username }}
+                <span class="text-muted small">{{ c.create_time }}</span>
+            </div>
+            <p class="text-secondary">{{ c.content }}</p>
+            <form action="/reply/add/{{ article.id }}/{{ c.id }}" method="POST" class="row g-2 mb-3">
+                <div class="col-auto">
+                    <input type="text" name="username" class="form-control form-control-sm" placeholder="昵称">
+                </div>
+                <div class="col-auto flex-grow-1">
+                    <input type="text" name="content" class="form-control form-control-sm" placeholder="回复这条评论" required>
+                </div>
+                <div class="col-auto">
+                    <button class="btn btn-sm btn-outline-primary">回复</button>
+                </div>
+            </form>
+            {% if c.reply_list %}
+                <div class="ps-4">
+                    {% for r in c.reply_list %}
+                    <div class="bg-light rounded p-2 mb-2">
+                        <span class="fw-semibold">{{ r.username }}</span>
+                        <span class="text-muted small ms-2">{{ r.create_time }}</span>
+                        <p class="mb-0">{{ r.content }}</p>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        </div>
+        {% else %}
+        <div class="alert alert-light text-center py-4">暂无评论，快来抢沙发！</div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

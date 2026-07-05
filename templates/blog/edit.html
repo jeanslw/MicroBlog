@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% block title %}
+{% if article %}编辑文章{% else %}新建文章{% endif %} - {{site_name}}
+{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='lib/easymde.min.css') }}">
+<style>
+    .edit-card {border-radius:14px;box-shadow:0 4px 20px rgba(0,0,0,0.08);margin-top:20px;}
+    /* EasyMDE 编辑器暗色适配 */
+    .editor-toolbar { border-radius: 8px 8px 0 0; border-color: #dee2e6; }
+    .CodeMirror {
+        border-radius: 0 0 8px 8px;
+        border-color: #dee2e6;
+        min-height: 500px;
+        font-size: 15px;
+        line-height: 1.7;
+    }
+    .editor-preview {
+        border-radius: 0 0 8px 8px;
+        border-color: #dee2e6;
+        background: #fefefe;
+    }
+    /* 预览区代码块 */
+    .editor-preview pre {
+        background: #2d2d2d;
+        color: #ccc;
+        padding: 14px 18px;
+        border-radius: 8px;
+        overflow-x: auto;
+        font-family: 'Fira Code', 'Consolas', 'Courier New', monospace;
+        font-size: 14px;
+        line-height: 1.6;
+    }
+    .editor-preview code {
+        color: #ccc;
+        font-family: 'Fira Code', 'Consolas', monospace;
+    }
+    .editor-statusbar { border-radius: 0 0 8px 8px; border-color: #dee2e6; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <div class="card edit-card p-5">
+            <h4 class="mb-4 fw-bold">
+                {% if article %}<i class="bi bi-pencil-square"></i> 编辑文章{% else %}<i class="bi bi-plus-circle"></i> 新建文章{% endif %}
+            </h4>
+            {% set msg = get_flashed_messages() %}
+            {% if msg %}<div class="alert alert-success">{{msg[0]}}</div>{% endif %}
+            <form method="POST" id="article_form">
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">文章标题</label>
+                    <input type="text" name="title" class="form-control form-control-lg" value="{{article.title if article else ''}}" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">所属栏目</label>
+                    <select name="category_id" class="form-select form-select-lg">
+                        <option value="">无分类</option>
+                        {% for cat in categories %}
+                        <option value="{{cat.id}}" {% if article and article.category_id == cat.id %}selected{% endif %}>
+                            {{cat.cat_name}} {% if cat.tag_text %}#{{cat.tag_text}}{% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">
+                        正文内容（Markdown 编辑器 — 使用 <code>```语言</code> 插入代码块）
+                    </label>
+                    <textarea id="rich_content" name="content" rows="12" class="form-control">{{article.content if article else ''}}</textarea>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label fw-semibold">保存方式</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="status" value="draft" id="draft"
+                            {% if not article or article.status == 'draft' %}checked{% endif %}>
+                        <label class="form-check-label" for="draft">存入草稿（仅后台可见）</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="radio" name="status" value="publish" id="pub"
+                            {% if article and article.status == 'publish' %}checked{% endif %}>
+                        <label class="form-check-label" for="pub">公开发布（所有人可见）</label>
+                    </div>
+                </div>
+                <div class="d-flex gap-3">
+                    <button type="submit" class="btn btn-success flex-grow-1 py-2 fs-5">提交保存</button>
+                    <a href="/" class="btn btn-secondary flex-grow-1 py-2 text-center text-decoration-none">取消</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='lib/easymde.min.js') }}"></script>
+<script src="{{ url_for('static', filename='lib/marked.min.js') }}"></script>
+<script>
+// 将 HTML 内容转为纯文本用于 Markdown 编辑器（简单处理，保留代码块）
+function htmlToMarkdown(html) {
+    if (!html || html.trim().length === 0) return '';
+    // 如果内容不含 HTML 标签，直接返回（可能已经是 Markdown 或纯文本）
+    if (!/<[^>]+>/.test(html)) return html;
+    // 简单转换：保留 pre/code 块，其余转纯文本
+    let md = html;
+    // 代码块：<pre><code class="language-xxx">...</code></pre> → ```xxx\n...\n```
+    md = md.replace(/<pre[^>]*><code[^>]*class="language-(\w+)"[^>]*>([\s\S]*?)<\/code><\/pre>/gi, function(m, lang, code) {
+        code = code.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"');
+        return '\n```' + lang + '\n' + code.trim() + '\n```\n';
+    });
+    md = md.replace(/<pre[^>]*><code[^>]*>([\s\S]*?)<\/code><\/pre>/gi, function(m, code) {
+        code = code.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"');
+        return '\n```\n' + code.trim() + '\n```\n';
+    });
+    // 行内代码
+    md = md.replace(/<code[^>]*>([\s\S]*?)<\/code>/gi, '`$1`');
+    // 标题
+    md = md.replace(/<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi, function(m, level, text) { return '#'.repeat(parseInt(level)) + ' ' + text + '\n\n'; });
+    // 段落
+    md = md.replace(/<p[^>]*>([\s\S]*?)<\/p>/gi, '$1\n\n');
+    // 换行
+    md = md.replace(/<br\s*\/?>/gi, '\n');
+    // 粗体/斜体
+    md = md.replace(/<(strong|b)>([\s\S]*?)<\/(strong|b)>/gi, '**$2**');
+    md = md.replace(/<(em|i)>([\s\S]*?)<\/(em|i)>/gi, '*$2*');
+    // 链接
+    md = md.replace(/<a[^>]*href="([^"]*)"[^>]*>([\s\S]*?)<\/a>/gi, '[$2]($1)');
+    // 图片
+    md = md.replace(/<img[^>]*src="([^"]*)"[^>]*alt="([^"]*)"[^>]*>/gi, '![$2]($1)');
+    md = md.replace(/<img[^>]*src="([^"]*)"[^>]*>/gi, '![]($1)');
+    // 列表
+    md = md.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, '- $1\n');
+    // 去掉其余标签
+    md = md.replace(/<[^>]+>/g, '');
+    // 解码实体
+    md = md.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&nbsp;/g, ' ');
+    // 清理多余空行
+    md = md.replace(/\n{3,}/g, '\n\n');
+    return md.trim();
+}
+
+// 配置 marked
+marked.setOptions({
+    breaks: true,
+    gfm: true,
+    highlight: function(code, lang) {
+        if (lang && Prism.languages[lang]) {
+            try {
+                return Prism.highlight(code, Prism.languages[lang], lang);
+            } catch (e) {}
+        }
+        return code;
+    }
+});
+
+// 初始化 EasyMDE
+var editorContent = document.getElementById('rich_content').value;
+var initialValue = htmlToMarkdown(editorContent);
+
+var easyMDE = new EasyMDE({
+    element: document.getElementById('rich_content'),
+    initialValue: initialValue,
+    spellChecker: false,
+    placeholder: '使用 Markdown 书写…\n\n```python\nprint("hello world")\n```\n\n**加粗** *斜体* [链接](url) ![图片](url)',
+    tabSize: 4,
+    autosave: { enabled: false },
+    toolbar: [
+        'bold', 'italic', 'strikethrough', 'heading', '|',
+        'code', 'quote', 'unordered-list', 'ordered-list', '|',
+        'link', 'image', 'table', 'horizontal-rule', '|',
+        'preview', 'side-by-side', 'fullscreen', '|',
+        'guide'
+    ],
+    renderingConfig: {
+        codeSyntaxHighlighting: true
+    },
+    previewRender: function(plainText, preview) {
+        // 使用 marked 渲染，支持代码高亮
+        setTimeout(function() {
+            preview.innerHTML = marked.parse(plainText);
+            // 高亮预览中的代码块
+            Prism.highlightAllUnder(preview);
+        }, 1);
+        return '加载中…';
+    },
+    status: ['lines', 'words', 'cursor'],
+    styleSelectedText: false,
+    minHeight: '500px'
+});
+
+// 表单提交前：Markdown → HTML
+document.getElementById('article_form').addEventListener('submit', function(e) {
+    var mdContent = easyMDE.value();
+    var htmlContent = marked.parse(mdContent);
+    document.getElementById('rich_content').value = htmlContent;
+});
+</script>
+{% endblock %}

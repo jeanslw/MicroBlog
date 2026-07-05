@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}站点设置 - {{site_name}}{% endblock %}
+{% block content %}
+<div class="row justify-content-center mt-4">
+    <div class="col-md-6">
+        <div class="card p-5">
+            <h4 class="mb-4 fw-bold"><i class="bi bi-gear"></i> 站点全局设置</h4>
+            {% set msg = get_flashed_messages() %}
+            {% if msg %}<div class="alert alert-success">{{msg[0]}}</div>{% endif %}
+            <form method="POST">
+                <div class="mb-4">
+                    <label class="form-label">博客网站名称</label>
+                    <input type="text" name="site_name" class="form-control form-control-lg" value="{{site.site_name}}" required>
+                </div>
+                <button class="btn btn-primary w-100 py-2">保存设置</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
