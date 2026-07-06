@@ -1,7 +1,7 @@
 from flask import redirect, url_for, request, flash
 from datetime import datetime
 from app.comment import comment_bp
-from app.extensions import get_db
+from app.db import get_db
 
 
 # 点赞

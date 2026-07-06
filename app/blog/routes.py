@@ -1,10 +1,10 @@
-import pymysql
 from flask import render_template, request, redirect, url_for, flash, session
 from datetime import datetime
 from config import PAGE_SIZE
 from app.blog import blog_bp
 from app.blog.queries import get_article_list, get_article_detail
-from app.extensions import get_db, get_categories
+from app.db import get_db, DictCursor
+from app.extensions import get_categories
 
 
 @blog_bp.route('/')
@@ -39,9 +39,9 @@ def article_new():
         return redirect(url_for("admin.login"))
     db = get_db()
     if not db:
-        flash("数据库连接失败，请检查 MySQL 服务")
+        flash("数据库连接失败，请检查数据库服务")
         return redirect(url_for("blog.index"))
-    cur = db.cursor(pymysql.cursors.DictCursor)
+    cur = db.cursor(DictCursor)
     cats, _ = get_categories()
     if request.method == "POST":
         title = request.form["title"].strip()
@@ -66,9 +66,9 @@ def article_edit(aid):
         return redirect(url_for("admin.login"))
     db = get_db()
     if not db:
-        flash("数据库连接失败，请检查 MySQL 服务")
+        flash("数据库连接失败，请检查数据库服务")
         return redirect(url_for("blog.index"))
-    cur = db.cursor(pymysql.cursors.DictCursor)
+    cur = db.cursor(DictCursor)
     cur.execute("SELECT * FROM article WHERE id=%s", (aid,))
     art = cur.fetchone()
     if not art:
@@ -97,7 +97,7 @@ def article_del(aid):
         return redirect(url_for("admin.login"))
     db = get_db()
     if not db:
-        flash("数据库连接失败，请检查 MySQL 服务")
+        flash("数据库连接失败，请检查数据库服务")
         return redirect(url_for("blog.index"))
     cur = db.cursor()
     cur.execute("DELETE FROM reply WHERE comment_id IN (SELECT id FROM comment WHERE article_id=%s)", (aid,))
@@ -117,9 +117,9 @@ def drafts():
         return redirect(url_for("admin.login"))
     db = get_db()
     if not db:
-        flash("数据库连接失败，请检查 MySQL 服务")
+        flash("数据库连接失败，请检查数据库服务")
         return redirect(url_for("blog.index"))
-    cur = db.cursor(pymysql.cursors.DictCursor)
+    cur = db.cursor(DictCursor)
     cur.execute("SELECT * FROM article WHERE status='draft' ORDER BY create_time DESC")
     draft_list = cur.fetchall()
     cur.close()

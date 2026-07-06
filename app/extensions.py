@@ -1,23 +1,5 @@
-import pymysql
 import traceback
-from config import MYSQL_HOST, MYSQL_USER, MYSQL_PWD, MYSQL_DB
-
-
-def get_db():
-    """获取数据库连接"""
-    try:
-        conn = pymysql.connect(
-            host=MYSQL_HOST,
-            user=MYSQL_USER,
-            password=MYSQL_PWD,
-            database=MYSQL_DB,
-            charset="utf8mb4"
-        )
-        return conn
-    except Exception:
-        print("=====数据库连接失败=====")
-        traceback.print_exc()
-        return None
+from app.db import get_db, DictCursor
 
 
 def get_categories():
@@ -25,7 +7,7 @@ def get_categories():
     db = get_db()
     if not db:
         return [], 0
-    cur = db.cursor(pymysql.cursors.DictCursor)
+    cur = db.cursor(DictCursor)
     try:
         cur.execute("""
             SELECT c.id, c.cat_name, c.tag_text, c.create_time, COUNT(a.id) AS art_count
@@ -52,7 +34,7 @@ def get_site_name():
     if not db:
         return "我的博客"
     try:
-        cur = db.cursor(pymysql.cursors.DictCursor)
+        cur = db.cursor(DictCursor)
         cur.execute("SELECT site_name FROM site_config LIMIT 1")
         res = cur.fetchone()
         return res["site_name"] if res else "我的博客"

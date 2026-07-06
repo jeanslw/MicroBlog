@@ -5,19 +5,24 @@
 | 组件 | 版本要求 | 说明 |
 |------|---------|------|
 | Python | 3.9+ (推荐 3.11) | 运行环境 |
-| MySQL | 5.7+ / 8.0+ | 数据库 |
+| MySQL | 5.7+ / 8.0+（可选） | 生产环境数据库，开发/测试可用 SQLite 替代 |
 | pip | 最新版 | Python 包管理 |
+
+> **SQLite 模式**：无需安装任何数据库，开箱即用，适合开发测试和小型部署。
 
 ## 2. 项目结构
 
 ```
 flaskProject/
-├── run.py                         # 入口文件
+├── run.py                         # 开发入口
 ├── wsgi.py                        # WSGI 部署入口
-├── config.py                      # 配置文件（SECRET_KEY / 数据库 / 调试）
+├── uwsgi.ini                      # uWSGI 配置文件
+├── config.py                      # 配置文件（密钥 / 数据库类型 / 调试）
 ├── requirements.txt               # Python 依赖列表
+├── data/                          # SQLite 数据库文件目录（自动创建）
 ├── app/
 │   ├── __init__.py                # Flask 工厂 + 错误处理 + 全局上下文
+│   ├── db.py                      # 统一数据库层（自动切换 MySQL / SQLite）
 │   ├── extensions.py              # 共享数据库查询
 │   ├── blog/                      # 博客模块
 │   ├── admin/                     # 管理员模块
@@ -88,7 +93,36 @@ MarkupSafe==3.0.3
 Werkzeug==3.1.8
 ```
 
-### 4.3 安装并配置 MySQL
+### 4.3 配置数据库
+
+编辑 `config.py`，选择数据库类型：
+
+```python
+SECRET_KEY = "blog_2026_secure_key_xyz123"  # 生产环境请改为复杂随机字符串
+DEBUG = False                                # 生产环境改为 False
+
+# 数据库类型: "mysql" 或 "sqlite"
+DB_TYPE = "sqlite"
+
+# MySQL 配置（DB_TYPE = "mysql" 时生效）
+MYSQL_HOST = "localhost"
+MYSQL_USER = "root"
+MYSQL_PWD = "your_password"                  # 数据库密码（改）
+MYSQL_DB = "flask_blog"
+
+# SQLite 配置（DB_TYPE = "sqlite" 时生效）
+SQLITE_PATH = "data/blog.db"
+
+PAGE_SIZE = 6                                # 每页文章数
+```
+
+#### 方式一：SQLite（推荐开发/测试）
+
+无需额外配置，改 `DB_TYPE = "sqlite"` 即可。首次启动自动在 `data/` 目录创建数据库并建表，默认管理员 `admin` / `123456`。
+
+#### 方式二：MySQL（推荐生产环境）
+
+1. 安装 MySQL：
 
 ```bash
 # Ubuntu/Debian
@@ -98,12 +132,25 @@ sudo apt install mysql-server
 sudo yum install mysql-server
 ```
 
-### 4.4 创建数据库和表
+2. 创建数据库：
 
 ```sql
--- 创建数据库
 CREATE DATABASE flask_blog DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+```
 
+3. 改 `config.py`：`DB_TYPE = "mysql"`，填入正确的数据库账号密码。
+
+4. 建表并写入初始数据（参考下方 4.4 节 SQL 脚本），或直接用下面的命令导入：
+
+```bash
+mysql -u root -p flask_blog < MySQL/init.sql
+```
+
+### 4.4 手动建表 SQL（MySQL 用户参考）
+
+如果 MySQL 没有使用自动导入脚本，手动执行以下 SQL：
+
+```sql
 -- 管理员表
 CREATE TABLE admin (
     id INT NOT NULL AUTO_INCREMENT,
@@ -189,22 +236,7 @@ INSERT INTO site_config (site_name) VALUES ('我的博客');
 INSERT INTO admin (username, password) VALUES ('admin', '123456');
 ```
 
-### 4.5 修改配置文件
-
-编辑 `config.py`，修改数据库连接信息：
-
-```python
-SECRET_KEY = "blog_2026_secure_key_xyz123"  # 生产环境请改为复杂随机字符串
-DEBUG = False                                # 生产环境改为 False
-
-MYSQL_HOST = "localhost"                     # 数据库地址
-MYSQL_USER = "root"                          # 数据库用户名
-MYSQL_PWD = "your_password"                  # 数据库密码（改）
-MYSQL_DB = "flask_blog"                      # 数据库名
-PAGE_SIZE = 6                                # 每页文章数
-```
-
-### 4.6 启动服务
+### 4.5 启动服务
 
 **开发/测试用：**
 
@@ -216,13 +248,17 @@ python run.py
 **生产部署推荐方案：**
 
 ```bash
-# 方案一：gunicorn（Linux）
-pip install gunicorn
-gunicorn -w 4 -b 0.0.0.0:5000 run:app
+# 方案一：uWSGI（Linux）
+pip install uwsgi
+uwsgi --ini uwsgi.ini
 
-# 方案二：waitress（跨平台，Windows 可用）
+# 方案二：gunicorn（Linux）
+pip install gunicorn
+gunicorn -w 4 -b 0.0.0.0:5000 wsgi:application
+
+# 方案三：waitress（跨平台，Windows 可用）
 pip install waitress
-waitress-serve --port=5000 run:app
+waitress-serve --port=5000 wsgi:application
 ```
 
 **Nginx 反向代理（可选）：**
@@ -247,7 +283,7 @@ server {
 }
 ```
 
-### 4.7 安装字体（可选）
+### 4.6 安装字体（可选）
 
 若页面代码块未使用等宽字体，可安装 Fira Code：
 
@@ -270,6 +306,10 @@ sudo apt install fonts-firacode
 # 确保上传目录可写
 mkdir -p static/banner
 chmod 755 static/banner
+
+# SQLite 模式需要 data 目录可写（首次启动自动创建）
+mkdir -p data
+chmod 755 data
 ```
 
 ## 7. 常见问题
@@ -277,10 +317,19 @@ chmod 755 static/banner
 **Q: 页面样式错乱？**
 确认 `static/lib/` 下 9 个文件完整存在，见第 3 节列表。
 
-**Q: 数据库连接失败？**
+**Q: 数据库连接失败（MySQL）？**
 - 确认 MySQL 服务已启动
 - 确认 `config.py` 中数据库账号密码正确
+- 确认 `DB_TYPE = "mysql"`
 - 确认数据库 `flask_blog` 已创建且表结构完整
+
+**Q: 数据库连接失败（SQLite）？**
+- 确认 `DB_TYPE = "sqlite"`
+- 确认 `data/` 目录存在且可写
+- 删除 `data/blog.db` 后重启可重置数据库
+
+**Q: 如何切换数据库？**
+修改 `config.py` 中 `DB_TYPE` 即可（`"mysql"` 或 `"sqlite"`），代码自动适配，无需改动业务逻辑。
 
 **Q: 轮播图上传后不显示？**
 确认 `static/banner/` 目录存在且可写。

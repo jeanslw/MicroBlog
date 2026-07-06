@@ -1,9 +1,8 @@
 from flask import render_template, request, redirect, url_for, flash, session
-import pymysql
-import pymysql.err
 from datetime import datetime
 from app.admin import admin_bp
-from app.extensions import get_db, get_site_name, get_categories
+from app.db import get_db, DictCursor, IntegrityError
+from app.extensions import get_site_name, get_categories
 
 
 # 管理员登录
@@ -13,7 +12,7 @@ def login():
         user = request.form["username"].strip()
         pwd = request.form["password"].strip()
         db = get_db()
-        cur = db.cursor(pymysql.cursors.DictCursor)
+        cur = db.cursor(DictCursor)
         cur.execute("SELECT * FROM admin WHERE username=%s AND password=%s", (user, pwd))
         admin_info = cur.fetchone()
         cur.close()
@@ -71,7 +70,7 @@ def site_setting():
         flash("请登录管理员账号")
         return redirect(url_for("admin.login"))
     db = get_db()
-    cur = db.cursor(pymysql.cursors.DictCursor)
+    cur = db.cursor(DictCursor)
     if request.method == "POST":
         name = request.form["site_name"].strip()
         cur.execute("UPDATE site_config SET site_name=%s WHERE id=1", (name,))
@@ -99,7 +98,7 @@ def add_category():
         cur.execute("INSERT INTO category(cat_name,tag_text,create_time) VALUES(%s,%s,%s)", (name, tag, now))
         db.commit()
         flash("栏目新增成功")
-    except pymysql.err.IntegrityError:
+    except IntegrityError:
         flash("栏目名称重复")
     cur.close()
     db.close()

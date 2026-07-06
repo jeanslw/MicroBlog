@@ -1,10 +1,9 @@
-import pymysql
 from flask import render_template, request, redirect, url_for, flash, session
 import os
 from werkzeug.utils import secure_filename
 from datetime import datetime
 from app.banner import banner_bp
-from app.extensions import get_db
+from app.db import get_db, DictCursor
 
 
 ALLOWED_EXT = {"jpg", "jpeg", "png", "gif"}
@@ -31,9 +30,9 @@ def banner_list():
         return redirect(url_for("admin.login"))
     db = get_db()
     if not db:
-        flash("数据库连接失败，请检查 MySQL 服务")
+        flash("数据库连接失败，请检查数据库服务")
         return render_template("banner/banner_manage.html", banner_list=[])
-    cur = db.cursor(pymysql.cursors.DictCursor)
+    cur = db.cursor(DictCursor)
     cur.execute("SELECT * FROM banner ORDER BY sort DESC")
     data = cur.fetchall()
     cur.close()
@@ -88,7 +87,7 @@ def banner_edit(bid):
 
     db = get_db()
     if not db:
-        flash("数据库连接失败，请检查 MySQL 服务")
+        flash("数据库连接失败，请检查数据库服务")
         return redirect(url_for("banner.banner_list"))
     cur = db.cursor()
     sql = "UPDATE banner SET link_url=%s,title=%s,desc_text=%s,sort=%s WHERE id=%s"
@@ -118,7 +117,7 @@ def banner_del(bid):
         flash("请登录管理员账号")
         return redirect(url_for("admin.login"))
     db = get_db()
-    cur = db.cursor(pymysql.cursors.DictCursor)
+    cur = db.cursor(DictCursor)
     cur.execute("SELECT img_path FROM banner WHERE id=%s", (bid,))
     row = cur.fetchone()
     try:
