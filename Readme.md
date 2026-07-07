@@ -1,4 +1,7 @@
-# 博客系统部署文档
+# 博客系统部署文档 
+
+版本：v1.0
+概述: 本博客基于Flask框架3.1，功能包括：评论点赞、文章分类、banner轮播，带code makedown编辑器等，全部本地加载，支持sqllite和mysql数据库。
 
 ## 1. 环境要求
 
@@ -336,3 +339,6 @@ chmod 755 data
 
 **Q: 编辑器（EasyMDE）加载不出来？**
 确认 `static/lib/easymde.min.js` 和 `static/lib/marked.min.js` 存在。
+
+
+## 8. 如有建议可在 GitHub 仓库提 issue ，或联系EMAIL:jeanslw@qq.com
