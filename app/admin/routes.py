@@ -1,5 +1,6 @@
 from flask import render_template, request, redirect, url_for, flash, session
 from datetime import datetime
+from werkzeug.security import check_password_hash, generate_password_hash
 from app.admin import admin_bp
 from app.db import get_db, DictCursor, IntegrityError
 from app.extensions import get_site_name, get_categories
@@ -13,11 +14,11 @@ def login():
         pwd = request.form["password"].strip()
         db = get_db()
         cur = db.cursor(DictCursor)
-        cur.execute("SELECT * FROM admin WHERE username=%s AND password=%s", (user, pwd))
+        cur.execute("SELECT * FROM admin WHERE username=%s", (user,))
         admin_info = cur.fetchone()
         cur.close()
         db.close()
-        if admin_info:
+        if admin_info and check_password_hash(admin_info["password"], pwd):
             session["is_admin"] = True
             flash("登录成功")
             return redirect(url_for("blog.index"))
@@ -47,13 +48,14 @@ def change_pwd():
             flash("两次新密码不一致")
             return render_template("admin/change_pwd.html")
         db = get_db()
-        cur = db.cursor()
-        cur.execute("SELECT id FROM admin WHERE password=%s", (old_pwd,))
-        res = cur.fetchone()
-        if not res:
+        cur = db.cursor(DictCursor)
+        cur.execute("SELECT password FROM admin WHERE id=1")
+        row = cur.fetchone()
+        if not row or not check_password_hash(row["password"], old_pwd):
             flash("原密码错误")
         else:
-            cur.execute("UPDATE admin SET password=%s", (new_pwd,))
+            new_hashed = generate_password_hash(new_pwd)
+            cur.execute("UPDATE admin SET password=%s WHERE id=1", (new_hashed,))
             db.commit()
             flash("密码修改成功，请重新登录")
             session.clear()

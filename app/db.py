@@ -222,7 +222,9 @@ def _init_sqlite():
 
     cur = conn.execute("SELECT COUNT(*) FROM admin")
     if cur.fetchone()[0] == 0:
-        conn.execute("INSERT INTO admin (username, password) VALUES ('admin', '123456')")
+        from werkzeug.security import generate_password_hash
+        hashed = generate_password_hash("123456")
+        conn.execute("INSERT INTO admin (username, password) VALUES ('admin', ?)", (hashed,))
 
     conn.commit()
     conn.close()
