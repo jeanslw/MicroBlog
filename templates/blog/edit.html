@@ -50,6 +50,7 @@
             {% set msg = get_flashed_messages() %}
             {% if msg %}<div class="alert alert-success">{{msg[0]}}</div>{% endif %}
             <form method="POST" id="article_form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <div class="mb-3">
                     <label class="form-label fw-semibold">文章标题</label>
                     <input type="text" name="title" class="form-control form-control-lg" value="{{article.title if article else ''}}" required>

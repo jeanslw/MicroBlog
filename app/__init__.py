@@ -1,7 +1,9 @@
 import os
-from flask import Flask
+import secrets
+from flask import Flask, session, request, abort
 import traceback
-from config import SECRET_KEY
+from config import SECRET_KEY, SEND_FILE_MAX_AGE, MAX_CONTENT_LENGTH
+from app.db import close_db
 from app.extensions import get_categories, get_site_name
 from app.blog import blog_bp
 from app.comment import comment_bp
@@ -17,7 +19,21 @@ def create_app():
     app = Flask(__name__, template_folder=template_dir, static_folder=static_dir)
     app.secret_key = SECRET_KEY
     app.config['TEMPLATES_AUTO_RELOAD'] = True
-    app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+    app.config['SEND_FILE_MAX_AGE_DEFAULT'] = SEND_FILE_MAX_AGE
+    app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
+
+    # 请求结束时自动关闭数据库连接
+    app.teardown_appcontext(close_db)
+
+    # CSRF 保护
+    @app.before_request
+    def csrf_protect():
+        if 'csrf_token' not in session:
+            session['csrf_token'] = secrets.token_hex(32)
+        if request.method in ('POST', 'PUT', 'DELETE', 'PATCH'):
+            submitted = request.form.get('csrf_token')
+            if not submitted or not secrets.compare_digest(session['csrf_token'], submitted):
+                abort(400, 'CSRF 验证失败，请刷新页面后重试')
 
     @app.errorhandler(Exception)
     def all_err_handler(e):
@@ -47,7 +63,8 @@ def create_app():
             "categories": cats,
             "all_article_count": total_art,
             "site_name": site_name,
-            "banner_list": banner_list
+            "banner_list": banner_list,
+            "csrf_token": session.get('csrf_token', '')
         }
 
     return app

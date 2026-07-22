@@ -26,6 +26,7 @@
                 <div class="alert alert-danger">{{ msgs[0] }}</div>
             {% endif %}
             <form method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <div class="mb-3">
                     <label class="form-label">账号</label>
                     <input type="text" name="username" class="form-control form-control-lg" placeholder="admin" required>

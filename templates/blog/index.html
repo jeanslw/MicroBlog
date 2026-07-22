@@ -70,6 +70,7 @@
             <hr>
             <h6 class="fw-semibold">新建栏目</h6>
             <form action="/admin/category_add" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <input name="cat_name" class="form-control form-control-sm mb-2" placeholder="栏目名称" required>
                 <input name="tag_text" class="form-control form-control-sm mb-2" placeholder="标签（选填）">
                 <button class="btn btn-sm btn-primary w-100">添加分类</button>
@@ -115,44 +116,10 @@
                     </div>
                     <!-- 评论折叠区域 -->
                     <div class="collapse mt-3 border-top pt-3" id="comment_box_{{art.id}}">
-                        <h6>全部评论</h6>
-                        {% if art.comment_list | length == 0 %}
-                        <p class="text-muted">暂无评论，快来抢沙发！</p>
-                        {% else %}
-                        {% for com in art.comment_list %}
-                        <div class="border-bottom py-2">
-                            <span class="fw-semibold">{{com.username}}</span>
-                            <span class="text-muted small ms-2">{{com.create_time}}</span>
-                            <p class="mb-1">{{com.content}}</p>
-                            <!-- 子回复 -->
-                            {% if com.reply_list | length > 0 %}
-                            <div class="ps-4 border-start mt-2">
-                                {% for r in com.reply_list %}
-                                <div class="py-1">
-                                    <span class="fw-semibold">{{r.username}}</span>
-                                    <span class="text-muted small ms-2">{{r.create_time}}</span>
-                                    <p class="mb-0">{{r.content}}</p>
-                                </div>
-                                {% endfor %}
-                            </div>
-                            {% endif %}
-                        </div>
-                        {% endfor %}
-                        {% endif %}
-                        <!-- 发表评论表单 -->
-                        <form action="/comment/add/{{art.id}}" method="POST" class="mt-3">
-                            <div class="row g-2">
-                                <div class="col-auto">
-                                    <input name="username" class="form-control form-control-sm" placeholder="昵称" required>
-                                </div>
-                                <div class="col">
-                                    <input name="content" class="form-control form-control-sm" placeholder="写下你的评论..." required>
-                                </div>
-                                <div class="col-auto">
-                                    <button class="btn btn-sm btn-success">提交</button>
-                                </div>
-                            </div>
-                        </form>
+                        <p class="text-muted">
+                            共 {{art.comment_num if art.comment_num else 0}} 条评论 —
+                            <a href="/article/{{art.id}}#comment_box">前往文章页面查看全部评论</a>
+                        </p>
                     </div>
                 </div>
             </div>

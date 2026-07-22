@@ -36,7 +36,11 @@ CREATE TABLE IF NOT EXISTS `article` (
   `update_time` varchar(50) DEFAULT NULL,
   `vote_num` int DEFAULT '0',
   `category_id` int DEFAULT NULL COMMENT '所属侧边栏目',
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_category_id` (`category_id`),
+  KEY `idx_create_time` (`create_time`),
+  KEY `idx_status_cat_time` (`status`, `category_id`, `create_time`)
 ) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
@@ -71,7 +75,8 @@ CREATE TABLE IF NOT EXISTS `comment` (
   `username` varchar(100) DEFAULT '游客',
   `content` text NOT NULL,
   `create_time` varchar(50) DEFAULT NULL,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `idx_article_id` (`article_id`)
 ) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- 导出  表 flask_blog.reply 结构
@@ -81,7 +86,8 @@ CREATE TABLE IF NOT EXISTS `reply` (
   `username` varchar(100) DEFAULT '游客',
   `content` text NOT NULL,
   `create_time` varchar(50) DEFAULT NULL,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `idx_comment_id` (`comment_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 
@@ -99,7 +105,9 @@ CREATE TABLE IF NOT EXISTS `vote_log` (
   `id` int NOT NULL AUTO_INCREMENT,
   `article_id` int DEFAULT NULL,
   `ip` varchar(100) DEFAULT NULL,
-  PRIMARY KEY (`id`)
+  `create_time` varchar(50) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_article_ip` (`article_id`, `ip`)
 ) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 

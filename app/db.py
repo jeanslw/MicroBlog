@@ -1,6 +1,7 @@
 """
 统一数据库层 —— 根据 config.DB_TYPE 自动切换 MySQL / SQLite。
 所有模块通过此层访问数据库，无需关心底层实现。
+同一请求内自动复用连接（基于 Flask g），请求结束后自动关闭。
 
 用法：
     from app.db import get_db, DictCursor, IntegrityError
@@ -10,6 +11,7 @@
     cur = db.cursor()              # 返回 tuple 行
 """
 import os
+from flask import g
 from config import DB_TYPE
 
 # ── 根据配置导出对应后端的符号 ──────────────────────────────
@@ -56,7 +58,6 @@ def _get_sqlite_db():
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
         SQLITE_PATH,
     )
-    # 确保 data 目录存在
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
 
     raw = sqlite3.connect(db_path)
@@ -79,6 +80,9 @@ class _SqliteConnection:
 
     def commit(self):
         self._conn.commit()
+
+    def rollback(self):
+        self._conn.rollback()
 
     def close(self):
         self._conn.close()
@@ -212,8 +216,20 @@ def _init_sqlite():
         CREATE TABLE IF NOT EXISTS vote_log (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             article_id INTEGER,
-            ip VARCHAR(100)
+            ip VARCHAR(100),
+            create_time VARCHAR(50)
         );
+    """)
+
+    # ── 创建索引（SQLite 需单独执行） ──
+    conn.executescript("""
+        CREATE INDEX IF NOT EXISTS idx_article_status ON article(status);
+        CREATE INDEX IF NOT EXISTS idx_article_category_id ON article(category_id);
+        CREATE INDEX IF NOT EXISTS idx_article_create_time ON article(create_time);
+        CREATE INDEX IF NOT EXISTS idx_article_status_cat_time ON article(status, category_id, create_time);
+        CREATE INDEX IF NOT EXISTS idx_comment_article_id ON comment(article_id);
+        CREATE INDEX IF NOT EXISTS idx_reply_comment_id ON reply(comment_id);
+        CREATE INDEX IF NOT EXISTS idx_vote_article_ip ON vote_log(article_id, ip);
     """)
 
     cur = conn.execute("SELECT COUNT(*) FROM site_config")
@@ -232,8 +248,8 @@ def _init_sqlite():
 
 # ── 对外接口 ───────────────────────────────────────────────
 
-def get_db():
-    """获取数据库连接（根据 DB_TYPE 自动选择后端）"""
+def _create_connection():
+    """创建新的数据库连接（内部使用）"""
     if DB_TYPE == "mysql":
         return _get_mysql_db()
     elif DB_TYPE == "sqlite":
@@ -241,3 +257,17 @@ def get_db():
         return _get_sqlite_db()
     else:
         raise ValueError(f"不支持的 DB_TYPE: {DB_TYPE!r}")
+
+
+def get_db():
+    """获取数据库连接（同一请求内自动复用，基于 Flask g）"""
+    if 'db_conn' not in g:
+        g.db_conn = _create_connection()
+    return g.db_conn
+
+
+def close_db(exception=None):
+    """关闭数据库连接（请求结束后由 teardown_appcontext 调用）"""
+    db = g.pop('db_conn', None)
+    if db is not None:
+        db.close()

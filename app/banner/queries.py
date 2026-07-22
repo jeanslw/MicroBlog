@@ -10,7 +10,8 @@ def get_all_banner():
         cur.execute("SELECT * FROM banner ORDER BY sort DESC")
         res = cur.fetchall()
         cur.close()
-        db.close()
         return res
     except Exception:
+        print("=====获取轮播图失败=====")
+        traceback.print_exc()
         return []
