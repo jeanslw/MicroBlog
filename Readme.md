@@ -400,26 +400,19 @@ docker compose --env-file .env.docker --profile full up -d
 #### 4.7.5 首次初始化 MySQL
 
 - 容器首次启动会自动执行 `MySQL/init.sql` 建表（含严格模式校验、字符集、索引）
-- **init.sql 不含明文密码 INSERT**，需手动创建管理员账号：
+- 管理员账号**自动创建**：在 `.env.docker` 中设置 `BLOG_INIT_ADMIN_PWD`，首次启动时 Web 容器会自动创建 `admin` 账号
+- 若需修改管理员用户名，设置 `BLOG_INIT_ADMIN_USER`（默认 `admin`）
 
 ```bash
-# 步骤 1：生成密码哈希（复制输出的一长串）
-docker exec -it flask-blog-web python -c \
-  "from werkzeug.security import generate_password_hash as g; print(g('你的强密码'))"
-
-# 步骤 2：用上一步的哈希插入管理员
-# ⚠️ 把 <ROOT密码> 替换为 .env.docker 里的 MYSQL_ROOT_PASSWORD
-#    把 <哈希>   替换为步骤 1 的输出
-docker exec -i flask-blog-db mysql -uroot -p<ROOT密码> flask_blog -e \
-  "INSERT INTO admin (username, password) VALUES ('admin', '<哈希>');"
-
-# 步骤 3：验证插入成功
+# 验证管理员已创建
 docker exec -i flask-blog-db mysql -uroot -p<ROOT密码> flask_blog -e \
   "SELECT id, username FROM admin;"
 ```
 
-> 注意：`-p` 与密码之间**无空格**；`-i` 而非 `-it` 便于在脚本中使用。
-> 严禁用明文密码作为 `password` 字段值，否则无法登录（应用层用 `check_password_hash` 校验）。
+> 若未设置 `BLOG_INIT_ADMIN_PWD`，管理员不会创建。补设后重启 Web 容器即可自动补建：
+> ```bash
+> docker compose restart web
+> ```
 
 #### 4.7.6 升级镜像
 
@@ -481,10 +474,14 @@ sudo ufw enable
 
 ## 5. 首次登录
 
-- 访问 `http://your-server/admin/login`
-- 账号：`BLOG_INIT_ADMIN_USER`（默认 `admin`）
-- 密码：`BLOG_INIT_ADMIN_PWD` 设置的密码
-- **登录后立即在「改密码」修改为强密码**
+管理员账号由系统**自动创建**，无需手动 INSERT：
+
+1. 确保 `.env`（或环境变量）中已设置 `BLOG_INIT_ADMIN_PWD`
+2. 启动服务后，访问 `http://your-server/admin/login`
+3. 用 `admin` / 你设置的密码登录
+4. **登录后立即在「改密码」修改为强密码**
+
+> 若未设置 `BLOG_INIT_ADMIN_PWD`，管理员不会创建，启动日志会有警告。补设后重启服务即可自动补建。
 
 ## 6. 目录权限
 

@@ -1,6 +1,33 @@
 {% extends "base.html" %}
 {% block title %}{{article.title}} - {{site_name}}{% endblock %}
 
+{% block extra_css %}
+<style>
+    /* 文章内容区图片样式 */
+    .article-content img {
+        max-width: 100%;
+        height: auto;
+        border-radius: 8px;
+        margin: 10px 0;
+        display: block;
+    }
+    .article-content pre {
+        background: #2d2d2d;
+        color: #ccc;
+        padding: 14px 18px;
+        border-radius: 8px;
+        overflow-x: auto;
+        font-family: 'Fira Code', 'Consolas', 'Courier New', monospace;
+        font-size: 14px;
+        line-height: 1.6;
+    }
+    .article-content code {
+        color: #ccc;
+        font-family: 'Fira Code', 'Consolas', monospace;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 {% set msgs = get_flashed_messages() %}
 {% if msgs %}
@@ -72,7 +99,7 @@
                 <i class="bi bi-calendar3"></i> 发布：{{ article.create_time }}
             </p>
             <hr>
-            <div class="fs-5 lh-lg">
+            <div class="fs-5 lh-lg article-content">
                 {{ article.content|safe }}
             </div>
         </div>

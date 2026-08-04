@@ -11,7 +11,7 @@ from config import (
     SESSION_COOKIE_HTTPONLY, SESSION_COOKIE_SAMESITE, SESSION_COOKIE_SECURE,
     PERMANENT_SESSION_LIFETIME,
 )
-from app.db import close_db
+from app.db import close_db, ensure_admin_exists
 from app.extensions import get_categories, get_site_name
 from app.blog import blog_bp
 from app.comment import comment_bp
@@ -51,6 +51,13 @@ def create_app():
     app.config['DEBUG'] = DEBUG
 
     _setup_logging(app)
+
+    # 启动时确保管理员账号存在（兼容 SQLite / MySQL，首次部署免手动建账号）
+    with app.app_context():
+        try:
+            ensure_admin_exists()
+        except Exception as e:
+            app.logger.warning("管理员初始化跳过: %s", e)
 
     # 请求结束时自动关闭数据库连接
     app.teardown_appcontext(close_db)

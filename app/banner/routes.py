@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime
 
 from flask import render_template, request, redirect, url_for, flash
+from PIL import Image
 from werkzeug.utils import secure_filename
 
 from app.banner import banner_bp
@@ -19,6 +20,8 @@ MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 ALLOWED_MIME = {"image/jpeg", "image/png", "image/gif"}
 # 文件名 base 部分最大长度（不含扩展名），防止最终路径超 VARCHAR(500)
 MAX_BASE_NAME_LEN = 100
+# Banner 图片最大宽度（像素）
+BANNER_MAX_WIDTH = 1920
 
 # 字段长度（与数据库 VARCHAR 对齐）
 TITLE_MAX_LEN = 100
@@ -58,7 +61,7 @@ def _safe_int(value, default=0):
 
 def _save_upload(img):
     """
-    校验并保存上传图片，返回 (relative_url_path, err_msg)。
+    校验并保存上传图片，自动压缩/缩放后返回 (relative_url_path, err_msg)。
     relative_url_path 形如 '/static/banner/xxxx.jpg'，可直接用于模板/前端访问。
     """
     if not img or not img.filename:
@@ -79,6 +82,9 @@ def _save_upload(img):
     # secure_filename 处理中文/特殊字符可能返回空字符串，用 uuid 兜底
     base = secure_filename(img.filename)
     ext = img.filename.rsplit(".", 1)[1].lower()
+    # secure_filename 保留扩展名，去掉避免双扩展名（xxx.png.png）
+    if base:
+        base = os.path.splitext(base)[0]
     if not base:
         base = uuid.uuid4().hex
     # 截断 base 防止 final_name 过长（uuid_32 + _ + base + . + ext ≤ 138）
@@ -89,7 +95,37 @@ def _save_upload(img):
     upload_dir = _upload_dir()
     os.makedirs(upload_dir, exist_ok=True)
     save_path = os.path.join(upload_dir, final_name)
-    img.save(save_path)
+
+    # 使用 Pillow 处理图片：自动缩放 + 压缩
+    try:
+        image = Image.open(img.stream)
+
+        # 如果图片宽度超过限制，等比缩放
+        if image.width > BANNER_MAX_WIDTH:
+            ratio = BANNER_MAX_WIDTH / image.width
+            new_height = int(image.height * ratio)
+            image = image.resize((BANNER_MAX_WIDTH, new_height), Image.LANCZOS)
+            log.info(f"Banner图片已缩放：{image.width}x{image.height}")
+
+        # 根据格式保存
+        if ext in ('jpg', 'jpeg'):
+            # JPEG 格式：转换为 RGB（去除透明通道）+ 压缩质量
+            if image.mode in ('RGBA', 'P'):
+                image = image.convert('RGB')
+            image.save(save_path, 'JPEG', quality=85, optimize=True)
+        elif ext == 'png':
+            # PNG 格式：保留透明通道，压缩
+            image.save(save_path, 'PNG', optimize=True)
+        elif ext == 'gif':
+            # GIF 格式：直接保存（不压缩动画）
+            image.save(save_path, 'GIF')
+        else:
+            image.save(save_path)
+
+    except Exception as e:
+        log.error(f"Banner图片处理失败: {str(e)}")
+        return None, "图片处理失败，请重试"
+
     # 返回带前导 / 的相对 URL，避免在 /banner 子路径下被浏览器解析成相对路径
     return f"/static/banner/{final_name}", None
 

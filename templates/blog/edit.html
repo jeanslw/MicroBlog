@@ -37,6 +37,28 @@
         font-family: 'Fira Code', 'Consolas', monospace;
     }
     .editor-statusbar { border-radius: 0 0 8px 8px; border-color: #dee2e6; }
+    /* 自定义上传按钮 */
+    .upload-btn {
+        position: absolute;
+        right: 10px;
+        top: 10px;
+        z-index: 100;
+    }
+    .upload-btn button {
+        border: 1px solid #dee2e6;
+        background: #fff;
+        color: #6c757d;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .upload-btn button:hover {
+        background: #0d6efd;
+        color: #fff;
+        border-color: #0d6efd;
+    }
 </style>
 {% endblock %}
 
@@ -70,7 +92,13 @@
                     <label class="form-label fw-semibold">
                         正文内容（Markdown 编辑器 — 使用 <code>```语言</code> 插入代码块）
                     </label>
-                    <textarea id="rich_content" name="content" rows="12" class="form-control">{{article.content if article else ''}}</textarea>
+                    <div style="position: relative;">
+                        <textarea id="rich_content" name="content" rows="12" class="form-control">{{article.content if article else ''}}</textarea>
+                        <div class="upload-btn">
+                            <button type="button" id="upload_image_btn">📷 上传图片</button>
+                            <input type="file" id="image_upload_input" accept="image/jpeg,image/png,image/gif" style="display:none;">
+                        </div>
+                    </div>
                 </div>
                 <div class="mb-4">
                     <label class="form-label fw-semibold">保存方式</label>
@@ -170,7 +198,7 @@ var easyMDE = new EasyMDE({
     toolbar: [
         'bold', 'italic', 'strikethrough', 'heading', '|',
         'code', 'quote', 'unordered-list', 'ordered-list', '|',
-        'link', 'image', 'table', 'horizontal-rule', '|',
+        'link', 'table', 'horizontal-rule', '|',
         'preview', 'side-by-side', 'fullscreen', '|',
         'guide'
     ],
@@ -190,6 +218,77 @@ var easyMDE = new EasyMDE({
     styleSelectedText: false,
     minHeight: '500px'
 });
+
+// 自定义图片上传功能
+(function() {
+    var uploadBtn = document.getElementById('upload_image_btn');
+    var fileInput = document.getElementById('image_upload_input');
+    var csrfToken = '{{ csrf_token }}';
+
+    uploadBtn.addEventListener('click', function() {
+        fileInput.click();
+    });
+
+    fileInput.addEventListener('change', function(e) {
+        var file = e.target.files[0];
+        if (!file) return;
+
+        // 校验文件类型
+        var allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
+        if (allowedTypes.indexOf(file.type) === -1) {
+            alert('仅支持 jpg/jpeg/png/gif 格式的图片');
+            return;
+        }
+
+        // 校验文件大小 (10MB)
+        if (file.size > 10 * 1024 * 1024) {
+            alert('图片大小不能超过 10MB');
+            return;
+        }
+
+        // 显示上传中状态
+        uploadBtn.textContent = '上传中...';
+        uploadBtn.disabled = true;
+
+        var formData = new FormData();
+        formData.append('image', file);
+
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', '/admin/upload');
+        xhr.setRequestHeader('X-CSRF-Token', csrfToken);
+
+        xhr.onload = function() {
+            uploadBtn.textContent = '📷 上传图片';
+            uploadBtn.disabled = false;
+            fileInput.value = '';
+
+            try {
+                var resp = JSON.parse(xhr.responseText);
+                if (xhr.status === 200 && resp.url) {
+                    // 将图片 Markdown 插入到光标位置
+                    var cm = easyMDE.codemirror;
+                    var cursor = cm.getCursor();
+                    var imageMarkdown = '![' + (file.name || '图片') + '](' + resp.url + ')';
+                    cm.replaceSelection(imageMarkdown);
+                    cm.setCursor({ line: cursor.line, ch: cursor.ch + imageMarkdown.length });
+                } else {
+                    alert('上传失败：' + (resp.error || '未知错误'));
+                }
+            } catch (e) {
+                alert('上传失败：服务器返回异常');
+            }
+        };
+
+        xhr.onerror = function() {
+            uploadBtn.textContent = '📷 上传图片';
+            uploadBtn.disabled = false;
+            fileInput.value = '';
+            alert('上传失败：网络错误');
+        };
+
+        xhr.send(formData);
+    });
+})();
 
 // 表单提交前：Markdown → HTML
 document.getElementById('article_form').addEventListener('submit', function(e) {

@@ -136,15 +136,9 @@ class _SqliteDictCursor:
 
 # ── SQLite 自动建表 ────────────────────────────────────────
 
-_sqlite_inited = False
-
 
 def _init_sqlite():
-    """首次连接时自动建表并写入初始数据"""
-    global _sqlite_inited
-    if _sqlite_inited:
-        return
-    _sqlite_inited = True
+    """首次连接时自动建表并写入初始数据（幂等，多次调用安全）"""
 
     from config import SQLITE_PATH
 
@@ -236,23 +230,6 @@ def _init_sqlite():
     if cur.fetchone()[0] == 0:
         conn.execute("INSERT INTO site_config (site_name) VALUES ('我的博客')")
 
-    cur = conn.execute("SELECT COUNT(*) FROM admin")
-    if cur.fetchone()[0] == 0:
-        from werkzeug.security import generate_password_hash
-        from config import INIT_ADMIN_USERNAME, INIT_ADMIN_PASSWORD
-        if not INIT_ADMIN_PASSWORD:
-            import warnings
-            warnings.warn(
-                "首次建表未设置 BLOG_INIT_ADMIN_PWD 环境变量，初始管理员未创建。"
-                "请设置环境变量后重启，或手动 INSERT。"
-            )
-        else:
-            hashed = generate_password_hash(INIT_ADMIN_PASSWORD)
-            conn.execute(
-                "INSERT INTO admin (username, password) VALUES (?, ?)",
-                (INIT_ADMIN_USERNAME, hashed)
-            )
-
     conn.commit()
     conn.close()
 
@@ -281,4 +258,47 @@ def close_db(exception=None):
     """关闭数据库连接（请求结束后由 teardown_appcontext 调用）"""
     db = g.pop('db_conn', None)
     if db is not None:
+        db.close()
+
+
+def ensure_admin_exists():
+    """检查 admin 表是否为空，为空且 BLOG_INIT_ADMIN_PWD 已设则自动创建。
+
+    每次应用启动时调用，覆盖：
+    - SQLite 首次部署（表已建但 admin 未创建）
+    - MySQL 首次部署（init.sql 建表后无管理员）
+    - 补建场景（之前未设密码，现在补设）
+    """
+    from werkzeug.security import generate_password_hash
+
+    # 直接读环境变量，避免 Python 模块缓存导致 config 值不更新
+    admin_user = os.environ.get("BLOG_INIT_ADMIN_USER", "admin")
+    admin_pwd = os.environ.get("BLOG_INIT_ADMIN_PWD", "")
+
+    # 先触发建表（SQLite），确保 admin 表存在
+    db = _create_connection()
+    try:
+        cur = db.cursor()
+        try:
+            cur.execute("SELECT COUNT(*) FROM admin")
+            count = cur.fetchone()[0]
+        except Exception:
+            # admin 表不存在（首次部署 MySQL 未跑 init.sql），跳过
+            return
+
+        if count == 0:
+            if not admin_pwd:
+                import warnings
+                warnings.warn(
+                    "admin 表为空，但未设置 BLOG_INIT_ADMIN_PWD 环境变量，"
+                    "初始管理员未创建。请设置环境变量后重启。"
+                )
+            else:
+                hashed = generate_password_hash(admin_pwd)
+                cur.execute(
+                    "INSERT INTO admin (username, password) VALUES (%s, %s)",
+                    (admin_user, hashed),
+                )
+                db.commit()
+    finally:
         db.close()

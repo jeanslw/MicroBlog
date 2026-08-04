@@ -1,8 +1,12 @@
 import logging
+import os
+import uuid
 from datetime import datetime
 
-from flask import render_template, request, redirect, url_for, flash, session
+from flask import render_template, request, redirect, url_for, flash, session, jsonify
+from PIL import Image
 from werkzeug.security import check_password_hash, generate_password_hash
+from werkzeug.utils import secure_filename
 
 from app.admin import admin_bp
 from app.db import get_db, DictCursor, IntegrityError
@@ -17,6 +21,13 @@ log = logging.getLogger(__name__)
 CAT_NAME_MAX_LEN = 60
 SITE_NAME_MAX_LEN = 100
 PASSWORD_MIN_LEN = 6
+
+# 文章图片上传相关（与 banner 保持一致的安全策略）
+UPLOAD_ALLOWED_EXT = {"jpg", "jpeg", "png", "gif"}
+UPLOAD_ALLOWED_MIME = {"image/jpeg", "image/png", "image/gif"}
+UPLOAD_MAX_SIZE = 10 * 1024 * 1024  # 10MB
+UPLOAD_BASE_NAME_LEN = 100
+UPLOAD_MAX_WIDTH = 1200  # 上传图片最大宽度（像素），超过则等比缩放
 
 
 # 管理员登录
@@ -153,3 +164,77 @@ def add_category():
     finally:
         cur.close()
     return redirect(url_for("blog.index"))
+
+
+# 文章图片上传（供 EasyMDE 编辑器调用）
+@admin_bp.route('/upload', methods=["POST"])
+@admin_required
+def upload_image():
+    """接收编辑器上传的图片，自动压缩/缩放后返回 JSON {url} 或 {error}"""
+    img = request.files.get("image")
+    if not img or not img.filename:
+        return jsonify({"error": "请选择图片"}), 400
+
+    # 扩展名校验
+    if "." not in img.filename or img.filename.rsplit(".", 1)[1].lower() not in UPLOAD_ALLOWED_EXT:
+        return jsonify({"error": "仅支持 jpg/jpeg/png/gif"}), 400
+    # MIME 校验
+    if (img.mimetype or "").lower() not in UPLOAD_ALLOWED_MIME:
+        return jsonify({"error": "文件类型不合法"}), 400
+    # 大小校验
+    img.seek(0, os.SEEK_END)
+    size = img.tell()
+    img.seek(0)
+    if size > UPLOAD_MAX_SIZE:
+        return jsonify({"error": "文件大小不能超过 10MB"}), 400
+    if size == 0:
+        return jsonify({"error": "文件为空"}), 400
+
+    # 生成安全文件名
+    base = secure_filename(img.filename)
+    ext = img.filename.rsplit(".", 1)[1].lower()
+    if base:
+        base = os.path.splitext(base)[0]
+    if not base:
+        base = uuid.uuid4().hex
+    if len(base) > UPLOAD_BASE_NAME_LEN:
+        base = base[:UPLOAD_BASE_NAME_LEN]
+    final_name = f"{uuid.uuid4().hex}_{base}.{ext}"
+
+    # 保存到项目根目录的 static/uploads/
+    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    upload_dir = os.path.join(root, "static", "uploads")
+    os.makedirs(upload_dir, exist_ok=True)
+    save_path = os.path.join(upload_dir, final_name)
+
+    # 使用 Pillow 处理图片：自动缩放 + 压缩
+    try:
+        image = Image.open(img.stream)
+
+        # 如果图片宽度超过限制，等比缩放
+        if image.width > UPLOAD_MAX_WIDTH:
+            ratio = UPLOAD_MAX_WIDTH / image.width
+            new_height = int(image.height * ratio)
+            image = image.resize((UPLOAD_MAX_WIDTH, new_height), Image.LANCZOS)
+            log.info(f"图片已缩放：{image.width}x{image.height}")
+
+        # 根据格式保存
+        if ext in ('jpg', 'jpeg'):
+            # JPEG 格式：转换为 RGB（去除透明通道）+ 压缩质量
+            if image.mode in ('RGBA', 'P'):
+                image = image.convert('RGB')
+            image.save(save_path, 'JPEG', quality=85, optimize=True)
+        elif ext == 'png':
+            # PNG 格式：保留透明通道，压缩
+            image.save(save_path, 'PNG', optimize=True)
+        elif ext == 'gif':
+            # GIF 格式：直接保存（不压缩动画）
+            image.save(save_path, 'GIF')
+        else:
+            image.save(save_path)
+
+    except Exception as e:
+        log.error(f"图片处理失败: {str(e)}")
+        return jsonify({"error": "图片处理失败，请重试"}), 500
+
+    return jsonify({"url": f"/static/uploads/{final_name}"}), 200
