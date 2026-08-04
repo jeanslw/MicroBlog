@@ -30,7 +30,7 @@
                 <li class="text-muted small">管理员尚未创建栏目分类</li>
                 {% endfor %}
             </ul>
-            {% if session.is_admin %}
+            {% if session.admin_id %}
             <hr>
             <h6 class="fw-semibold">新建栏目/标签</h6>
             <form action="/admin/category_add" method="POST">
@@ -46,17 +46,24 @@
     <!-- 文章正文区域 -->
     <div class="col-lg-9">
         <div class="d-flex gap-2 mb-3">
-            {% if session.is_admin %}
+            {% if session.admin_id %}
                 <a href="/article/edit/{{ article.id }}" class="btn btn-outline-dark">
                     <i class="bi bi-pencil"></i> 编辑
                 </a>
-                <a href="/article/del/{{ article.id }}" class="btn btn-danger" onclick="return confirm('确定删除？')">
-                    <i class="bi bi-trash"></i> 删除
-                </a>
+                <form method="POST" action="/article/del/{{ article.id }}" class="d-inline"
+                      onsubmit="return confirm('确定删除？')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash"></i> 删除
+                    </button>
+                </form>
             {% endif %}
-            <a href="/vote/{{ article.id }}" class="btn btn-primary">
-                <i class="bi bi-hand-thumbs-up"></i> 点赞 {{ article.vote_num }}
-            </a>
+            <form method="POST" action="/vote/{{ article.id }}" class="d-inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-hand-thumbs-up"></i> 点赞 {{ article.vote_num }}
+                </button>
+            </form>
             <a href="/" class="btn btn-outline-dark">返回首页</a>
         </div>
         <div class="card p-5 mb-5">

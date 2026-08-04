@@ -1,0 +1,35 @@
+# 版本控制
+.git
+.gitignore
+.gitattributes
+
+# IDE / 编辑器
+.idea
+.vscode
+
+# Python 缓存
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.venv
+venv
+
+# 环境变量（绝不打入镜像）
+.env
+.env.*
+!.env.example
+
+# 本地数据（容器内自建或挂载卷）
+data/
+static/banner/
+
+# Docker 自身文件，避免循环
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# 文档与示例
+*.md
+LICENSE
+MySQL/

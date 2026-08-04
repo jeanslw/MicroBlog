@@ -1,75 +1,89 @@
--- --------------------------------------------------------
--- 服务器版本:                        8.4.3 - MySQL Community Server - GPL
--- --------------------------------------------------------
+-- ============================================================
+-- Flask 博客系统 MySQL 建表脚本
+-- 兼容 MySQL 5.7+ / 8.0+，已通过 STRICT_TRANS_TABLES 严格模式校验
+--
+-- 使用方法：
+--   mysql -uroot -p flask_blog < MySQL/init.sql
+--   或 Docker 容器首次启动自动执行（挂载到 /docker-entrypoint-initdb.d/）
+--
+-- 注意：本脚本不创建初始管理员账号（避免明文密码入库）
+--   请在启动后通过 docker exec 或应用界面设置，参考 Readme 4.7.5 节
+-- ============================================================
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
-/*!40101 SET NAMES utf8 */;
-/*!50503 SET NAMES utf8mb4 */;
+/*!40101 SET NAMES utf8mb4 */;
 /*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
 /*!40103 SET TIME_ZONE='+00:00' */;
 /*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
-/*!40101 SET @OLD_SQL_MODE=@@SQL_MODE, SQL_MODE='NO_AUTO_VALUE_ON_ZERO' */;
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
+-- 不强制设置 SQL_MODE，使用服务端默认（推荐生产保持 STRICT_TRANS_TABLES）
+-- 若需显式启用严格模式，取消下行注释：
+-- SET SESSION sql_mode = 'STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION';
 
--- 导出 flask_blog 的数据库结构
-CREATE DATABASE IF NOT EXISTS `flask_blog` /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci */ /*!80016 DEFAULT ENCRYPTION='N' */;
+
+-- --------------------------------------------------------
+-- 数据库
+-- --------------------------------------------------------
+CREATE DATABASE IF NOT EXISTS `flask_blog`
+    /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci */;
 USE `flask_blog`;
 
--- 导出  表 flask_blog.admin 结构
-CREATE TABLE IF NOT EXISTS `admin` (
+
+-- --------------------------------------------------------
+-- 表：admin（管理员）
+-- --------------------------------------------------------
+DROP TABLE IF EXISTS `admin`;
+CREATE TABLE `admin` (
   `id` int NOT NULL AUTO_INCREMENT,
   `username` varchar(50) NOT NULL,
-  `password` varchar(100) NOT NULL,
+  -- Werkzeug 3.x pbkdf2:sha256:600000 哈希约 102 字符；预留 256 兼容未来 scrypt/argon2
+  `password` varchar(255) NOT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `username` (`username`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  UNIQUE KEY `uk_username` (`username`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- 导出  表 flask_blog.article 结构
-CREATE TABLE IF NOT EXISTS `article` (
+-- --------------------------------------------------------
+-- 表：article（文章）
+-- --------------------------------------------------------
+DROP TABLE IF EXISTS `article`;
+CREATE TABLE `article` (
   `id` int NOT NULL AUTO_INCREMENT,
   `title` varchar(500) NOT NULL,
-  `content` text NOT NULL,
+  `content` mediumtext NOT NULL,
   `status` varchar(20) DEFAULT 'draft',
   `create_time` varchar(50) DEFAULT NULL,
   `update_time` varchar(50) DEFAULT NULL,
   `vote_num` int DEFAULT '0',
-  `category_id` int DEFAULT NULL COMMENT '所属侧边栏目',
+  `category_id` int DEFAULT NULL COMMENT '所属栏目',
   PRIMARY KEY (`id`),
   KEY `idx_status` (`status`),
   KEY `idx_category_id` (`category_id`),
   KEY `idx_create_time` (`create_time`),
   KEY `idx_status_cat_time` (`status`, `category_id`, `create_time`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- 导出  表 flask_blog.banner 结构
-CREATE TABLE IF NOT EXISTS `banner` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `img_path` varchar(200) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '图片存储路径',
-  `link_url` varchar(500) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '跳转链接',
-  `title` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '轮播标题',
-  `desc_text` varchar(200) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '轮播描述',
-  `sort` int DEFAULT '0' COMMENT '排序数字，数字越大越靠前',
-  `create_time` varchar(50) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
-  PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-
--- 导出  表 flask_blog.category 结构
-CREATE TABLE IF NOT EXISTS `category` (
+-- --------------------------------------------------------
+-- 表：category（栏目分类）
+-- --------------------------------------------------------
+DROP TABLE IF EXISTS `category`;
+CREATE TABLE `category` (
   `id` int NOT NULL AUTO_INCREMENT,
   `cat_name` varchar(60) NOT NULL COMMENT '栏目名称',
   `tag_text` varchar(60) DEFAULT '' COMMENT '标签',
   `create_time` varchar(50) DEFAULT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `cat_name` (`cat_name`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  UNIQUE KEY `uk_cat_name` (`cat_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- 导出  表 flask_blog.comment 结构
-CREATE TABLE IF NOT EXISTS `comment` (
+-- --------------------------------------------------------
+-- 表：comment（评论）
+-- --------------------------------------------------------
+DROP TABLE IF EXISTS `comment`;
+CREATE TABLE `comment` (
   `id` int NOT NULL AUTO_INCREMENT,
   `article_id` int DEFAULT NULL,
   `username` varchar(100) DEFAULT '游客',
@@ -77,10 +91,14 @@ CREATE TABLE IF NOT EXISTS `comment` (
   `create_time` varchar(50) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_article_id` (`article_id`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- 导出  表 flask_blog.reply 结构
-CREATE TABLE IF NOT EXISTS `reply` (
+
+-- --------------------------------------------------------
+-- 表：reply（回复）
+-- --------------------------------------------------------
+DROP TABLE IF EXISTS `reply`;
+CREATE TABLE `reply` (
   `id` int NOT NULL AUTO_INCREMENT,
   `comment_id` int DEFAULT NULL,
   `username` varchar(100) DEFAULT '游客',
@@ -88,31 +106,73 @@ CREATE TABLE IF NOT EXISTS `reply` (
   `create_time` varchar(50) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_comment_id` (`comment_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- 导出  表 flask_blog.site_config 结构
-CREATE TABLE IF NOT EXISTS `site_config` (
+-- --------------------------------------------------------
+-- 表：banner（轮播图）
+-- --------------------------------------------------------
+DROP TABLE IF EXISTS `banner`;
+CREATE TABLE `banner` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  -- UUID + secure_filename 后路径可能较长，扩到 500 防截断
+  `img_path` varchar(500) NOT NULL COMMENT '图片存储路径',
+  `link_url` varchar(500) DEFAULT '' COMMENT '跳转链接',
+  `title` varchar(100) DEFAULT '' COMMENT '轮播标题',
+  `desc_text` varchar(200) DEFAULT '' COMMENT '轮播描述',
+  `sort` int DEFAULT '0' COMMENT '排序数字，越大越靠前',
+  `create_time` varchar(50) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- --------------------------------------------------------
+-- 表：site_config（站点配置）
+-- --------------------------------------------------------
+DROP TABLE IF EXISTS `site_config`;
+CREATE TABLE `site_config` (
   `id` int NOT NULL AUTO_INCREMENT,
   `site_name` varchar(100) NOT NULL DEFAULT '我的博客',
   `favicon_path` varchar(200) DEFAULT 'static/favicon.ico',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- 导出  表 flask_blog.vote_log 结构
-CREATE TABLE IF NOT EXISTS `vote_log` (
+-- --------------------------------------------------------
+-- 表：vote_log（点赞记录，防刷）
+-- --------------------------------------------------------
+DROP TABLE IF EXISTS `vote_log`;
+CREATE TABLE `vote_log` (
   `id` int NOT NULL AUTO_INCREMENT,
   `article_id` int DEFAULT NULL,
   `ip` varchar(100) DEFAULT NULL,
   `create_time` varchar(50) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_article_ip` (`article_id`, `ip`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- --------------------------------------------------------
+-- 初始化数据
+-- --------------------------------------------------------
+-- 站点配置（仅一条）
+INSERT INTO `site_config` (`id`, `site_name`, `favicon_path`)
+VALUES (1, '我的博客', 'static/favicon.ico');
+
+-- ⚠️ 不在此插入初始管理员账号（避免明文密码）
+-- 请用以下任一方式创建管理员：
+--
+-- 方式 A：用 Python 生成哈希后 INSERT
+--   docker exec -it flask-blog-web python -c "from werkzeug.security import generate_password_hash as g; print(g('你的密码'))"
+--   mysql -uroot -p flask_blog -e "INSERT INTO admin (username, password) VALUES ('admin', '<上面输出的哈希>')"
+--
+-- 方式 B：用 SQLite 模式首次启动（设 BLOG_INIT_ADMIN_PWD），数据库自动建管理员后导出再导入 MySQL
+--
+-- 方式 C（仅测试）：临时用明文哈希占位（登录会失败，仅占行）
+--   INSERT INTO admin (username, password) VALUES ('admin', 'must_replace_me');
 
 
 /*!40103 SET TIME_ZONE=IFNULL(@OLD_TIME_ZONE, 'system') */;
-/*!40101 SET SQL_MODE=IFNULL(@OLD_SQL_MODE, '') */;
 /*!40014 SET FOREIGN_KEY_CHECKS=IFNULL(@OLD_FOREIGN_KEY_CHECKS, 1) */;
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40111 SET SQL_NOTES=IFNULL(@OLD_SQL_NOTES, 1) */;

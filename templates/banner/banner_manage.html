@@ -19,13 +19,17 @@
         <tbody>
             {% for item in banner_list %}
             <tr>
-                <td><img src="{{item.img_path}}" style="width:200px;height:90px;object-fit:cover"></td>
+                <td><img src="/{{item.img_path.lstrip('/')}}" style="width:200px;height:90px;object-fit:cover"></td>
                 <td>{{item.title}}</td>
                 <td>{{item.link_url}}</td>
                 <td>{{item.sort}}</td>
                 <td>
                     <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#edit{{item.id}}">编辑</button>
-                    <a href="/banner/del/{{item.id}}" class="btn btn-sm btn-danger" onclick="return confirm('确定删除？')">删除</a>
+                    <form method="POST" action="/banner/del/{{item.id}}" class="d-inline"
+                          onsubmit="return confirm('确定删除？')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                        <button type="submit" class="btn btn-sm btn-danger">删除</button>
+                    </form>
                 </td>
             </tr>
             {% else %}

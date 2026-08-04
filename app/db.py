@@ -160,7 +160,7 @@ def _init_sqlite():
         CREATE TABLE IF NOT EXISTS admin (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username VARCHAR(50) NOT NULL UNIQUE,
-            password VARCHAR(100) NOT NULL
+            password VARCHAR(255) NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS article (
@@ -199,7 +199,7 @@ def _init_sqlite():
 
         CREATE TABLE IF NOT EXISTS banner (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            img_path VARCHAR(200) NOT NULL,
+            img_path VARCHAR(500) NOT NULL,
             link_url VARCHAR(500) DEFAULT '',
             title VARCHAR(100) DEFAULT '',
             desc_text VARCHAR(200) DEFAULT '',
@@ -239,8 +239,19 @@ def _init_sqlite():
     cur = conn.execute("SELECT COUNT(*) FROM admin")
     if cur.fetchone()[0] == 0:
         from werkzeug.security import generate_password_hash
-        hashed = generate_password_hash("123456")
-        conn.execute("INSERT INTO admin (username, password) VALUES ('admin', ?)", (hashed,))
+        from config import INIT_ADMIN_USERNAME, INIT_ADMIN_PASSWORD
+        if not INIT_ADMIN_PASSWORD:
+            import warnings
+            warnings.warn(
+                "首次建表未设置 BLOG_INIT_ADMIN_PWD 环境变量，初始管理员未创建。"
+                "请设置环境变量后重启，或手动 INSERT。"
+            )
+        else:
+            hashed = generate_password_hash(INIT_ADMIN_PASSWORD)
+            conn.execute(
+                "INSERT INTO admin (username, password) VALUES (?, ?)",
+                (INIT_ADMIN_USERNAME, hashed)
+            )
 
     conn.commit()
     conn.close()

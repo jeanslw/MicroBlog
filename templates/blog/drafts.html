@@ -27,7 +27,11 @@
             </div>
             <div class="mt-3 d-grid gap-2">
                 <a href="/article/edit/{{ art.id }}" class="btn btn-primary">编辑修改</a>
-                <a href="/article/del/{{ art.id }}" class="btn btn-outline-danger" onclick="return confirm('确定删除该草稿？')">删除</a>
+                <form method="POST" action="/article/del/{{ art.id }}"
+                      onsubmit="return confirm('确定删除该草稿？')">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                    <button type="submit" class="btn btn-outline-danger w-100">删除</button>
+                </form>
             </div>
         </div>
     </div>
