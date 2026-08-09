@@ -1,9 +1,29 @@
 # Blog System Deployment Documentation
 
-Version: v1.0
-Overview: This blog is built on Flask framework 3.1. Features include comment & like, article categories, banner carousel, with a Markdown code editor. All assets are loaded locally. Supports both SQLite and MySQL databases.
+Version: v1.1.0
 
-## 1. Requirements
+Built on Flask 3.1. Features include: article publishing & management, Markdown editor with code highlighting and image upload, comments & likes, article categories, banner carousel, Chinese/English bilingual i18n. All static assets are loaded locally. Supports SQLite and MySQL. Includes 135 automated tests.
+
+> **[Chinese](README_ZH-CN.md)**
+
+![Overview](MyBlog.png)
+
+---
+
+## 1. Features
+
+| Module | Features |
+|--------|----------|
+| Article Management | Markdown editor (EasyMDE), code highlighting (Prism), image upload with auto-compress, draft/publish status |
+| Comments & Likes | Article comments, replies, IP-based like protection |
+| Category Navigation | Article categories, sidebar category filter |
+| Banner Carousel | Backend banner management, image upload & sorting |
+| Internationalization | Chinese/English auto-switching, follows browser language, dropdown manual switch |
+| Security | CSRF protection, HTML sanitization against XSS (nh3), login brute-force protection, secure sessions, image decompression bomb protection |
+| Database | SQLAlchemy ORM, seamless SQLite/MySQL switching |
+| Testing | pytest 135 tests covering auth/blog/comments/security/i18n |
+
+## 2. Requirements
 
 | Component | Version | Description |
 |-----------|---------|-------------|
@@ -13,114 +33,173 @@ Overview: This blog is built on Flask framework 3.1. Features include comment & 
 | Docker | 20.10+ (optional) | Containerized deployment, no env setup needed |
 | Docker Compose | v2+ (optional) | Multi-container orchestration |
 
-> **SQLite mode**: No database installation required, works out of the box, suitable for dev/test and small deployments.
-> **Docker mode**: See section 4.7, one command brings up web + db + nginx.
+> **SQLite mode**: No database installation required, works out of the box.
+> **Docker mode**: See section 6, one command brings up web + db + nginx.
 
-## 2. Project Structure
+## 3. Dependencies
 
-```
-flaskProject/
-├── run.py                         # Development entry
-├── wsgi.py                        # WSGI deployment entry
-├── uwsgi.ini                      # uWSGI config (bare-metal Linux)
-├── Dockerfile                     # Docker image build
-├── docker-compose.yml             # Multi-container orchestration (web + db + nginx)
-├── .dockerignore                  # Docker build ignore
-├── .env.example                   # Flask env vars template (bare-metal)
-├── .env.docker.example            # Docker Compose vars template
-├── config.py                      # Config (secret key / db type / debug)
-├── requirements.txt               # Python dependencies
-├── data/                          # SQLite database directory (auto-created)
-├── nginx/
-│   └── nginx.conf                 # Nginx reverse proxy config (for Docker)
-├── MySQL/
-│   └── init.sql                   # MySQL schema init script
-├── app/
-│   ├── __init__.py                # Flask factory + error handling + global context
-│   ├── db.py                      # Unified database layer (auto-switch MySQL / SQLite)
-│   ├── extensions.py              # Shared DB queries + brute-force protection
-│   ├── blog/                      # Blog module
-│   ├── admin/                     # Admin module
-│   ├── banner/                    # Banner carousel module
-│   └── comment/                   # Comment & like module
-├── templates/                     # Jinja2 templates
-│   ├── base.html                  # Common layout
-│   ├── blog/                      # Blog pages
-│   ├── admin/                     # Admin pages
-│   └── banner/                    # Banner management
-└── static/
-    ├── favicon.ico
-    ├── banner/                    # Uploaded banner images
-    └── lib/                       # Local third-party libs (no internet required)
-```
+### 3.1 Python Dependencies (requirements.txt)
 
-## 3. Local Static Assets
+| Dependency | Version | Purpose |
+|------------|---------|---------|
+| Flask | 3.1.3 | Web framework |
+| Flask-SQLAlchemy | 3.1.1 | ORM and database abstraction |
+| Flask-Migrate | 4.0.7 | Database migrations (Alembic wrapper) |
+| Flask-WTF | 1.2.1 | Form validation + CSRF protection |
+| Flask-Login | 0.6.3 | Session and authentication management |
+| Flask-Babel | 4.0.0 | Chinese/English internationalization (i18n) |
+| WTForms | 3.2.1 | Form fields and validators |
+| email-validator | 2.2.0 | Email field validation |
+| PyMySQL | 1.2.0 | MySQL driver |
+| cryptography | 43.0.1 | Cryptography library (PyMySQL dependency) |
+| gunicorn | 23.0.0 | WSGI server (Docker / Linux production) |
+| python-dotenv | 1.2.1 | Loads `.env` files |
+| Pillow | 10.4.0 | Image processing (resize/compress/format/protection) |
+| nh3 | 0.2.18 | HTML sanitization (XSS prevention, Rust ammonia binding) |
+| pytest | 8.3.3 | Testing framework |
+| pytest-cov | 5.0.0 | Test coverage |
 
-All JS/CSS files are localized in `static/lib/`. **No CDN is required after deployment**, fully usable on intranets.
+> uWSGI users can `pip install uwsgi` separately; config file [uwsgi.ini](uwsgi.ini) is provided.
+
+### 3.2 Frontend Static Assets (static/lib/)
+
+All JS/CSS files are localized. **No CDN is required after deployment**, fully usable on intranets.
 
 | File | Size | Purpose |
 |------|------|---------|
 | `bootstrap.min.css` | 228 KB | Bootstrap 5.3 CSS framework |
 | `bootstrap.bundle.min.js` | 79 KB | Bootstrap JS (nav/collapse/carousel) |
 | `bootstrap-icons.css` | 94 KB | Bootstrap icon library |
-| `easymde.min.js` | 320 KB | Markdown rich-text editor |
+| `easymde.min.js` | 320 KB | Markdown editor |
 | `easymde.min.css` | 13 KB | Editor styles |
-| `marked.min.js` | 39 KB | Markdown → HTML conversion |
+| `marked.min.js` | 39 KB | Markdown to HTML conversion (v15) |
 | `prism.min.js` | 19 KB | Code syntax highlighting |
-| `prism-tomorrow.min.css` | 6 KB | Dark code theme |
+| `prism-tomorrow.min.css` | 1 KB | Dark code theme |
 | `prism-autoloader.min.js` | 6 KB | On-demand language highlighting |
 
-> All `<link>` and `<script>` tags in pages reference local files via `url_for('static', ...)` — zero external links.
+> All `<link>` and `<script>` tags reference local files via `url_for('static', ...)` — zero external links.
 
-## 4. Deployment Steps
+## 4. Project Structure
 
-### 4.1 Get the Code
-
-```bash
-# Copy project directory to the server
-scp -r flaskProject/ user@server:/opt/
-cd /opt/flaskProject
+```
+MicroBlog/
+├── run.py                         # Development entry
+├── wsgi.py                        # WSGI deployment entry
+├── uwsgi.ini                      # uWSGI config (bare-metal Linux)
+├── Dockerfile                     # Docker image build
+├── docker-compose.yml             # Multi-container orchestration (web + db + nginx)
+├── .dockerignore
+├── .env.example                   # Bare-metal env vars template
+├── .env.docker.example            # Docker Compose vars template
+├── config.py                      # Config (secret key / db type / debug / i18n)
+├── requirements.txt               # Python dependencies
+├── pytest.ini                     # pytest configuration
+├── messages.pot                   # Babel translation template
+├── data/                          # SQLite database directory (auto-created)
+├── nginx/
+│   └── nginx.conf                 # Nginx reverse proxy config (for Docker)
+├── MySQL/
+│   └── init.sql                   # MySQL schema init script
+├── translations/                  # i18n translation files
+│   ├── en/LC_MESSAGES/            # English (.po source + .mo compiled)
+│   └── zh_CN/LC_MESSAGES/         # Chinese
+├── app/
+│   ├── __init__.py                # Flask app factory + error handling + global context
+│   ├── database.py                # DB initialization + admin/site config auto-creation
+│   ├── extensions.py              # db / login_manager / csrf / logging / brute-force protection
+│   ├── models.py                  # SQLAlchemy models (Admin/Article/Comment etc.)
+│   ├── forms.py                   # Flask-WTF form classes (article/category/login/upload etc.)
+│   ├── utils.py                   # HTML sanitization, text extraction, image processing, path utils
+│   ├── blog/                      # Blog module (browse/publish/edit/delete)
+│   │   ├── routes.py              # Routes
+│   │   └── queries.py             # ORM query layer
+│   ├── admin/                     # Admin module (login/password/site settings/image upload)
+│   ├── banner/                    # Banner module (manage/upload)
+│   │   ├── routes.py
+│   │   └── queries.py
+│   ├── comment/                   # Comment & like module
+│   └── main/                      # General routes (language switch/robots.txt)
+├── templates/                     # Jinja2 templates
+│   ├── base.html                  # Common layout (navbar/footer/i18n dropdown)
+│   ├── error.html                 # Generic error page (404/500 etc.)
+│   ├── blog/                      # Index/detail/edit/drafts
+│   ├── admin/                     # Login/password/site settings
+│   └── banner/                    # Banner management
+└── static/
+    ├── favicon.ico
+    ├── banner/                    # Uploaded banner images (.gitkeep placeholder)
+    ├── uploads/                   # Uploaded article images (.gitkeep placeholder)
+    └── lib/                       # Local third-party libs (9 files, see 3.2)
 ```
 
-### 4.2 Install Python Dependencies
+## 5. Quick Deployment
+
+### 5.1 Bare-Metal Quick Start (SQLite, 3 steps)
 
 ```bash
-# Create virtual environment
+# 1. Install dependencies
+python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
+
+# 2. Configure environment
+export BLOG_SECRET_KEY="$(python -c 'import secrets;print(secrets.token_hex(32))')"
+export BLOG_INIT_ADMIN_PWD='your-strong-password'
+
+# 3. Start
+python run.py
+# Visit http://127.0.0.1:5000, admin at http://127.0.0.1:5000/admin/login
+```
+
+### 5.2 Docker One-Command Start (recommended for production)
+
+```bash
+# 1. Prepare variables
+cp .env.docker.example .env.docker
+# Edit .env.docker: set BLOG_SECRET_KEY / MYSQL_ROOT_PASSWORD / MYSQL_PASSWORD / BLOG_INIT_ADMIN_PWD
+
+# 2. Start (web + db + nginx)
+docker compose --env-file .env.docker --profile full up -d
+
+# 3. Access
+# Home:  http://localhost/
+# Admin: http://localhost/admin/login
+```
+
+## 6. Detailed Deployment
+
+### 6.1 Get the Code
+
+```bash
+git clone https://github.com/jeanslw/MicroBlog.git /opt/MicroBlog
+cd /opt/MicroBlog
+```
+
+### 6.2 Install Python Dependencies
+
+```bash
 python3 -m venv .venv
 source .venv/bin/activate   # Linux/Mac
 # .venv\Scripts\activate    # Windows
 
-# Install dependencies
 pip install -r requirements.txt
 ```
 
-`requirements.txt` contents (only direct dependencies listed; rest are resolved automatically by pip):
-
-| Dependency | Version | Purpose |
-|------------|---------|---------|
-| Flask | 3.1.3 | Web framework |
-| PyMySQL | 1.2.0 | MySQL driver |
-| gunicorn | 23.0.0 | WSGI server (Docker / Linux production) |
-| python-dotenv | 1.2.1 | Loads `.env` (optional; app still works without it) |
-
-> uWSGI users can `pip install uwsgi` separately; config file [uwsgi.ini](uwsgi.ini) is provided.
-
-### 4.3 Configuration (via Environment Variables)
+### 6.3 Configuration (via Environment Variables)
 
 All configuration is injected via environment variables — **`config.py` does not need editing**. Common variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `BLOG_SECRET_KEY` | (none) | Session/CSRF secret; **must be set in production**, otherwise startup fails |
-| `BLOG_ENV` | (none) | When set to `production`, enables Secure Cookie and enforces SECRET_KEY |
-| `BLOG_DEBUG` | `False` | Debug mode (keep False in production to avoid Werkzeug debugger exposure) |
+| `BLOG_SECRET_KEY` | (random) | Session/CSRF secret; **recommended to set explicitly in production** |
+| `BLOG_ENV` | `development` | Set to `production` to enable Secure Cookie |
+| `BLOG_DEBUG` | `False` | Debug mode (keep False in production) |
 | `BLOG_DB_TYPE` | `sqlite` | `sqlite` or `mysql` |
 | `BLOG_MYSQL_HOST` / `BLOG_MYSQL_USER` / `BLOG_MYSQL_PWD` / `BLOG_MYSQL_DB` | - | MySQL connection info |
 | `BLOG_SQLITE_PATH` | `data/blog.db` | SQLite file path |
 | `BLOG_PAGE_SIZE` | `6` | Articles per page |
 | `BLOG_STATIC_MAX_AGE` | `0` | Static file cache seconds |
-| `BLOG_INIT_ADMIN_USER` | `admin` | Admin username created on first SQLite schema init |
-| `BLOG_INIT_ADMIN_PWD` | (none) | Admin password created on first SQLite schema init; **if not set, no initial admin is created** |
+| `BLOG_INIT_ADMIN_USER` | `admin` | Admin username created on first startup |
+| `BLOG_INIT_ADMIN_PWD` | (none) | Admin password created on first startup; **if not set, no initial admin is created** |
 
 Linux example:
 
@@ -147,69 +226,49 @@ No extra config needed. Set `BLOG_DB_TYPE=sqlite` and `BLOG_INIT_ADMIN_PWD`; on 
 
 #### Option B: MySQL (recommended for production)
 
-1. Install MySQL:
-
-```bash
-# Ubuntu/Debian
-sudo apt install mysql-server
-
-# CentOS/RHEL
-sudo yum install mysql-server
-```
-
-2. Create the database:
+1. Install MySQL and create the database:
 
 ```sql
 CREATE DATABASE flask_blog DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
-3. Edit `config.py`: set `DB_TYPE = "mysql"` and fill in correct DB credentials.
+2. Set environment variables:
 
-4. Create tables and seed data (see SQL script in section 4.4 below), or import directly:
+```bash
+export BLOG_DB_TYPE=mysql
+export BLOG_MYSQL_HOST=localhost
+export BLOG_MYSQL_USER=root
+export BLOG_MYSQL_PWD='your-mysql-password'
+export BLOG_MYSQL_DB=flask_blog
+export BLOG_INIT_ADMIN_PWD='your-admin-password'
+```
+
+3. Import schema (optional, app auto-creates tables on startup):
 
 ```bash
 mysql -u root -p flask_blog < MySQL/init.sql
 ```
 
-### 4.4 Manual Schema Init SQL (for MySQL users)
+### 6.4 Manual Schema Init SQL (for MySQL users)
 
-If MySQL was not initialized via the auto-import script, **just use [`MySQL/init.sql`](MySQL/init.sql)** (already validated with STRICT_TRANS_TABLES strict mode, includes indexes, charset, and field length):
+Use [`MySQL/init.sql`](MySQL/init.sql) directly (validated with STRICT_TRANS_TABLES strict mode, includes indexes, charset, and field lengths):
 
 ```bash
 mysql -uroot -p < MySQL/init.sql
 ```
 
-> ⚠️ **MySQL strict mode is recommended in production** (enabled by default) to avoid silent data truncation:
-> ```sql
-> -- View current sql_mode
-> SELECT @@sql_mode;
-> -- Recommended (my.cnf / my.ini)
-> [mysqld]
-> sql_mode = STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION
-> ```
+> ⚠️ **MySQL strict mode is recommended in production** to avoid silent data truncation.
 
 **Key field lengths** (correctly set in init.sql; do not shrink when creating tables manually):
 
 | Field | Length | Reason |
 |-------|--------|--------|
-| `admin.password` | VARCHAR(255) | Werkzeug 3.x pbkdf2:sha256:600000 hash is ~102 chars; 256 leaves room for future scrypt/argon2 |
-| `banner.img_path` | VARCHAR(500) | Upload path includes UUID + secure_filename, can be long |
-| `article.content` | MEDIUMTEXT | Article body can be long; TEXT is only 64KB, MEDIUMTEXT is 16MB |
+| `admin.password` | VARCHAR(255) | Werkzeug 3.x pbkdf2:sha256:600000 hash ~102 chars |
+| `banner.img_path` | VARCHAR(500) | Upload path includes UUID + secure_filename |
+| `article.content` | MEDIUMTEXT | Article body; TEXT is only 64KB, MEDIUMTEXT is 16MB |
 | `article.title` | VARCHAR(500) | Long-title compatibility |
 
-**Initialize the admin account** (init.sql does NOT insert plaintext password; must be done manually):
-
-```bash
-# 1. Generate password hash
-python -c "from werkzeug.security import generate_password_hash as g; print(g('your-strong-password'))"
-# Or in Docker:
-# docker exec -it flask-blog-web python -c "from werkzeug.security import generate_password_hash as g; print(g('your-strong-password'))"
-
-# 2. INSERT into database
-mysql -uroot -p flask_blog -e "INSERT INTO admin (username, password) VALUES ('admin', '<hash-from-step-above>')"
-```
-
-### 4.5 Start the Service
+### 6.5 Start the Service
 
 **For dev/test:**
 
@@ -218,83 +277,39 @@ python run.py
 # Listens on http://127.0.0.1:5000
 ```
 
-**Recommended production options:**
+**Production options:**
 
 ```bash
-# Option 1: uWSGI (Linux)
-pip install uwsgi
-uwsgi --ini uwsgi.ini
-
-# Option 2: gunicorn (Linux)
-pip install gunicorn
+# Option 1: gunicorn (Linux)
 gunicorn -w 4 -b 0.0.0.0:5000 wsgi:application
+
+# Option 2: uWSGI (Linux)
+uwsgi --ini uwsgi.ini
 
 # Option 3: waitress (cross-platform, works on Windows)
 pip install waitress
 waitress-serve --port=5000 wsgi:application
 ```
 
-**Nginx reverse proxy (optional):**
+### 6.6 Docker Compose Deployment (recommended for production)
 
-```nginx
-server {
-    listen 80;
-    server_name your-domain.com;
-
-    client_max_body_size 10m;  # allow banner uploads
-
-    location /static {
-        alias /opt/flaskProject/static;
-        expires 30d;
-    }
-
-    location / {
-        proxy_pass http://127.0.0.1:5000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-}
-```
-
-### 4.6 Install Fonts (optional)
-
-If code blocks in pages are not using a monospace font, install Fira Code:
+#### 6.6.1 Server Preparation (first deployment)
 
 ```bash
-# Ubuntu
-sudo apt install fonts-firacode
-# Or manually download and place in the system fonts directory
-```
-
-### 4.7 Docker Compose Deployment (recommended for production)
-
-Suitable for users who don't want to manually configure Python/MySQL/Nginx — one command brings up the full stack.
-
-#### 4.7.0 Server Preparation (required on first deployment)
-
-```bash
-# 1. Install Docker + Compose plugin (skip if already installed)
+# Install Docker + Compose plugin
 curl -fsSL https://get.docker.com | sh
 sudo systemctl enable --now docker
 sudo usermod -aG docker $USER   # passwordless docker, requires relogin
-
-# 2. Clone the project
-git clone <your-repo-url> /opt/flaskProject
-cd /opt/flaskProject
-
-# 3. Verify Docker
-docker --version               # expect 20.10+
-docker compose version         # expect v2+
 ```
 
-#### 4.7.1 Prepare the Variables File
+#### 6.6.2 Prepare the Variables File
 
 ```bash
 cp .env.docker.example .env.docker
 vim .env.docker
 ```
 
-Required variables in `.env.docker` (**must be set**):
+Required variables in `.env.docker`:
 
 | Variable | Description | Example |
 |----------|-------------|---------|
@@ -302,16 +317,15 @@ Required variables in `.env.docker` (**must be set**):
 | `MYSQL_ROOT_PASSWORD` | MySQL root password | strong password |
 | `MYSQL_PASSWORD` | MySQL app user password | strong password |
 | `BLOG_DB_TYPE` | Database type | `mysql` or `sqlite` |
-| `BLOG_INIT_ADMIN_PWD` | Initial admin password (only on first SQLite schema init) | strong password |
+| `BLOG_INIT_ADMIN_PWD` | Initial admin password | strong password |
 
-#### 4.7.2 Startup Modes
+#### 6.6.3 Startup Modes
 
 **A. Full mode (web + db + nginx, recommended for production)**
 
 ```bash
 docker compose --env-file .env.docker --profile full up -d
 ```
-
 - Access: `http://localhost` (via nginx, port 80)
 - Direct Flask: `http://localhost:5000`
 
@@ -320,7 +334,6 @@ docker compose --env-file .env.docker --profile full up -d
 ```bash
 docker compose --env-file .env.docker --profile mysql up -d
 ```
-
 - Access: `http://localhost:5000`
 
 **C. web only (single SQLite container, simplest)**
@@ -330,28 +343,7 @@ docker compose --env-file .env.docker --profile mysql up -d
 docker compose --env-file .env.docker up -d web --no-deps
 ```
 
-#### 4.7.2.1 Verify Deployment
-
-After startup, confirm services are healthy:
-
-```bash
-# 1. Container status (expect three Up, web/db showing (healthy))
-docker compose --env-file .env.docker --profile full ps
-
-# 2. Health check
-curl -I http://localhost/                 # via nginx, expect 200
-curl -I http://localhost:5000/            # direct Flask, expect 200
-
-# 3. View startup logs (no ERROR = OK)
-docker compose --env-file .env.docker logs web | tail -20
-docker compose --env-file .env.docker logs db  | tail -20
-
-# 4. Browser access
-# Home:     http://<server-ip>/
-# Admin:    http://<server-ip>/admin/login
-```
-
-#### 4.7.3 Container Architecture
+#### 6.6.4 Container Architecture
 
 ```
 ┌──────────────────────────────────────────────────┐
@@ -376,7 +368,7 @@ docker compose --env-file .env.docker logs db  | tail -20
 └──────────────────────────────────────────────────┘
 ```
 
-#### 4.7.4 Common Operations
+#### 6.6.5 Common Operations
 
 ```bash
 # View logs
@@ -397,34 +389,20 @@ docker compose build web
 docker compose --env-file .env.docker --profile full up -d
 ```
 
-#### 4.7.5 First-time MySQL Initialization
+#### 6.6.6 First-Deployment Checklist
 
-- On first container startup `MySQL/init.sql` is executed automatically (includes strict mode, charset, indexes)
-- Admin account is **auto-created**: set `BLOG_INIT_ADMIN_PWD` in `.env.docker`; on first startup the web container creates the `admin` account
-- To change the admin username, set `BLOG_INIT_ADMIN_USER` (default `admin`)
+| Check | Command | Expected |
+|-------|---------|----------|
+| Container status | `docker compose --env-file .env.docker --profile full ps` | 3 `Up`, web/db show `(healthy)` |
+| Web log | `docker compose logs web \| tail -30` | No `ERROR`/`Traceback` |
+| Home access | `curl -I http://localhost/` | `HTTP/1.1 200` |
+| Admin page | `curl -I http://localhost/admin/login` | `HTTP/1.1 200` |
+| Admin account | `docker exec -i flask-blog-db mysql -uroot -p<PASSWORD> flask_blog -e "SELECT count(*) FROM admin"` | `count(*) >= 1` |
+| Firewall | `sudo ufw status` | 5000/3306 DENY |
 
-```bash
-# Verify admin was created
-docker exec -i flask-blog-db mysql -uroot -p<ROOT_PASSWORD> flask_blog -e \
-  "SELECT id, username FROM admin;"
-```
+#### 6.6.7 Reverse Proxy Domain & HTTPS
 
-> If `BLOG_INIT_ADMIN_PWD` is not set, no admin is created. Set it and restart the web container to auto-create:
-> ```bash
-> docker compose restart web
-> ```
-
-#### 4.7.6 Upgrading the Image
-
-```bash
-git pull
-docker compose build web
-docker compose --env-file .env.docker --profile full up -d
-```
-
-#### 4.7.7 Reverse Proxy Domain & HTTPS
-
-Change `server_name _;` in `nginx/nginx.conf` to your domain, mount certificates, and switch to 443 listening. For example:
+Change `server_name _;` in `nginx/nginx.conf` to your domain, mount certificates, and switch to 443:
 
 ```nginx
 server {
@@ -432,114 +410,127 @@ server {
     server_name blog.example.com;
     ssl_certificate     /etc/nginx/certs/fullchain.pem;
     ssl_certificate_key /etc/nginx/certs/privkey.pem;
-    # ... rest same as nginx.conf
 }
 ```
 
-Mount certificates: in `docker-compose.yml`, add to the nginx service `volumes`:
-```yaml
-- /etc/letsencrypt:/etc/nginx/certs:ro
-```
+In production **only expose 80/443**; do NOT expose 5000 (Flask) or 3306 (MySQL) to the public internet.
 
-#### 4.7.8 Firewall & Ports
+## 7. Admin Login & Backend URLs
 
-In production **only expose 80/443**; do NOT expose 5000 (Flask) or 3306 (MySQL) to the public internet:
+| Page | URL | Description |
+|------|-----|-------------|
+| Admin Login | `/admin/login` | Admin login entry point |
+| Home | `/` | Article list page |
+| New Article | `/article/new` | Login required (Markdown editor) |
+| Drafts | `/drafts` | Login required, manage drafts |
+| Site Settings | `/admin/site_setting` | Login required, change site name |
+| Change Password | `/admin/change_pwd` | Login required |
+| Banner Management | `/banner/list` | Login required, manage banners |
+| Language Switch | `/set_lang/zh_CN` or `/set_lang/en` | Switch Chinese/English |
 
-```bash
-# Ubuntu UFW example
-sudo ufw allow 22/tcp       # SSH
-sudo ufw allow 80/tcp       # HTTP
-sudo ufw allow 443/tcp      # HTTPS
-sudo ufw deny 5000/tcp      # Flask direct (internal only)
-sudo ufw deny 3306/tcp      # MySQL (internal only)
-sudo ufw enable
-```
+**First login steps:**
 
-If you don't need to connect to the DB from the host for debugging, comment out `ports: - "3306:3306"` in the `db` service of `docker-compose.yml` to avoid exposing it entirely.
-
-#### 4.7.9 First-Deployment Checklist
-
-After deployment, verify each item:
-
-| Check | Command | Expected |
-|-------|---------|----------|
-| Container status | `docker compose --env-file .env.docker --profile full ps` | 3 `Up`, web/db show `(healthy)` |
-| Web log | `docker compose logs web \| tail -30` | No `ERROR`/`Traceback` |
-| DB log | `docker compose logs db \| tail -30` | Shows `ready for connections` |
-| Home access | `curl -I http://localhost/` | `HTTP/1.1 200` |
-| Admin page | `curl -I http://localhost/admin/login` | `HTTP/1.1 200` |
-| Admin account | `docker exec -i flask-blog-db mysql -uroot -p<PASSWORD> flask_blog -e "SELECT count(*) FROM admin"` | `count(*) >= 1` |
-| Static asset | `curl -I http://localhost/static/favicon.ico` | `HTTP/1.1 200` |
-| Firewall | `sudo ufw status` | 5000/3306 DENY |
-
-## 5. First Login
-
-The admin account is **auto-created** by the system — no manual INSERT required:
-
-1. Ensure `BLOG_INIT_ADMIN_PWD` is set in `.env` (or env vars)
+1. Ensure `BLOG_INIT_ADMIN_PWD` is set
 2. After starting the service, visit `http://your-server/admin/login`
 3. Log in with `admin` / the password you set
-4. **Immediately change to a strong password on the "Change Password" page after login**
+4. **Immediately change to a strong password on the "Change Password" page**
 
 > If `BLOG_INIT_ADMIN_PWD` is not set, no admin is created and a warning appears in startup logs. Set it and restart the service to auto-create.
 
-## 6. Directory Permissions
+## 8. Internationalization (i18n)
+
+- Supports Chinese (zh_CN) and English (en)
+- **Defaults to browser language**: first visit auto-selects based on browser `Accept-Language`
+- **Manual switch**: dropdown in the navbar (right side); selection is saved to session and persists across visits
+- Translation files are in the `translations/` directory, managed with Flask-Babel
+- After modifying translations, recompile: `pybabel compile -d translations`
+
+## 9. Testing
+
+```bash
+# Run all tests
+pytest
+
+# Run specific module tests
+pytest tests/test_blog.py
+pytest tests/test_i18n.py
+
+# View coverage
+pytest --cov=app
+```
+
+135 tests covering: authentication & brute-force protection, article CRUD, comments & likes, banner management, security (XSS sanitization/CSRF/path validation), i18n language switching, data models, and more.
+
+## 10. Security Features
+
+| Feature | Implementation |
+|---------|---------------|
+| CSRF Protection | Flask-WTF global CSRF, all POST forms auto-include token |
+| XSS Prevention | nh3 whitelist HTML sanitization (raw content stored, sanitized on display) |
+| Password Security | Werkzeug pbkdf2:sha256 hash storage |
+| Brute-Force Protection | IP + username failure counting with lockout |
+| Secure Sessions | HttpOnly + SameSite=Lax + Secure (production) |
+| Upload Security | Type/size validation, UUID renaming, double-extension prevention, Pillow decompression bomb protection |
+| Hotlink Protection | Nginx valid_referers for `/static/banner/` and `/static/uploads/` |
+| Error Hiding | Production mode hides exception traces, returns generic error page |
+
+## 11. Directory Permissions
 
 ```bash
 # Ensure upload directories are writable
-mkdir -p static/banner
-chmod 755 static/banner
+mkdir -p static/banner static/uploads
+chmod 755 static/banner static/uploads
 
 # SQLite mode requires writable data/ (auto-created on first startup)
 mkdir -p data
 chmod 755 data
 ```
 
-## 7. FAQ
+## 12. FAQ
 
 **Q: Page styles broken?**
-Confirm all 9 files in `static/lib/` exist (see list in section 3).
+Confirm all 9 files in `static/lib/` exist (see section 3.2).
 
 **Q: Database connection failed (MySQL)?**
 - Confirm MySQL service is running
-- Confirm DB credentials in `config.py` are correct
-- Confirm `DB_TYPE = "mysql"`
-- Confirm database `flask_blog` exists and schema is complete
+- Confirm `BLOG_MYSQL_*` environment variables are correct
+- Confirm `BLOG_DB_TYPE=mysql`
+- Confirm database `flask_blog` exists
 
 **Q: Database connection failed (SQLite)?**
-- Confirm `DB_TYPE = "sqlite"`
+- Confirm `BLOG_DB_TYPE=sqlite`
 - Confirm `data/` directory exists and is writable
 - Delete `data/blog.db` and restart to reset the database
 
 **Q: How to switch databases?**
-Just change `DB_TYPE` in `config.py` (`"mysql"` or `"sqlite"`); code adapts automatically — no business-logic changes needed.
-
-**Q: Banner image doesn't show after upload?**
-Confirm `static/banner/` exists and is writable.
-
-**Q: Editor (EasyMDE) doesn't load?**
-Confirm `static/lib/easymde.min.js` and `static/lib/marked.min.js` exist.
-
-**Q: `docker compose` startup fails with `must be set in .env.docker`?**
-`.env.docker` was not created or required vars are missing. Run `cp .env.docker.example .env.docker`, then fill in `BLOG_SECRET_KEY`, `MYSQL_ROOT_PASSWORD`, `MYSQL_PASSWORD`.
-
-**Q: Port 80/5000 is already in use after startup?**
-Edit port mapping in `docker-compose.yml` (e.g. `"8080:80"`, `"5001:5000"`) and access via the new ports.
-
-**Q: Web container keeps restarting?**
-Run `docker compose logs web` to see why. Common causes: DB not yet healthy (wait 30s and restart), `BLOG_SECRET_KEY` not set.
-
-**Q: First startup is slow?**
-MySQL initial setup takes 30–60s; `web` only starts after `db` becomes `healthy`. This is normal. Use `docker compose logs -f db` to watch progress.
+Change `BLOG_DB_TYPE` environment variable (`mysql` or `sqlite`); code adapts automatically.
 
 **Q: Admin login says password is wrong?**
-The `admin.password` field must be a hash produced by `generate_password_hash` — **plaintext passwords cannot log in**. Regenerate the hash and run `UPDATE admin SET password='<hash>' WHERE username='admin'`.
-
-**Q: `docker compose down -v` wiped all data?**
-`-v` deletes named volumes (MySQL data). For routine stops, use `docker compose down` (without `-v`).
+Passwords are stored as `generate_password_hash` hashes — **plaintext passwords cannot log in**. Reset `BLOG_INIT_ADMIN_PWD` and restart, or in a Python shell:
+```python
+from werkzeug.security import generate_password_hash
+from app.models import Admin
+from app.extensions import db
+# Execute within app context
+admin = db.session.query(Admin).filter_by(username='admin').first()
+admin.password = generate_password_hash('new-password')
+db.session.commit()
+```
 
 **Q: How to apply code changes?**
-`docker compose build web && docker compose --env-file .env.docker --profile full up -d` rebuilds the web image and rolling-restarts.
+- Bare-metal: restart the service (`gunicorn` / `python run.py`)
+- Docker: `docker compose build web && docker compose --env-file .env.docker --profile full up -d`
+- Clear browser cache after template changes
 
+**Q: `docker compose` startup fails with `must be set in .env.docker`?**
+`.env.docker` was not created or required vars are missing. Run `cp .env.docker.example .env.docker`, then fill in required variables.
 
-## 8. For suggestions, open an issue on the GitHub repo, or email: jeanslw@qq.com
+**Q: First startup is slow?**
+MySQL initial setup takes 30–60s; `web` only starts after `db` becomes `healthy`. Use `docker compose logs -f db` to watch progress.
+
+**Q: Language switch not working?**
+Confirm `.mo` compiled files exist in `translations/`. If `.po` files were modified, run `pybabel compile -d translations` to recompile.
+
+## Contact
+- Issues & PRs: [GitHub Issues](https://github.com/jeanslw/MicroBlog/issues)
+- Email: jeanslw@qq.com
