@@ -1,93 +1,109 @@
+"""评论蓝图 —— 点赞、发表评论、回复评论。
+
+重构要点：
+- Flask-WTF 表单校验
+- 评论内容长度限制 + 模板自动转义（不存原始 HTML 也不需要 sanitize）
+- 点赞需校验文章存在且已发布
+- 防刷：IP + 文章 ID 去重（接受 NAT 局限,生产可换 Redis）
+"""
 import logging
 from datetime import datetime
 
 from flask import redirect, url_for, flash, request
+from flask_babel import _
 
 from app.comment import comment_bp
-from app.db import get_db
-from app.extensions import get_client_ip
+from app.extensions import db, log, get_client_ip
+from app.forms import CommentForm, ReplyForm
+from app.models import Article, Comment, Reply, VoteLog
 
-log = logging.getLogger(__name__)
-
-# 输入验证限制
 USERNAME_MAX_LEN = 50
 COMMENT_MAX_LEN = 2000
 REPLY_MAX_LEN = 2000
 
 
-# 点赞改为 POST，防 CSRF；防刷：IP + 文章 ID 去重
-@comment_bp.route('/vote/<int:aid>', methods=["POST"])
-def vote(aid):
-    ip = get_client_ip()
-    db = get_db()
-    cur = db.cursor()
-    try:
-        cur.execute("SELECT id FROM vote_log WHERE article_id=%s AND ip=%s", (aid, ip))
-        if cur.fetchone():
-            flash("您已经点过赞了")
-            return redirect(url_for("blog.article_detail", aid=aid))
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        cur.execute(
-            "INSERT INTO vote_log(article_id,ip,create_time) VALUES(%s,%s,%s)",
-            (aid, ip, now)
-        )
-        cur.execute("UPDATE article SET vote_num = vote_num + 1 WHERE id=%s", (aid,))
-        db.commit()
-        flash("点赞成功！")
-    finally:
-        cur.close()
-    return redirect(url_for("blog.article_detail", aid=aid))
-
-
-def _normalize_username(raw):
+def _normalize_username(raw: str) -> str:
+    """规范化用户名：strip + 截断 + 空则默认游客"""
+    if not raw:
+        return "游客"
     return (raw.strip() or "游客")[:USERNAME_MAX_LEN]
 
 
-# 发表评论
-@comment_bp.route('/comment/add/<int:aid>', methods=["POST"])
-def add_comment(aid):
-    username = _normalize_username(request.form.get("username", ""))
-    content = request.form.get("content", "").strip()
-    if not content:
-        flash("评论内容不能为空")
+@comment_bp.route('/vote/<int:aid>', methods=["POST"])
+def vote(aid):
+    """点赞文章：校验文章存在且已发布,IP+文章去重防刷"""
+    article = db.session.get(Article, aid)
+    if not article or article.status != "publish":
+        flash(_("文章不存在或未发布"), "warning")
         return redirect(url_for("blog.article_detail", aid=aid))
-    if len(content) > COMMENT_MAX_LEN:
-        content = content[:COMMENT_MAX_LEN]
+
+    ip = get_client_ip()
+    existing = db.session.scalar(
+        db.select(VoteLog).where(VoteLog.article_id == aid, VoteLog.ip == ip)
+    )
+    if existing:
+        flash(_("您已经点过赞了"), "info")
+        return redirect(url_for("blog.article_detail", aid=aid))
+
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    db = get_db()
-    cur = db.cursor()
-    try:
-        cur.execute(
-            "INSERT INTO comment(article_id,username,content,create_time) VALUES(%s,%s,%s,%s)",
-            (aid, username, content, now)
-        )
-        db.commit()
-        flash("评论发布成功")
-    finally:
-        cur.close()
+    db.session.add(VoteLog(article_id=aid, ip=ip, create_time=now))
+    # 用原子 UPDATE 避免并发计数错误
+    article.vote_num = (article.vote_num or 0) + 1
+    db.session.commit()
+    flash(_("点赞成功"), "success")
     return redirect(url_for("blog.article_detail", aid=aid))
 
 
-# 回复评论
+@comment_bp.route('/comment/add/<int:aid>', methods=["POST"])
+def add_comment(aid):
+    article = db.session.get(Article, aid)
+    if not article or article.status != "publish":
+        flash(_("文章不存在或未发布"), "warning")
+        return redirect(url_for("blog.index"))
+
+    form = CommentForm()
+    if not form.validate_on_submit():
+        for field, errs in form.errors.items():
+            for err in errs:
+                flash(f"{field}: {err}", "danger")
+        return redirect(url_for("blog.article_detail", aid=aid))
+
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    comment = Comment(
+        article_id=aid,
+        username=_normalize_username(form.username.data),
+        content=form.content.data[:COMMENT_MAX_LEN],
+        create_time=now,
+    )
+    db.session.add(comment)
+    db.session.commit()
+    flash(_("评论发布成功"), "success")
+    return redirect(url_for("blog.article_detail", aid=aid))
+
+
 @comment_bp.route('/reply/add/<int:aid>/<int:cid>', methods=["POST"])
 def add_reply(aid, cid):
-    username = _normalize_username(request.form.get("username", ""))
-    content = request.form.get("content", "").strip()
-    if not content:
-        flash("回复内容不能为空")
+    """回复评论：校验评论存在 + 关联文章存在"""
+    comment = db.session.get(Comment, cid)
+    if not comment or comment.article_id != aid:
+        flash(_("评论不存在"), "warning")
         return redirect(url_for("blog.article_detail", aid=aid))
-    if len(content) > REPLY_MAX_LEN:
-        content = content[:REPLY_MAX_LEN]
+
+    form = ReplyForm()
+    if not form.validate_on_submit():
+        for field, errs in form.errors.items():
+            for err in errs:
+                flash(f"{field}: {err}", "danger")
+        return redirect(url_for("blog.article_detail", aid=aid))
+
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    db = get_db()
-    cur = db.cursor()
-    try:
-        cur.execute(
-            "INSERT INTO reply(comment_id,username,content,create_time) VALUES(%s,%s,%s,%s)",
-            (cid, username, content, now)
-        )
-        db.commit()
-        flash("回复成功")
-    finally:
-        cur.close()
+    reply = Reply(
+        comment_id=cid,
+        username=_normalize_username(form.username.data),
+        content=form.content.data[:REPLY_MAX_LEN],
+        create_time=now,
+    )
+    db.session.add(reply)
+    db.session.commit()
+    flash(_("回复成功"), "success")
     return redirect(url_for("blog.article_detail", aid=aid))

@@ -1,0 +1,525 @@
+# English translations for PROJECT.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"PO-Revision-Date: 2026-08-09 10:00+0800\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: en\n"
+"Language-Team: en <LL@li.org>\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: app/admin/routes.py:46
+#, python-format
+msgid "登录失败次数过多,请 %(sec)s 秒后再试"
+msgstr "Too many failed login attempts, please try again in %(sec)s seconds"
+
+#: app/admin/routes.py:56
+msgid "登录成功"
+msgstr "Login successful"
+
+#: app/admin/routes.py:65
+msgid "登录失败次数过多,请 5 分钟后再试"
+msgstr "Too many failed login attempts, please try again in 5 minutes"
+
+#: app/admin/routes.py:67
+#, python-format
+msgid "账号或密码错误（剩余尝试 %(n)s 次）"
+msgstr "Invalid username or password (%(n)s attempts remaining)"
+
+#: app/admin/routes.py:77
+msgid "已退出登录"
+msgstr "You have been logged out"
+
+#: app/admin/routes.py:87
+msgid "原密码错误"
+msgstr "Original password is incorrect"
+
+#: app/admin/routes.py:94
+msgid "密码修改成功,请重新登录"
+msgstr "Password changed successfully, please log in again"
+
+#: app/admin/routes.py:112
+msgid "站点名称修改完成"
+msgstr "Site name updated successfully"
+
+#: app/admin/routes.py:132 app/banner/routes.py:52 app/banner/routes.py:114
+msgid "文件名缺少扩展名"
+msgstr "Filename is missing its extension"
+
+#: app/admin/routes.py:150 app/banner/routes.py:69 app/banner/routes.py:129
+msgid "图片处理失败,请重试"
+msgstr "Image processing failed, please try again"
+
+#: app/banner/routes.py:46
+msgid "请选择轮播图片"
+msgstr "Please select a banner image"
+
+#: app/banner/routes.py:85
+msgid "新增轮播成功"
+msgstr "Banner added successfully"
+
+#: app/banner/routes.py:101 app/banner/routes.py:152
+msgid "轮播图不存在"
+msgstr "Banner does not exist"
+
+#: app/banner/routes.py:142
+msgid "修改完成"
+msgstr "Changes saved"
+
+#: app/banner/routes.py:166
+msgid "已删除"
+msgstr "Deleted"
+
+#: app/blog/routes.py:56 app/blog/routes.py:96 app/blog/routes.py:127
+msgid "文章不存在"
+msgstr "Article does not exist"
+
+#: app/blog/routes.py:66 app/blog/routes.py:99
+msgid "不选择栏目"
+msgstr "No category"
+
+#: app/blog/routes.py:86
+msgid "文章保存成功"
+msgstr "Article saved successfully"
+
+#: app/blog/routes.py:115
+msgid "修改成功"
+msgstr "Changes saved"
+
+#: app/blog/routes.py:137
+msgid "文章已删除"
+msgstr "Article has been deleted"
+
+#: app/blog/routes.py:141
+msgid "删除失败,请稍后重试"
+msgstr "Deletion failed, please try again later"
+
+#: app/blog/routes.py:171
+msgid "栏目新增成功"
+msgstr "Category added successfully"
+
+#: app/blog/routes.py:174
+msgid "栏目名称重复"
+msgstr "Category name already exists"
+
+#: app/comment/routes.py:37 app/comment/routes.py:61
+msgid "文章不存在或未发布"
+msgstr "Article does not exist or is not published"
+
+#: app/comment/routes.py:45
+msgid "您已经点过赞了"
+msgstr "You have already liked this article"
+
+#: app/comment/routes.py:53
+msgid "点赞成功"
+msgstr "Liked successfully"
+
+#: app/comment/routes.py:80
+msgid "评论发布成功"
+msgstr "Comment posted successfully"
+
+#: app/comment/routes.py:89
+msgid "评论不存在"
+msgstr "Comment does not exist"
+
+#: app/comment/routes.py:108
+msgid "回复成功"
+msgstr "Reply posted successfully"
+
+#: templates/base.html:36 templates/base.html:74 templates/blog/index.html:2
+msgid "首页"
+msgstr "Home"
+
+#: templates/base.html:40
+msgid "全部栏目"
+msgstr "All Categories"
+
+#: templates/base.html:56 templates/blog/drafts.html:2
+#: templates/blog/drafts.html:5 templates/blog/drafts.html:10
+msgid "草稿箱"
+msgstr "Drafts"
+
+#: templates/base.html:57 templates/blog/drafts.html:11
+#: templates/blog/edit.html:2 templates/blog/edit.html:5
+#: templates/blog/edit.html:72
+msgid "新建文章"
+msgstr "New Article"
+
+#: templates/admin/site_setting.html:2 templates/admin/site_setting.html:5
+#: templates/base.html:58
+msgid "站点设置"
+msgstr "Site Settings"
+
+#: templates/banner/banner_manage.html:5 templates/base.html:59
+msgid "轮播图管理"
+msgstr "Banner Management"
+
+#: templates/base.html:60
+msgid "改密码"
+msgstr "Change Password"
+
+#: templates/base.html:63
+msgid "退出登录"
+msgstr "Log Out"
+
+#: templates/base.html:83
+msgid "All Rights Reserved"
+msgstr "All Rights Reserved"
+
+#: templates/admin/change_pwd.html:2
+msgid "修改后台密码"
+msgstr "Change Admin Password"
+
+#: templates/admin/change_pwd.html:5
+msgid "修改密码"
+msgstr "Change Password"
+
+#: templates/admin/change_pwd.html:12
+msgid "修改登录密码"
+msgstr "Change Login Password"
+
+#: templates/admin/change_pwd.html:20
+msgid "原密码"
+msgstr "Current Password"
+
+#: templates/admin/change_pwd.html:24
+msgid "新密码"
+msgstr "New Password"
+
+#: templates/admin/change_pwd.html:28
+msgid "确认新密码"
+msgstr "Confirm New Password"
+
+#: templates/admin/change_pwd.html:31
+msgid "确认修改"
+msgstr "Confirm Change"
+
+#: templates/admin/login.html:2
+msgid "后台登录"
+msgstr "Admin Login"
+
+#: templates/admin/login.html:5 templates/admin/login.html:42
+msgid "登录"
+msgstr "Log In"
+
+#: templates/admin/login.html:26
+msgid "管理员登录"
+msgstr "Administrator Login"
+
+#: templates/admin/login.html:35
+msgid "账号"
+msgstr "Username"
+
+#: templates/admin/login.html:39
+msgid "密码"
+msgstr "Password"
+
+#: templates/admin/login.html:46
+msgid "返回博客首页"
+msgstr "Back to Blog Home"
+
+#: templates/admin/site_setting.html:12
+msgid "站点全局设置"
+msgstr "Global Site Settings"
+
+#: templates/admin/site_setting.html:18
+msgid "博客网站名称"
+msgstr "Blog Site Name"
+
+#: templates/admin/site_setting.html:21
+msgid "保存设置"
+msgstr "Save Settings"
+
+#: templates/banner/banner_manage.html:2
+msgid "轮播广告管理"
+msgstr "Banner Ad Management"
+
+#: templates/banner/banner_manage.html:9
+msgid "Banner轮播管理"
+msgstr "Banner Management"
+
+#: templates/banner/banner_manage.html:12
+msgid "新增轮播图"
+msgstr "Add Banner"
+
+#: templates/banner/banner_manage.html:17
+msgid "预览"
+msgstr "Preview"
+
+#: templates/banner/banner_manage.html:18
+#: templates/banner/banner_manage.html:63
+#: templates/banner/banner_manage.html:102
+msgid "标题"
+msgstr "Title"
+
+#: templates/banner/banner_manage.html:19
+#: templates/banner/banner_manage.html:98
+msgid "跳转链接"
+msgstr "Link URL"
+
+#: templates/banner/banner_manage.html:20
+msgid "排序权重"
+msgstr "Sort Weight"
+
+#: templates/banner/banner_manage.html:21
+msgid "操作"
+msgstr "Actions"
+
+#: templates/banner/banner_manage.html:32 templates/blog/detail.html:82
+#: templates/blog/index.html:152
+msgid "编辑"
+msgstr "Edit"
+
+#: templates/banner/banner_manage.html:36 templates/blog/detail.html:88
+#: templates/blog/drafts.html:37 templates/blog/index.html:156
+msgid "删除"
+msgstr "Delete"
+
+#: templates/banner/banner_manage.html:41
+msgid "暂无轮播广告"
+msgstr "No banners yet"
+
+#: templates/banner/banner_manage.html:50
+msgid "新增Banner"
+msgstr "Add Banner"
+
+#: templates/banner/banner_manage.html:55
+msgid "轮播图片"
+msgstr "Banner Image"
+
+#: templates/banner/banner_manage.html:59
+msgid "跳转链接（留空不跳转）"
+msgstr "Link URL (leave empty for no redirect)"
+
+#: templates/banner/banner_manage.html:67
+#: templates/banner/banner_manage.html:106
+msgid "描述文字"
+msgstr "Description"
+
+#: templates/banner/banner_manage.html:71
+msgid "排序数字（越大越靠前）"
+msgstr "Sort number (higher shows first)"
+
+#: templates/banner/banner_manage.html:76
+#: templates/banner/banner_manage.html:115 templates/blog/edit.html:120
+msgid "取消"
+msgstr "Cancel"
+
+#: templates/banner/banner_manage.html:77
+msgid "保存"
+msgstr "Save"
+
+#: templates/banner/banner_manage.html:88
+msgid "编辑Banner"
+msgstr "Edit Banner"
+
+#: templates/banner/banner_manage.html:93
+msgid "更换图片（不换留空）"
+msgstr "Replace image (leave empty to keep)"
+
+#: templates/banner/banner_manage.html:95
+msgid "当前"
+msgstr "Current"
+
+#: templates/banner/banner_manage.html:110
+msgid "排序数字"
+msgstr "Sort Number"
+
+#: templates/banner/banner_manage.html:116
+msgid "保存修改"
+msgstr "Save Changes"
+
+#: templates/blog/detail.html:48 templates/blog/index.html:95
+msgid "栏目分类"
+msgstr "Categories"
+
+#: templates/blog/detail.html:51 templates/blog/index.html:98
+msgid "全部文章"
+msgstr "All Articles"
+
+#: templates/blog/detail.html:61
+msgid "管理员尚未创建栏目分类"
+msgstr "The administrator has not created any categories yet"
+
+#: templates/blog/detail.html:66
+msgid "新建栏目/标签"
+msgstr "New Category / Tag"
+
+#: templates/blog/detail.html:69 templates/blog/index.html:113
+msgid "栏目名称"
+msgstr "Category Name"
+
+#: templates/blog/detail.html:70 templates/blog/index.html:114
+msgid "标签（选填）"
+msgstr "Tag (optional)"
+
+#: templates/blog/detail.html:71 templates/blog/index.html:115
+msgid "添加分类"
+msgstr "Add Category"
+
+#: templates/blog/detail.html:95
+msgid "点赞"
+msgstr "Like"
+
+#: templates/blog/detail.html:98
+msgid "返回首页"
+msgstr "Back to Home"
+
+#: templates/blog/detail.html:103
+#, python-format
+msgid "发布：%(time)s"
+msgstr "Published: %(time)s"
+
+#: templates/blog/detail.html:113
+msgid "发表评论"
+msgstr "Post a Comment"
+
+#: templates/blog/detail.html:118
+msgid "昵称（默认游客）"
+msgstr "Nickname (defaults to Guest)"
+
+#: templates/blog/detail.html:121
+msgid "写下你的看法..."
+msgstr "Share your thoughts..."
+
+#: templates/blog/detail.html:124
+msgid "提交"
+msgstr "Submit"
+
+#: templates/blog/detail.html:131
+#, python-format
+msgid "全部评论（%(num)s）"
+msgstr "All Comments (%(num)s)"
+
+#: templates/blog/detail.html:141
+msgid "昵称"
+msgstr "Nickname"
+
+#: templates/blog/detail.html:144
+msgid "回复这条评论"
+msgstr "Reply to this comment"
+
+#: templates/blog/detail.html:147
+msgid "回复"
+msgstr "Reply"
+
+#: templates/blog/detail.html:163
+msgid "暂无评论，快来抢沙发！"
+msgstr "No comments yet, be the first!"
+
+#: templates/blog/drafts.html:30
+msgid "草稿"
+msgstr "Draft"
+
+#: templates/blog/drafts.html:33
+msgid "编辑修改"
+msgstr "Edit"
+
+#: templates/blog/drafts.html:46
+msgid "暂无草稿"
+msgstr "No drafts yet"
+
+#: templates/blog/edit.html:2 templates/blog/edit.html:5
+#: templates/blog/edit.html:72
+msgid "编辑文章"
+msgstr "Edit Article"
+
+#: templates/blog/edit.html:79
+msgid "文章标题"
+msgstr "Article Title"
+
+#: templates/blog/edit.html:83
+msgid "所属栏目"
+msgstr "Category"
+
+#: templates/blog/edit.html:85
+msgid "无分类"
+msgstr "Uncategorized"
+
+#: templates/blog/edit.html:95
+msgid "正文内容（Markdown 编辑器 — 使用"
+msgstr "Content (Markdown editor — use"
+
+#: templates/blog/edit.html:95
+msgid "语言"
+msgstr "language"
+
+#: templates/blog/edit.html:95
+msgid "插入代码块）"
+msgstr "to insert code blocks)"
+
+#: templates/blog/edit.html:100
+msgid "上传图片"
+msgstr "Upload Image"
+
+#: templates/blog/edit.html:106
+msgid "保存方式"
+msgstr "Save As"
+
+#: templates/blog/edit.html:110
+msgid "存入草稿（仅后台可见）"
+msgstr "Save as draft (admin only)"
+
+#: templates/blog/edit.html:115
+msgid "公开发布（所有人可见）"
+msgstr "Publish publicly (visible to everyone)"
+
+#: templates/blog/edit.html:119
+msgid "提交保存"
+msgstr "Submit"
+
+#: templates/blog/index.html:5
+msgid "文章列表"
+msgstr "Article List"
+
+#: templates/blog/index.html:110
+msgid "新建栏目"
+msgstr "New Category"
+
+#: templates/blog/index.html:123
+msgid "最新文章"
+msgstr "Latest Articles"
+
+#: templates/blog/index.html:142
+msgid "阅读全文"
+msgstr "Read More"
+
+#: templates/blog/index.html:144
+#, python-format
+msgid "点赞：%(num)s"
+msgstr "Likes: %(num)s"
+
+#: templates/blog/index.html:149
+#, python-format
+msgid "评论：%(num)s"
+msgstr "Comments: %(num)s"
+
+#: templates/blog/index.html:163
+#, python-format
+msgid "共 %(num)s 条评论"
+msgstr "%(num)s comments in total"
+
+#: templates/blog/index.html:164
+msgid "查看全部评论"
+msgstr "View all comments"
+
+#: templates/blog/index.html:172
+msgid "暂无公开文章，请管理员登录后发布内容"
+msgstr "No published articles yet. Please log in as admin to post content."
+
+#: templates/blog/index.html:183
+msgid "上一页"
+msgstr "Previous"
+
+#: templates/blog/index.html:191
+msgid "下一页"
+msgstr "Next"

@@ -1,240 +1,154 @@
-import logging
+"""管理员蓝图 —— 登录、改密码、站点设置、图片上传。
+
+重构要点：
+- 用 Flask-Login 替代手动 session.admin_id 管理
+- 用 Flask-WTF 表单 + CSRFProtect
+- 登录失败计数走数据库表（多 worker 共享）
+- 改密码后用 Flask-Login 的 logout + 重新登录机制
+- 图片上传走 Pillow 安全流程（解压炸弹防护 + 缩放）
+"""
 import os
 import uuid
 from datetime import datetime
 
-from flask import render_template, request, redirect, url_for, flash, session, jsonify
-from PIL import Image
+from flask import (render_template, request, redirect, url_for, flash,
+                   session, jsonify, current_app)
+from flask_babel import _
+from flask_login import login_user, logout_user, login_required, current_user
 from werkzeug.security import check_password_hash, generate_password_hash
-from werkzeug.utils import secure_filename
 
 from app.admin import admin_bp
-from app.db import get_db, DictCursor, IntegrityError
 from app.extensions import (
-    admin_required, get_client_ip, check_login_lock, record_login_fail,
-    clear_login_fail,
+    db, log, get_client_ip,
+    check_login_lock, record_login_fail, clear_login_fail,
+)
+from app.forms import LoginForm, ChangePwdForm, SiteSettingForm, UploadImageForm
+from app.models import Admin, SiteConfig
+from app.utils import (
+    process_and_save_image, build_safe_filename, upload_dir,
 )
 
-log = logging.getLogger(__name__)
 
-# 业务校验
-CAT_NAME_MAX_LEN = 60
-SITE_NAME_MAX_LEN = 100
-PASSWORD_MIN_LEN = 6
-
-# 文章图片上传相关（与 banner 保持一致的安全策略）
-UPLOAD_ALLOWED_EXT = {"jpg", "jpeg", "png", "gif"}
-UPLOAD_ALLOWED_MIME = {"image/jpeg", "image/png", "image/gif"}
-UPLOAD_MAX_SIZE = 10 * 1024 * 1024  # 10MB
-UPLOAD_BASE_NAME_LEN = 100
-UPLOAD_MAX_WIDTH = 1200  # 上传图片最大宽度（像素），超过则等比缩放
-
-
-# 管理员登录
 @admin_bp.route('/login', methods=["GET", "POST"])
 def login():
-    if request.method == "POST":
+    # 已登录直接跳首页
+    if current_user.is_authenticated:
+        return redirect(url_for("blog.index"))
+
+    form = LoginForm()
+    if form.validate_on_submit():
         ip = get_client_ip()
-        user = request.form.get("username", "").strip()
-        pwd = request.form.get("password", "").strip()
+        username = form.username.data.strip()
+        password = form.password.data
 
-        if not user or not pwd:
-            flash("请输入账号和密码")
-            return render_template("admin/login.html")
-
-        locked, remain = check_login_lock(ip, user)
+        locked, remain = check_login_lock(ip, username)
         if locked:
-            flash(f"登录失败次数过多，请 {remain} 秒后再试")
-            return render_template("admin/login.html"), 429
+            flash(_("登录失败次数过多,请 %(sec)s 秒后再试", sec=remain), "danger")
+            return render_template("admin/login.html", form=form), 429
 
-        db = get_db()
-        cur = db.cursor(DictCursor)
-        cur.execute("SELECT id, username, password FROM admin WHERE username=%s", (user,))
-        admin_info = cur.fetchone()
-        cur.close()
-
-        if admin_info and check_password_hash(admin_info["password"], pwd):
-            session.permanent = True
-            session["admin_id"] = admin_info["id"]
-            session["admin_user"] = admin_info["username"]
-            clear_login_fail(ip, user)
-            flash("登录成功")
-            return redirect(url_for("blog.index"))
-
-        fails = record_login_fail(ip, user)
-        if fails >= 5:
-            flash("登录失败次数过多，请 5 分钟后再试")
-        else:
-            flash(f"账号或密码错误（剩余尝试 {5 - fails} 次）")
-    return render_template("admin/login.html")
-
-
-# 退出登录（改 POST，避免被 CSRF 强制登出）
-@admin_bp.route('/logout', methods=["POST"])
-def logout():
-    session.clear()
-    flash("已退出登录")
-    return redirect(url_for("blog.index"))
-
-
-# 修改密码
-@admin_bp.route('/change_pwd', methods=["GET", "POST"])
-@admin_required
-def change_pwd():
-    admin_id = session["admin_id"]
-    if request.method == "POST":
-        old_pwd = request.form.get("old_pwd", "").strip()
-        new_pwd = request.form.get("new_pwd", "").strip()
-        confirm = request.form.get("confirm_pwd", "").strip()
-
-        if new_pwd != confirm:
-            flash("两次新密码不一致")
-            return render_template("admin/change_pwd.html")
-        if len(new_pwd) < PASSWORD_MIN_LEN:
-            flash(f"新密码至少 {PASSWORD_MIN_LEN} 位")
-            return render_template("admin/change_pwd.html")
-
-        db = get_db()
-        cur = db.cursor(DictCursor)
-        cur.execute("SELECT password FROM admin WHERE id=%s", (admin_id,))
-        row = cur.fetchone()
-        if not row or not check_password_hash(row["password"], old_pwd):
-            cur.close()
-            flash("原密码错误")
-            return render_template("admin/change_pwd.html")
-
-        new_hashed = generate_password_hash(new_pwd)
-        try:
-            cur.execute("UPDATE admin SET password=%s WHERE id=%s", (new_hashed, admin_id))
-            db.commit()
-        finally:
-            cur.close()
-        flash("密码修改成功，请重新登录")
-        session.clear()
-        return redirect(url_for("admin.login"))
-    return render_template("admin/change_pwd.html")
-
-
-# 站点设置
-@admin_bp.route('/site_setting', methods=["GET", "POST"])
-@admin_required
-def site_setting():
-    db = get_db()
-    cur = db.cursor(DictCursor)
-    if request.method == "POST":
-        name = request.form.get("site_name", "").strip()
-        if not name or len(name) > SITE_NAME_MAX_LEN:
-            flash(f"站点名称不能为空且不超过 {SITE_NAME_MAX_LEN} 字符")
-            cur.close()
-            return render_template("admin/site_setting.html", site={"site_name": name})
-        cur.execute("UPDATE site_config SET site_name=%s WHERE id=1", (name,))
-        db.commit()
-        flash("站点名称修改完成")
-    cur.execute("SELECT site_name FROM site_config WHERE id=1")
-    site = cur.fetchone()
-    cur.close()
-    return render_template("admin/site_setting.html", site=site)
-
-
-# 添加栏目
-@admin_bp.route('/category_add', methods=["POST"])
-@admin_required
-def add_category():
-    name = request.form.get("cat_name", "").strip()
-    tag = request.form.get("tag_text", "").strip()
-    if not name or len(name) > CAT_NAME_MAX_LEN:
-        flash(f"栏目名称不能为空且不超过 {CAT_NAME_MAX_LEN} 字符")
-        return redirect(url_for("blog.index"))
-    if len(tag) > CAT_NAME_MAX_LEN:
-        flash(f"标签不超过 {CAT_NAME_MAX_LEN} 字符")
-        return redirect(url_for("blog.index"))
-
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    db = get_db()
-    cur = db.cursor()
-    try:
-        cur.execute(
-            "INSERT INTO category(cat_name,tag_text,create_time) VALUES(%s,%s,%s)",
-            (name, tag, now)
+        admin = db.session.scalar(
+            db.select(Admin).filter_by(username=username)
         )
-        db.commit()
-        flash("栏目新增成功")
-    except IntegrityError:
-        flash("栏目名称重复")
-    finally:
-        cur.close()
+        if admin and check_password_hash(admin.password, password):
+            login_user(admin, remember=False)
+            session.permanent = True
+            clear_login_fail(ip, username)
+            flash(_("登录成功"), "success")
+            next_url = request.args.get("next") or url_for("blog.index")
+            # 防止开放重定向
+            if not next_url.startswith("/"):
+                next_url = url_for("blog.index")
+            return redirect(next_url)
+
+        fails = record_login_fail(ip, username)
+        if fails >= 5:
+            flash(_("登录失败次数过多,请 5 分钟后再试"), "danger")
+        else:
+            flash(_("账号或密码错误（剩余尝试 %(n)s 次）", n=5 - fails), "danger")
+
+    return render_template("admin/login.html", form=form)
+
+
+@admin_bp.route('/logout', methods=["POST"])
+@login_required
+def logout():
+    logout_user()
+    session.clear()
+    flash(_("已退出登录"), "info")
     return redirect(url_for("blog.index"))
 
 
-# 文章图片上传（供 EasyMDE 编辑器调用）
+@admin_bp.route('/change_pwd', methods=["GET", "POST"])
+@login_required
+def change_pwd():
+    form = ChangePwdForm()
+    if form.validate_on_submit():
+        if not check_password_hash(current_user.password, form.old_pwd.data):
+            flash(_("原密码错误"), "danger")
+            return render_template("admin/change_pwd.html", form=form)
+        current_user.password = generate_password_hash(form.new_pwd.data)
+        db.session.commit()
+        # 改密码后强制重新登录,使其他设备 session 失效
+        logout_user()
+        session.clear()
+        flash(_("密码修改成功,请重新登录"), "success")
+        return redirect(url_for("admin.login"))
+    return render_template("admin/change_pwd.html", form=form)
+
+
+@admin_bp.route('/site_setting', methods=["GET", "POST"])
+@login_required
+def site_setting():
+    site = db.session.get(SiteConfig, 1)
+    if not site:
+        site = SiteConfig(id=1, site_name="我的博客", favicon_path="static/favicon.ico")
+        db.session.add(site)
+        db.session.commit()
+    form = SiteSettingForm(obj=site)
+    if form.validate_on_submit():
+        new_name = form.site_name.data.strip()
+        site.site_name = new_name
+        db.session.commit()
+        flash(_("站点名称修改完成"), "success")
+        return redirect(url_for("admin.site_setting"))
+    return render_template("admin/site_setting.html", form=form, site=site)
+
+
 @admin_bp.route('/upload', methods=["POST"])
-@admin_required
+@login_required
 def upload_image():
-    """接收编辑器上传的图片，自动压缩/缩放后返回 JSON {url} 或 {error}"""
-    img = request.files.get("image")
-    if not img or not img.filename:
-        return jsonify({"error": "请选择图片"}), 400
+    """接收编辑器上传的图片,自动压缩/缩放后返回 JSON {url} 或 {error}"""
+    form = UploadImageForm()
+    if not form.validate_on_submit():
+        # 收集第一条错误
+        for field_name, errs in form.errors.items():
+            for err in errs:
+                return jsonify({"error": err}), 400
 
-    # 扩展名校验
-    if "." not in img.filename or img.filename.rsplit(".", 1)[1].lower() not in UPLOAD_ALLOWED_EXT:
-        return jsonify({"error": "仅支持 jpg/jpeg/png/gif"}), 400
-    # MIME 校验
-    if (img.mimetype or "").lower() not in UPLOAD_ALLOWED_MIME:
-        return jsonify({"error": "文件类型不合法"}), 400
-    # 大小校验
-    img.seek(0, os.SEEK_END)
-    size = img.tell()
-    img.seek(0)
-    if size > UPLOAD_MAX_SIZE:
-        return jsonify({"error": "文件大小不能超过 10MB"}), 400
-    if size == 0:
-        return jsonify({"error": "文件为空"}), 400
-
-    # 生成安全文件名
-    base = secure_filename(img.filename)
-    ext = img.filename.rsplit(".", 1)[1].lower()
-    if base:
-        base = os.path.splitext(base)[0]
-    if not base:
-        base = uuid.uuid4().hex
-    if len(base) > UPLOAD_BASE_NAME_LEN:
-        base = base[:UPLOAD_BASE_NAME_LEN]
-    final_name = f"{uuid.uuid4().hex}_{base}.{ext}"
-
-    # 保存到项目根目录的 static/uploads/
-    root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    upload_dir = os.path.join(root, "static", "uploads")
-    os.makedirs(upload_dir, exist_ok=True)
-    save_path = os.path.join(upload_dir, final_name)
-
-    # 使用 Pillow 处理图片：自动缩放 + 压缩
+    img = form.image.data
     try:
-        image = Image.open(img.stream)
+        ext = img.filename.rsplit(".", 1)[1].lower()
+    except (IndexError, AttributeError):
+        return jsonify({"error": _("文件名缺少扩展名")}), 400
 
-        # 如果图片宽度超过限制，等比缩放
-        if image.width > UPLOAD_MAX_WIDTH:
-            ratio = UPLOAD_MAX_WIDTH / image.width
-            new_height = int(image.height * ratio)
-            image = image.resize((UPLOAD_MAX_WIDTH, new_height), Image.LANCZOS)
-            log.info(f"图片已缩放：{image.width}x{image.height}")
+    final_name = build_safe_filename(
+        img.filename,
+        base_name_max_len=current_app.config.get("UPLOAD_BASE_NAME_LEN", 100),
+    )
+    save_dir = upload_dir("uploads")
+    save_path = os.path.join(save_dir, final_name)
 
-        # 根据格式保存
-        if ext in ('jpg', 'jpeg'):
-            # JPEG 格式：转换为 RGB（去除透明通道）+ 压缩质量
-            if image.mode in ('RGBA', 'P'):
-                image = image.convert('RGB')
-            image.save(save_path, 'JPEG', quality=85, optimize=True)
-        elif ext == 'png':
-            # PNG 格式：保留透明通道，压缩
-            image.save(save_path, 'PNG', optimize=True)
-        elif ext == 'gif':
-            # GIF 格式：直接保存（不压缩动画）
-            image.save(save_path, 'GIF')
-        else:
-            image.save(save_path)
-
+    # FileSize 验证器读取过 stream，重置到开头避免 PIL 无法识别
+    img.stream.seek(0)
+    try:
+        process_and_save_image(
+            img.stream,
+            save_path,
+            ext,
+            max_width=current_app.config.get("UPLOAD_MAX_WIDTH", 1200),
+        )
     except Exception as e:
-        log.error(f"图片处理失败: {str(e)}")
-        return jsonify({"error": "图片处理失败，请重试"}), 500
+        log.error("图片处理失败: %s", e, exc_info=True)
+        return jsonify({"error": _("图片处理失败,请重试")}), 500
 
     return jsonify({"url": f"/static/uploads/{final_name}"}), 200

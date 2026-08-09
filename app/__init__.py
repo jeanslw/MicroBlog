@@ -1,124 +1,223 @@
+"""Flask 应用工厂。
+
+集成：
+- Flask-SQLAlchemy（ORM + 连接池）
+- Flask-Migrate（迁移）
+- Flask-Login（会话与认证）
+- Flask-WTF（CSRF + 表单）
+- Flask-Babel（i18n 中英双语）
+- ProxyFix（信任反向代理头）
+- 完整错误处理（区分 HTTPException 与 Exception）
+- 启动时自动初始化数据库与管理员
+- Flask CLI 命令（init-db / create-admin）
+"""
 import logging
 import os
-import secrets
 import traceback
-from datetime import timedelta, date
+from datetime import date, timedelta
 
-from flask import Flask, session, request, abort
+from flask import Flask, render_template, request, session, jsonify
+from flask_babel import Babel
+from werkzeug.exceptions import HTTPException
+from werkzeug.middleware.proxy_fix import ProxyFix
 
-from config import (
-    DEBUG, SECRET_KEY, SEND_FILE_MAX_AGE, MAX_CONTENT_LENGTH,
-    SESSION_COOKIE_HTTPONLY, SESSION_COOKIE_SAMESITE, SESSION_COOKIE_SECURE,
-    PERMANENT_SESSION_LIFETIME,
+from config import get_config
+from app.extensions import (
+    db, login_manager, csrf, log, fetch_global_context,
 )
-from app.db import close_db, ensure_admin_exists
-from app.extensions import get_categories, get_site_name
-from app.blog import blog_bp
-from app.comment import comment_bp
-from app.admin import admin_bp
-from app.banner import banner_bp
-from app.banner.queries import get_all_banner
+from app.utils import configure_pillow
 
 
-def _setup_logging(app):
-    """统一日志格式，避免 print 散落"""
-    handler = logging.StreamHandler()
-    handler.setFormatter(logging.Formatter(
-        "[%(asctime)s] %(levelname)s in %(module)s: %(message)s"
-    ))
+def _setup_logging(app: Flask):
+    """统一日志格式"""
     if not app.logger.handlers:
+        handler = logging.StreamHandler()
+        handler.setFormatter(logging.Formatter(
+            "[%(asctime)s] %(levelname)s in %(module)s: %(message)s"
+        ))
         app.logger.addHandler(handler)
-    app.logger.setLevel(logging.DEBUG if DEBUG else logging.INFO)
+    app.logger.setLevel(logging.DEBUG if app.debug else logging.INFO)
+    # 让 app.extensions.log 也跟随同级别
+    log.setLevel(app.logger.level)
 
 
-def create_app():
+def _select_locale():
+    """Babel 选 locale：优先 session['lang'],其次 Accept-Language,最后默认"""
+    lang = session.get("lang")
+    if lang in ("zh_CN", "en"):
+        return lang
+    # 浏览器偏好
+    best = request.accept_languages.best_match(["zh_CN", "en"])
+    return best or "zh_CN"
+
+
+babel = Babel()
+
+
+def create_app(config_name: str = None):
+    """应用工厂
+
+    Args:
+        config_name: 显式指定配置类（development/production/testing），
+                     None 时从环境变量 BLOG_ENV 读取
+    """
     root_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    template_dir = os.path.join(root_dir, 'templates')
-    static_dir = os.path.join(root_dir, 'static')
-    app = Flask(__name__, template_folder=template_dir, static_folder=static_dir)
-    app.secret_key = SECRET_KEY
+    template_dir = os.path.join(root_dir, "templates")
+    static_dir = os.path.join(root_dir, "static")
 
-    # Session 安全
-    app.config['SESSION_COOKIE_HTTPONLY'] = SESSION_COOKIE_HTTPONLY
-    app.config['SESSION_COOKIE_SAMESITE'] = SESSION_COOKIE_SAMESITE
-    app.config['SESSION_COOKIE_SECURE'] = SESSION_COOKIE_SECURE
-    app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(seconds=PERMANENT_SESSION_LIFETIME)
+    app = Flask(
+        __name__,
+        template_folder=template_dir,
+        static_folder=static_dir,
+        instance_relative_config=False,
+    )
 
-    # 模板自动重载跟随 DEBUG
-    app.config['TEMPLATES_AUTO_RELOAD'] = DEBUG
-    app.config['SEND_FILE_MAX_AGE_DEFAULT'] = SEND_FILE_MAX_AGE
-    app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
-    app.config['DEBUG'] = DEBUG
+    # ── 加载配置 ────────────────────────────────────────
+    if config_name:
+        from config import config_map
+        app.config.from_object(config_map.get(config_name, config_map["default"]))
+    else:
+        app.config.from_object(get_config())
+
+    # timedelta 形式的 PERMANENT_SESSION_LIFETIME
+    app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(
+        seconds=int(app.config.get("PERMANENT_SESSION_LIFETIME", 60 * 60 * 12))
+    )
+
+    # ── ProxyFix（信任反向代理头） ──────────────────────
+    app.wsgi_app = ProxyFix(
+        app.wsgi_app,
+        x_for=app.config.get("PROXY_FIX_X_FOR", 0),
+        x_proto=app.config.get("PROXY_FIX_X_PROTO", 0),
+        x_host=app.config.get("PROXY_FIX_X_HOST", 0),
+    )
+
+    # ── Pillow 安全配置 ─────────────────────────────────
+    configure_pillow(app.config.get("PIL_MAX_IMAGE_PIXELS", 50_000_000))
+
+    # ── 扩展初始化 ──────────────────────────────────────
+    db.init_app(app)
+    migrate = None
+    try:
+        from flask_migrate import Migrate
+        migrate = Migrate(app, db, directory=os.path.join(root_dir, "migrations"))
+    except ImportError:
+        log.warning("Flask-Migrate 未安装,跳过迁移支持")
+
+    login_manager.init_app(app)
+    csrf.init_app(app)
+    babel.init_app(app, locale_selector=_select_locale)
 
     _setup_logging(app)
 
-    # 启动时确保管理员账号存在（兼容 SQLite / MySQL，首次部署免手动建账号）
+    # 注：CSRFProtect 默认仅对 POST/PUT/DELETE/PATCH 校验,
+    # GET 静态文件请求与 favicon 不会被拦截,无需显式豁免
+
+    # ── 启动时初始化数据库与初始数据 ────────────────────
     with app.app_context():
+        from app.database import init_db, ensure_admin_exists, ensure_site_config
         try:
+            init_db()
+            ensure_site_config()
             ensure_admin_exists()
         except Exception as e:
-            app.logger.warning("管理员初始化跳过: %s", e)
+            app.logger.warning("数据库初始化跳过: %s", e)
 
-    # 请求结束时自动关闭数据库连接
-    app.teardown_appcontext(close_db)
+    # ── 模板全局变量（每页面一次,带异常兜底） ─────────────
+    # 注:不在此注入 csrf_token —— Flask-WTF 通过 jinja_env.globals
+    # 注册了 csrf_token() 函数,模板用 {{ csrf_token() }} 调用即可。
+    # 此处若注入字符串 csrf_token 会遮蔽该函数。
+    @app.context_processor
+    def global_vars():
+        ctx = fetch_global_context()
+        ctx.update({
+            "now_year": date.today().year,
+            "current_lang": _select_locale(),
+        })
+        return ctx
 
-    # CSRF 保护：仅对写操作校验，GET 不验证（避免 logout/del/vote 通过 GET 触发）
-    @app.before_request
-    def csrf_protect():
-        if 'csrf_token' not in session:
-            session['csrf_token'] = secrets.token_hex(32)
-        if request.method in ('POST', 'PUT', 'DELETE', 'PATCH'):
-            submitted = (
-                request.form.get('csrf_token')
-                or request.headers.get('X-CSRF-Token')
-                or request.args.get('csrf_token')
-            )
-            if not submitted or not secrets.compare_digest(
-                session.get('csrf_token', ''), submitted
-            ):
-                abort(400, 'CSRF 验证失败，请刷新页面后重试')
-
-    @app.errorhandler(Exception)
-    def all_err_handler(e):
-        app.logger.error("未捕获异常: %s", e)
-        app.logger.error(traceback.format_exc())
-        if DEBUG:
-            # 开发环境返回堆栈，便于排查
-            return traceback.format_exc(), 500
-        return "服务器内部错误，请联系管理员", 500
+    # ── 错误处理 ────────────────────────────────────────
+    @app.errorhandler(HTTPException)
+    def http_error_handler(e):
+        # HTTP 异常按状态码返回对应页面,不吞成 500
+        code = e.code or 500
+        if request.path.startswith("/admin/upload") or request.is_json:
+            return jsonify({"error": e.description}), code
+        try:
+            return render_template("error.html", code=code, message=e.description), code
+        except Exception:
+            return f"<h1>{code}</h1><p>{e.description}</p>", code
 
     @app.errorhandler(400)
     def bad_request(e):
-        return str(e), 400
+        if request.is_json:
+            return jsonify({"error": str(e.description or e)}), 400
+        return render_template("error.html", code=400, message=str(e.description or e)), 400
 
     @app.errorhandler(404)
     def not_found(e):
-        return "页面不存在", 404
+        if request.is_json:
+            return jsonify({"error": "Not Found"}), 404
+        return render_template("error.html", code=404, message="页面不存在"), 404
 
-    app.register_blueprint(blog_bp, url_prefix="/")
-    app.register_blueprint(comment_bp, url_prefix="/")
+    @app.errorhandler(Exception)
+    def all_err_handler(e):
+        log.error("未捕获异常: %s", e)
+        log.error(traceback.format_exc())
+        if app.debug:
+            return traceback.format_exc(), 500
+        if request.is_json:
+            return jsonify({"error": "服务器内部错误"}), 500
+        return render_template("error.html", code=500,
+                               message="服务器内部错误,请联系管理员"), 500
+
+    # ── 注册蓝图 ────────────────────────────────────────
+    from app.blog import blog_bp
+    from app.comment import comment_bp
+    from app.admin import admin_bp
+    from app.banner import banner_bp
+    from app.main import main_bp
+
+    app.register_blueprint(main_bp)
+    app.register_blueprint(blog_bp)
+    app.register_blueprint(comment_bp)
     app.register_blueprint(admin_bp, url_prefix="/admin")
-    app.register_blueprint(banner_bp, url_prefix="/")
+    app.register_blueprint(banner_bp, url_prefix="/banner")
 
-    @app.context_processor
-    def global_vars():
-        try:
-            cats, total_art = get_categories()
-            banner_list = get_all_banner()
-            site_name = get_site_name()
-        except Exception:
-            app.logger.error("全局模板上下文数据库报错:\n%s", traceback.format_exc())
-            cats = []
-            total_art = 0
-            banner_list = []
-            site_name = "博客"
-        return {
-            "categories": cats,
-            "all_article_count": total_art,
-            "site_name": site_name,
-            "banner_list": banner_list,
-            "csrf_token": session.get('csrf_token', ''),
-            "now_year": date.today().year,
-        }
+    # ── Flask CLI 命令 ──────────────────────────────────
+    register_cli(app)
 
     return app
+
+
+def register_cli(app: Flask):
+    """注册 flask 命令：init-db / create-admin"""
+    import click
+    from flask.cli import with_appcontext
+
+    @app.cli.command("init-db")
+    @with_appcontext
+    def init_db_cmd():
+        """创建所有数据库表（幂等）"""
+        from app.database import init_db, ensure_site_config, ensure_admin_exists
+        init_db()
+        ensure_site_config()
+        ensure_admin_exists()
+        click.echo("Initialized database and ensured admin/site_config.")
+
+    @app.cli.command("create-admin")
+    @click.option("--username", prompt=True)
+    @click.option("--password", prompt=True, hide_input=True,
+                  confirmation_prompt=True)
+    @with_appcontext
+    def create_admin_cmd(username, password):
+        """创建管理员账号"""
+        from werkzeug.security import generate_password_hash
+        from app.models import Admin
+        if db.session.scalar(db.select(Admin).filter_by(username=username)):
+            click.echo(f"Admin '{username}' already exists.")
+            return
+        db.session.add(Admin(username=username,
+                             password=generate_password_hash(password)))
+        db.session.commit()
+        click.echo(f"Created admin: {username}")

@@ -1,6 +1,8 @@
 {% extends "base.html" %}
-{% block title %}
-{% if article %}编辑文章{% else %}新建文章{% endif %} - {{site_name}}
+{% block title %}{% if article %}{{ _('编辑文章') }}{% else %}{{ _('新建文章') }}{% endif %} - {{ site_name }}{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active" aria-current="page">{% if article %}{{ _('编辑文章') }}{% else %}{{ _('新建文章') }}{% endif %}</li>
 {% endblock %}
 
 {% block extra_css %}
@@ -67,55 +69,55 @@
     <div class="col-lg-10">
         <div class="card edit-card p-5">
             <h4 class="mb-4 fw-bold">
-                {% if article %}<i class="bi bi-pencil-square"></i> 编辑文章{% else %}<i class="bi bi-plus-circle"></i> 新建文章{% endif %}
+                {% if article %}<i class="bi bi-pencil-square"></i> {{ _('编辑文章') }}{% else %}<i class="bi bi-plus-circle"></i> {{ _('新建文章') }}{% endif %}
             </h4>
             {% set msg = get_flashed_messages() %}
-            {% if msg %}<div class="alert alert-success">{{msg[0]}}</div>{% endif %}
+            {% if msg %}<div class="alert alert-success">{{ msg[0] }}</div>{% endif %}
             <form method="POST" id="article_form">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="mb-3">
-                    <label class="form-label fw-semibold">文章标题</label>
-                    <input type="text" name="title" class="form-control form-control-lg" value="{{article.title if article else ''}}" required>
+                    <label class="form-label fw-semibold">{{ _('文章标题') }}</label>
+                    <input type="text" name="title" class="form-control form-control-lg" value="{{ article.title if article else '' }}" required>
                 </div>
                 <div class="mb-3">
-                    <label class="form-label fw-semibold">所属栏目</label>
+                    <label class="form-label fw-semibold">{{ _('所属栏目') }}</label>
                     <select name="category_id" class="form-select form-select-lg">
-                        <option value="">无分类</option>
+                        <option value="0">{{ _('无分类') }}</option>
                         {% for cat in categories %}
-                        <option value="{{cat.id}}" {% if article and article.category_id == cat.id %}selected{% endif %}>
-                            {{cat.cat_name}} {% if cat.tag_text %}#{{cat.tag_text}}{% endif %}
+                        <option value="{{ cat.id }}" {% if article and article.category_id == cat.id %}selected{% endif %}>
+                            {{ cat.cat_name }} {% if cat.tag_text %}#{{ cat.tag_text }}{% endif %}
                         </option>
                         {% endfor %}
                     </select>
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-semibold">
-                        正文内容（Markdown 编辑器 — 使用 <code>```语言</code> 插入代码块）
+                        {{ _('正文内容（Markdown 编辑器 — 使用') }} <code>```{{ _('语言') }}</code> {{ _('插入代码块）') }}
                     </label>
                     <div style="position: relative;">
-                        <textarea id="rich_content" name="content" rows="12" class="form-control">{{article.content if article else ''}}</textarea>
+                        <textarea id="rich_content" name="content" rows="12" class="form-control">{{ article.content if article else '' }}</textarea>
                         <div class="upload-btn">
-                            <button type="button" id="upload_image_btn">📷 上传图片</button>
+                            <button type="button" id="upload_image_btn">📷 {{ _('上传图片') }}</button>
                             <input type="file" id="image_upload_input" accept="image/jpeg,image/png,image/gif" style="display:none;">
                         </div>
                     </div>
                 </div>
                 <div class="mb-4">
-                    <label class="form-label fw-semibold">保存方式</label>
+                    <label class="form-label fw-semibold">{{ _('保存方式') }}</label>
                     <div class="form-check">
                         <input class="form-check-input" type="radio" name="status" value="draft" id="draft"
                             {% if not article or article.status == 'draft' %}checked{% endif %}>
-                        <label class="form-check-label" for="draft">存入草稿（仅后台可见）</label>
+                        <label class="form-check-label" for="draft">{{ _('存入草稿（仅后台可见）') }}</label>
                     </div>
                     <div class="form-check">
                         <input class="form-check-input" type="radio" name="status" value="publish" id="pub"
                             {% if article and article.status == 'publish' %}checked{% endif %}>
-                        <label class="form-check-label" for="pub">公开发布（所有人可见）</label>
+                        <label class="form-check-label" for="pub">{{ _('公开发布（所有人可见）') }}</label>
                     </div>
                 </div>
                 <div class="d-flex gap-3">
-                    <button type="submit" class="btn btn-success flex-grow-1 py-2 fs-5">提交保存</button>
-                    <a href="/" class="btn btn-secondary flex-grow-1 py-2 text-center text-decoration-none">取消</a>
+                    <button type="submit" class="btn btn-success flex-grow-1 py-2 fs-5">{{ _('提交保存') }}</button>
+                    <a href="{{ url_for('blog.index') }}" class="btn btn-secondary flex-grow-1 py-2 text-center text-decoration-none">{{ _('取消') }}</a>
                 </div>
             </form>
         </div>
@@ -223,7 +225,7 @@ var easyMDE = new EasyMDE({
 (function() {
     var uploadBtn = document.getElementById('upload_image_btn');
     var fileInput = document.getElementById('image_upload_input');
-    var csrfToken = '{{ csrf_token }}';
+    var csrfToken = '{{ csrf_token() }}';
 
     uploadBtn.addEventListener('click', function() {
         fileInput.click();
@@ -254,7 +256,7 @@ var easyMDE = new EasyMDE({
         formData.append('image', file);
 
         var xhr = new XMLHttpRequest();
-        xhr.open('POST', '/admin/upload');
+        xhr.open('POST', '{{ url_for('admin.upload_image') }}');
         xhr.setRequestHeader('X-CSRF-Token', csrfToken);
 
         xhr.onload = function() {

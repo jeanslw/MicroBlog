@@ -1,0 +1,525 @@
+# Chinese (Simplified, China) translations for PROJECT.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"PO-Revision-Date: 2026-08-09 10:00+0800\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language: zh_Hans_CN\n"
+"Language-Team: zh_Hans_CN <LL@li.org>\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: app/admin/routes.py:46
+#, python-format
+msgid "登录失败次数过多,请 %(sec)s 秒后再试"
+msgstr "登录失败次数过多,请 %(sec)s 秒后再试"
+
+#: app/admin/routes.py:56
+msgid "登录成功"
+msgstr "登录成功"
+
+#: app/admin/routes.py:65
+msgid "登录失败次数过多,请 5 分钟后再试"
+msgstr "登录失败次数过多,请 5 分钟后再试"
+
+#: app/admin/routes.py:67
+#, python-format
+msgid "账号或密码错误（剩余尝试 %(n)s 次）"
+msgstr "账号或密码错误（剩余尝试 %(n)s 次）"
+
+#: app/admin/routes.py:77
+msgid "已退出登录"
+msgstr "已退出登录"
+
+#: app/admin/routes.py:87
+msgid "原密码错误"
+msgstr "原密码错误"
+
+#: app/admin/routes.py:94
+msgid "密码修改成功,请重新登录"
+msgstr "密码修改成功,请重新登录"
+
+#: app/admin/routes.py:112
+msgid "站点名称修改完成"
+msgstr "站点名称修改完成"
+
+#: app/admin/routes.py:132 app/banner/routes.py:52 app/banner/routes.py:114
+msgid "文件名缺少扩展名"
+msgstr "文件名缺少扩展名"
+
+#: app/admin/routes.py:150 app/banner/routes.py:69 app/banner/routes.py:129
+msgid "图片处理失败,请重试"
+msgstr "图片处理失败,请重试"
+
+#: app/banner/routes.py:46
+msgid "请选择轮播图片"
+msgstr "请选择轮播图片"
+
+#: app/banner/routes.py:85
+msgid "新增轮播成功"
+msgstr "新增轮播成功"
+
+#: app/banner/routes.py:101 app/banner/routes.py:152
+msgid "轮播图不存在"
+msgstr "轮播图不存在"
+
+#: app/banner/routes.py:142
+msgid "修改完成"
+msgstr "修改完成"
+
+#: app/banner/routes.py:166
+msgid "已删除"
+msgstr "已删除"
+
+#: app/blog/routes.py:56 app/blog/routes.py:96 app/blog/routes.py:127
+msgid "文章不存在"
+msgstr "文章不存在"
+
+#: app/blog/routes.py:66 app/blog/routes.py:99
+msgid "不选择栏目"
+msgstr "不选择栏目"
+
+#: app/blog/routes.py:86
+msgid "文章保存成功"
+msgstr "文章保存成功"
+
+#: app/blog/routes.py:115
+msgid "修改成功"
+msgstr "修改成功"
+
+#: app/blog/routes.py:137
+msgid "文章已删除"
+msgstr "文章已删除"
+
+#: app/blog/routes.py:141
+msgid "删除失败,请稍后重试"
+msgstr "删除失败,请稍后重试"
+
+#: app/blog/routes.py:171
+msgid "栏目新增成功"
+msgstr "栏目新增成功"
+
+#: app/blog/routes.py:174
+msgid "栏目名称重复"
+msgstr "栏目名称重复"
+
+#: app/comment/routes.py:37 app/comment/routes.py:61
+msgid "文章不存在或未发布"
+msgstr "文章不存在或未发布"
+
+#: app/comment/routes.py:45
+msgid "您已经点过赞了"
+msgstr "您已经点过赞了"
+
+#: app/comment/routes.py:53
+msgid "点赞成功"
+msgstr "点赞成功"
+
+#: app/comment/routes.py:80
+msgid "评论发布成功"
+msgstr "评论发布成功"
+
+#: app/comment/routes.py:89
+msgid "评论不存在"
+msgstr "评论不存在"
+
+#: app/comment/routes.py:108
+msgid "回复成功"
+msgstr "回复成功"
+
+#: templates/base.html:36 templates/base.html:74 templates/blog/index.html:2
+msgid "首页"
+msgstr "首页"
+
+#: templates/base.html:40
+msgid "全部栏目"
+msgstr "全部栏目"
+
+#: templates/base.html:56 templates/blog/drafts.html:2
+#: templates/blog/drafts.html:5 templates/blog/drafts.html:10
+msgid "草稿箱"
+msgstr "草稿箱"
+
+#: templates/base.html:57 templates/blog/drafts.html:11
+#: templates/blog/edit.html:2 templates/blog/edit.html:5
+#: templates/blog/edit.html:72
+msgid "新建文章"
+msgstr "新建文章"
+
+#: templates/admin/site_setting.html:2 templates/admin/site_setting.html:5
+#: templates/base.html:58
+msgid "站点设置"
+msgstr "站点设置"
+
+#: templates/banner/banner_manage.html:5 templates/base.html:59
+msgid "轮播图管理"
+msgstr "轮播图管理"
+
+#: templates/base.html:60
+msgid "改密码"
+msgstr "改密码"
+
+#: templates/base.html:63
+msgid "退出登录"
+msgstr "退出登录"
+
+#: templates/base.html:83
+msgid "All Rights Reserved"
+msgstr "版权所有"
+
+#: templates/admin/change_pwd.html:2
+msgid "修改后台密码"
+msgstr "修改后台密码"
+
+#: templates/admin/change_pwd.html:5
+msgid "修改密码"
+msgstr "修改密码"
+
+#: templates/admin/change_pwd.html:12
+msgid "修改登录密码"
+msgstr "修改登录密码"
+
+#: templates/admin/change_pwd.html:20
+msgid "原密码"
+msgstr "原密码"
+
+#: templates/admin/change_pwd.html:24
+msgid "新密码"
+msgstr "新密码"
+
+#: templates/admin/change_pwd.html:28
+msgid "确认新密码"
+msgstr "确认新密码"
+
+#: templates/admin/change_pwd.html:31
+msgid "确认修改"
+msgstr "确认修改"
+
+#: templates/admin/login.html:2
+msgid "后台登录"
+msgstr "后台登录"
+
+#: templates/admin/login.html:5 templates/admin/login.html:42
+msgid "登录"
+msgstr "登录"
+
+#: templates/admin/login.html:26
+msgid "管理员登录"
+msgstr "管理员登录"
+
+#: templates/admin/login.html:35
+msgid "账号"
+msgstr "账号"
+
+#: templates/admin/login.html:39
+msgid "密码"
+msgstr "密码"
+
+#: templates/admin/login.html:46
+msgid "返回博客首页"
+msgstr "返回博客首页"
+
+#: templates/admin/site_setting.html:12
+msgid "站点全局设置"
+msgstr "站点全局设置"
+
+#: templates/admin/site_setting.html:18
+msgid "博客网站名称"
+msgstr "博客网站名称"
+
+#: templates/admin/site_setting.html:21
+msgid "保存设置"
+msgstr "保存设置"
+
+#: templates/banner/banner_manage.html:2
+msgid "轮播广告管理"
+msgstr "轮播广告管理"
+
+#: templates/banner/banner_manage.html:9
+msgid "Banner轮播管理"
+msgstr "Banner轮播管理"
+
+#: templates/banner/banner_manage.html:12
+msgid "新增轮播图"
+msgstr "新增轮播图"
+
+#: templates/banner/banner_manage.html:17
+msgid "预览"
+msgstr "预览"
+
+#: templates/banner/banner_manage.html:18
+#: templates/banner/banner_manage.html:63
+#: templates/banner/banner_manage.html:102
+msgid "标题"
+msgstr "标题"
+
+#: templates/banner/banner_manage.html:19
+#: templates/banner/banner_manage.html:98
+msgid "跳转链接"
+msgstr "跳转链接"
+
+#: templates/banner/banner_manage.html:20
+msgid "排序权重"
+msgstr "排序权重"
+
+#: templates/banner/banner_manage.html:21
+msgid "操作"
+msgstr "操作"
+
+#: templates/banner/banner_manage.html:32 templates/blog/detail.html:82
+#: templates/blog/index.html:152
+msgid "编辑"
+msgstr "编辑"
+
+#: templates/banner/banner_manage.html:36 templates/blog/detail.html:88
+#: templates/blog/drafts.html:37 templates/blog/index.html:156
+msgid "删除"
+msgstr "删除"
+
+#: templates/banner/banner_manage.html:41
+msgid "暂无轮播广告"
+msgstr "暂无轮播广告"
+
+#: templates/banner/banner_manage.html:50
+msgid "新增Banner"
+msgstr "新增Banner"
+
+#: templates/banner/banner_manage.html:55
+msgid "轮播图片"
+msgstr "轮播图片"
+
+#: templates/banner/banner_manage.html:59
+msgid "跳转链接（留空不跳转）"
+msgstr "跳转链接（留空不跳转）"
+
+#: templates/banner/banner_manage.html:67
+#: templates/banner/banner_manage.html:106
+msgid "描述文字"
+msgstr "描述文字"
+
+#: templates/banner/banner_manage.html:71
+msgid "排序数字（越大越靠前）"
+msgstr "排序数字（越大越靠前）"
+
+#: templates/banner/banner_manage.html:76
+#: templates/banner/banner_manage.html:115 templates/blog/edit.html:120
+msgid "取消"
+msgstr "取消"
+
+#: templates/banner/banner_manage.html:77
+msgid "保存"
+msgstr "保存"
+
+#: templates/banner/banner_manage.html:88
+msgid "编辑Banner"
+msgstr "编辑Banner"
+
+#: templates/banner/banner_manage.html:93
+msgid "更换图片（不换留空）"
+msgstr "更换图片（不换留空）"
+
+#: templates/banner/banner_manage.html:95
+msgid "当前"
+msgstr "当前"
+
+#: templates/banner/banner_manage.html:110
+msgid "排序数字"
+msgstr "排序数字"
+
+#: templates/banner/banner_manage.html:116
+msgid "保存修改"
+msgstr "保存修改"
+
+#: templates/blog/detail.html:48 templates/blog/index.html:95
+msgid "栏目分类"
+msgstr "栏目分类"
+
+#: templates/blog/detail.html:51 templates/blog/index.html:98
+msgid "全部文章"
+msgstr "全部文章"
+
+#: templates/blog/detail.html:61
+msgid "管理员尚未创建栏目分类"
+msgstr "管理员尚未创建栏目分类"
+
+#: templates/blog/detail.html:66
+msgid "新建栏目/标签"
+msgstr "新建栏目/标签"
+
+#: templates/blog/detail.html:69 templates/blog/index.html:113
+msgid "栏目名称"
+msgstr "栏目名称"
+
+#: templates/blog/detail.html:70 templates/blog/index.html:114
+msgid "标签（选填）"
+msgstr "标签（选填）"
+
+#: templates/blog/detail.html:71 templates/blog/index.html:115
+msgid "添加分类"
+msgstr "添加分类"
+
+#: templates/blog/detail.html:95
+msgid "点赞"
+msgstr "点赞"
+
+#: templates/blog/detail.html:98
+msgid "返回首页"
+msgstr "返回首页"
+
+#: templates/blog/detail.html:103
+#, python-format
+msgid "发布：%(time)s"
+msgstr "发布：%(time)s"
+
+#: templates/blog/detail.html:113
+msgid "发表评论"
+msgstr "发表评论"
+
+#: templates/blog/detail.html:118
+msgid "昵称（默认游客）"
+msgstr "昵称（默认游客）"
+
+#: templates/blog/detail.html:121
+msgid "写下你的看法..."
+msgstr "写下你的看法..."
+
+#: templates/blog/detail.html:124
+msgid "提交"
+msgstr "提交"
+
+#: templates/blog/detail.html:131
+#, python-format
+msgid "全部评论（%(num)s）"
+msgstr "全部评论（%(num)s）"
+
+#: templates/blog/detail.html:141
+msgid "昵称"
+msgstr "昵称"
+
+#: templates/blog/detail.html:144
+msgid "回复这条评论"
+msgstr "回复这条评论"
+
+#: templates/blog/detail.html:147
+msgid "回复"
+msgstr "回复"
+
+#: templates/blog/detail.html:163
+msgid "暂无评论，快来抢沙发！"
+msgstr "暂无评论，快来抢沙发！"
+
+#: templates/blog/drafts.html:30
+msgid "草稿"
+msgstr "草稿"
+
+#: templates/blog/drafts.html:33
+msgid "编辑修改"
+msgstr "编辑修改"
+
+#: templates/blog/drafts.html:46
+msgid "暂无草稿"
+msgstr "暂无草稿"
+
+#: templates/blog/edit.html:2 templates/blog/edit.html:5
+#: templates/blog/edit.html:72
+msgid "编辑文章"
+msgstr "编辑文章"
+
+#: templates/blog/edit.html:79
+msgid "文章标题"
+msgstr "文章标题"
+
+#: templates/blog/edit.html:83
+msgid "所属栏目"
+msgstr "所属栏目"
+
+#: templates/blog/edit.html:85
+msgid "无分类"
+msgstr "无分类"
+
+#: templates/blog/edit.html:95
+msgid "正文内容（Markdown 编辑器 — 使用"
+msgstr "正文内容（Markdown 编辑器 — 使用"
+
+#: templates/blog/edit.html:95
+msgid "语言"
+msgstr "语言"
+
+#: templates/blog/edit.html:95
+msgid "插入代码块）"
+msgstr "插入代码块）"
+
+#: templates/blog/edit.html:100
+msgid "上传图片"
+msgstr "上传图片"
+
+#: templates/blog/edit.html:106
+msgid "保存方式"
+msgstr "保存方式"
+
+#: templates/blog/edit.html:110
+msgid "存入草稿（仅后台可见）"
+msgstr "存入草稿（仅后台可见）"
+
+#: templates/blog/edit.html:115
+msgid "公开发布（所有人可见）"
+msgstr "公开发布（所有人可见）"
+
+#: templates/blog/edit.html:119
+msgid "提交保存"
+msgstr "提交保存"
+
+#: templates/blog/index.html:5
+msgid "文章列表"
+msgstr "文章列表"
+
+#: templates/blog/index.html:110
+msgid "新建栏目"
+msgstr "新建栏目"
+
+#: templates/blog/index.html:123
+msgid "最新文章"
+msgstr "最新文章"
+
+#: templates/blog/index.html:142
+msgid "阅读全文"
+msgstr "阅读全文"
+
+#: templates/blog/index.html:144
+#, python-format
+msgid "点赞：%(num)s"
+msgstr "点赞：%(num)s"
+
+#: templates/blog/index.html:149
+#, python-format
+msgid "评论：%(num)s"
+msgstr "评论：%(num)s"
+
+#: templates/blog/index.html:163
+#, python-format
+msgid "共 %(num)s 条评论"
+msgstr "共 %(num)s 条评论"
+
+#: templates/blog/index.html:164
+msgid "查看全部评论"
+msgstr "查看全部评论"
+
+#: templates/blog/index.html:172
+msgid "暂无公开文章，请管理员登录后发布内容"
+msgstr "暂无公开文章，请管理员登录后发布内容"
+
+#: templates/blog/index.html:183
+msgid "上一页"
+msgstr "上一页"
+
+#: templates/blog/index.html:191
+msgid "下一页"
+msgstr "下一页"

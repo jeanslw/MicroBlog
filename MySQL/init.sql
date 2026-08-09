@@ -86,7 +86,7 @@ DROP TABLE IF EXISTS `comment`;
 CREATE TABLE `comment` (
   `id` int NOT NULL AUTO_INCREMENT,
   `article_id` int DEFAULT NULL,
-  `username` varchar(100) DEFAULT '游客',
+  `username` varchar(50) DEFAULT '游客',
   `content` text NOT NULL,
   `create_time` varchar(50) DEFAULT NULL,
   PRIMARY KEY (`id`),
@@ -101,7 +101,7 @@ DROP TABLE IF EXISTS `reply`;
 CREATE TABLE `reply` (
   `id` int NOT NULL AUTO_INCREMENT,
   `comment_id` int DEFAULT NULL,
-  `username` varchar(100) DEFAULT '游客',
+  `username` varchar(50) DEFAULT '游客',
   `content` text NOT NULL,
   `create_time` varchar(50) DEFAULT NULL,
   PRIMARY KEY (`id`),
@@ -149,6 +149,21 @@ CREATE TABLE `vote_log` (
   `create_time` varchar(50) DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_article_ip` (`article_id`, `ip`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- --------------------------------------------------------
+-- 表：login_attempt（登录失败计数，防爆破）
+-- --------------------------------------------------------
+DROP TABLE IF EXISTS `login_attempt`;
+CREATE TABLE `login_attempt` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `ip` varchar(100) NOT NULL,
+  `username` varchar(100) NOT NULL,
+  `fail_count` int NOT NULL DEFAULT '0',
+  `lock_until` int NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_ip_username` (`ip`, `username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 

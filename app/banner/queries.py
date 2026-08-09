@@ -1,17 +1,15 @@
-import traceback
-from app.db import get_db, DictCursor
+"""Banner 查询层 —— 基于 SQLAlchemy"""
+from app.extensions import db
+from app.models import Banner
 
 
 def get_all_banner():
     """获取所有轮播图（按排序字段降序）"""
     try:
-        db = get_db()
-        cur = db.cursor(DictCursor)
-        cur.execute("SELECT * FROM banner ORDER BY sort DESC")
-        res = cur.fetchall()
-        cur.close()
-        return res
+        return db.session.scalars(
+            db.select(Banner).order_by(Banner.sort.desc())
+        ).all()
     except Exception:
-        print("=====获取轮播图失败=====")
-        traceback.print_exc()
+        from app.extensions import log
+        log.error("获取轮播图失败", exc_info=True)
         return []

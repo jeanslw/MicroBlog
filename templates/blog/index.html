@@ -1,9 +1,13 @@
 {% extends "base.html" %}
-{% block title %}首页 - {{site_name}}{% endblock %}
+{% block title %}{{ _('首页') }} - {{ site_name }}{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active" aria-current="page">{{ _('文章列表') }}</li>
+{% endblock %}
 
 {% block extra_css %}
 <style>
-    /* 首页文章预览区样式 */
+    /* 首页文章预览区样式（纯文本摘要） */
     .article-preview {
         display: -webkit-box;
         -webkit-line-clamp: 4;  /* 显示4行 */
@@ -14,25 +18,6 @@
         color: #555;
         margin-bottom: 10px;
     }
-    .article-preview img,
-    .article-preview pre,
-    .article-preview h1,
-    .article-preview h2,
-    .article-preview h3,
-    .article-preview h4,
-    .article-preview h5,
-    .article-preview h6 {
-        display: none;  /* 隐藏图片、代码块、标题等大块元素 */
-    }
-    .article-preview p {
-        margin-bottom: 8px;
-    }
-    .article-preview strong,
-    .article-preview em,
-    .article-preview b,
-    .article-preview i {
-        font-weight: 600;
-    }
 </style>
 {% endblock %}
 
@@ -40,17 +25,17 @@
 {% set msg = get_flashed_messages() %}
 {% if msg %}
 <div class="alert alert-success alert-dismissible fade show">
-    {{msg[0]}}
+    {{ msg[0] }}
     <button class="btn-close" data-bs-dismiss="alert"></button>
 </div>
 {% endif %}
 
-<!-- Banner轮播模块 修复跳转404问题 -->
+<!-- Banner轮播模块 -->
 {% if banner_list | length > 0 %}
 <div id="bannerCarousel" class="carousel slide mb-3" data-bs-ride="carousel">
     <div class="carousel-indicators">
         {% for ban in banner_list %}
-        <button type="button" data-bs-target="#bannerCarousel" data-bs-slide-to="{{loop.index0}}"
+        <button type="button" data-bs-target="#bannerCarousel" data-bs-slide-to="{{ loop.index0 }}"
                 {% if loop.first %}class="active" aria-current="true"{% endif %}></button>
         {% endfor %}
     </div>
@@ -58,19 +43,19 @@
         {% for ban in banner_list %}
         <div class="carousel-item {% if loop.first %}active{% endif %}">
             {% if ban.link_url.strip() %}
-            <a href="{{ban.link_url}}" target="_blank" style="display:block;">
+            <a href="{{ ban.link_url }}" target="_blank" style="display:block;">
             {% else %}
             <span style="display:block;">
             {% endif %}
-                <img src="/{{ban.img_path.lstrip('/')}}" style="width:100%;height:320px;object-fit:cover;border-radius:16px;">
+                <img src="{{ ban.img_path }}" style="width:100%;height:320px;object-fit:cover;border-radius:16px;">
             {% if ban.link_url.strip() %}
             </a>
             {% else %}
             </span>
             {% endif %}
             <div class="carousel-caption d-none d-md-block">
-                <h5>{{ban.title}}</h5>
-                <p>{{ban.desc_text}}</p>
+                <h5>{{ ban.title }}</h5>
+                <p>{{ ban.desc_text }}</p>
             </div>
         </div>
         {% endfor %}
@@ -88,27 +73,27 @@
     <!-- 侧边栏目栏 -->
     <div class="col-lg-3">
         <div class="sidebar-box">
-            <h5 class="fw-bold border-bottom pb-2"><i class="bi bi-list-ul"></i> 栏目分类</h5>
+            <h5 class="fw-bold border-bottom pb-2"><i class="bi bi-list-ul"></i> {{ _('栏目分类') }}</h5>
             <ul class="nav flex-column mt-3">
                 <li class="nav-item mb-2">
-                    <a class="nav-link px-0" href="/">全部文章 ({{all_article_count}})</a>
+                    <a class="nav-link px-0" href="{{ url_for('blog.index') }}">{{ _('全部文章') }} ({{ all_article_count }})</a>
                 </li>
                 {% for cat in categories %}
                 <li class="nav-item mb-2">
-                    <a class="nav-link px-0" href="/category/{{cat.id}}">
-                        {{cat.cat_name}} <span class="text-muted">({{cat.art_count}})</span>
+                    <a class="nav-link px-0" href="{{ url_for('blog.category', cid=cat.id) }}">
+                        {{ cat.cat_name }} <span class="text-muted">({{ cat.art_count }})</span>
                     </a>
                 </li>
                 {% endfor %}
             </ul>
-            {% if session.admin_id %}
+            {% if current_user.is_authenticated %}
             <hr>
-            <h6 class="fw-semibold">新建栏目</h6>
-            <form action="/admin/category_add" method="POST">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <input name="cat_name" class="form-control form-control-sm mb-2" placeholder="栏目名称" required>
-                <input name="tag_text" class="form-control form-control-sm mb-2" placeholder="标签（选填）">
-                <button class="btn btn-sm btn-primary w-100">添加分类</button>
+            <h6 class="fw-semibold">{{ _('新建栏目') }}</h6>
+            <form action="{{ url_for('blog.add_category') }}" method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input name="cat_name" class="form-control form-control-sm mb-2" placeholder="{{ _('栏目名称') }}" required>
+                <input name="tag_text" class="form-control form-control-sm mb-2" placeholder="{{ _('标签（选填）') }}">
+                <button class="btn btn-sm btn-primary w-100">{{ _('添加分类') }}</button>
             </form>
             {% endif %}
         </div>
@@ -116,7 +101,7 @@
 
     <!-- 文章主列表 -->
     <div class="col-lg-9">
-        <h3 class="text-secondary mb-4"><i class="bi bi-fire"></i> 最新文章</h3>
+        <h3 class="text-secondary mb-4"><i class="bi bi-fire"></i> {{ _('最新文章') }}</h3>
         <div class="row">
             {% for art in articles %}
             <div class="col-12">
@@ -124,40 +109,40 @@
                     <div class="card-body p-0">
                         <!-- 标题可点击跳转详情 -->
                         <h5 class="fw-bold">
-                            <a href="/article/{{art.id}}" class="text-dark text-decoration-none">
-                                {{art.title}}
+                            <a href="{{ url_for('blog.article_detail', aid=art.id) }}" class="text-dark text-decoration-none">
+                                {{ art.title }}
                             </a>
                         </h5>
                         <p class="text-muted small">
-                            <i class="bi bi-calendar3"></i> {{art.create_time}}
+                            <i class="bi bi-calendar3"></i> {{ art.create_time }}
                         </p>
-                        <!-- 文章摘要：格式化显示，超出用... -->
-                        <div class="article-preview">{{ art.content|safe }}</div>
+                        <!-- 文章摘要：纯文本，超出用... -->
+                        <div class="article-preview">{{ art.brief }}</div>
                     </div>
                     <div class="mt-3 d-flex flex-wrap gap-2 align-items-center">
-                        <a href="/article/{{art.id}}" class="btn btn-primary btn-sm">阅读全文</a>
+                        <a href="{{ url_for('blog.article_detail', aid=art.id) }}" class="btn btn-primary btn-sm">{{ _('阅读全文') }}</a>
                         <span class="badge bg-primary">
-                            <i class="bi bi-hand-thumbs-up"></i> 点赞：{{art.vote_num if art.vote_num else 0}}
+                            <i class="bi bi-hand-thumbs-up"></i> {{ _('点赞：%(num)s', num=art.vote_num if art.vote_num else 0) }}
                         </span>
                         <!-- 评论折叠按钮 -->
                         <button class="badge bg-info border-0" type="button"
-                                data-bs-toggle="collapse" data-bs-target="#comment_box_{{art.id}}">
-                            <i class="bi bi-chat-dots"></i> 评论：{{art.comment_num if art.comment_num else 0}}
+                                data-bs-toggle="collapse" data-bs-target="#comment_box_{{ art.id }}">
+                            <i class="bi bi-chat-dots"></i> {{ _('评论：%(num)s', num=art.comment_num if art.comment_num else 0) }}
                         </button>
-                        {% if session.admin_id %}
-                        <a href="/article/edit/{{art.id}}" class="btn btn-warning btn-sm">编辑</a>
-                        <form method="POST" action="/article/del/{{art.id}}" class="d-inline"
+                        {% if current_user.is_authenticated %}
+                        <a href="{{ url_for('blog.article_edit', aid=art.id) }}" class="btn btn-warning btn-sm">{{ _('编辑') }}</a>
+                        <form method="POST" action="{{ url_for('blog.article_del', aid=art.id) }}" class="d-inline"
                               onsubmit="return confirm('确定删除该文章？')">
-                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                            <button type="submit" class="btn btn-danger btn-sm">删除</button>
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-danger btn-sm">{{ _('删除') }}</button>
                         </form>
                         {% endif %}
                     </div>
                     <!-- 评论折叠区域 -->
-                    <div class="collapse mt-3 border-top pt-3" id="comment_box_{{art.id}}">
+                    <div class="collapse mt-3 border-top pt-3" id="comment_box_{{ art.id }}">
                         <p class="text-muted">
-                            共 {{art.comment_num if art.comment_num else 0}} 条评论 —
-                            <a href="/article/{{art.id}}#comment_box">查看全部评论</a>
+                            {{ _('共 %(num)s 条评论', num=art.comment_num if art.comment_num else 0) }} —
+                            <a href="{{ url_for('blog.article_detail', aid=art.id) }}#comment_box">{{ _('查看全部评论') }}</a>
                         </p>
                     </div>
                 </div>
@@ -165,7 +150,7 @@
             {% else %}
             <div class="col-12">
                 <div class="alert alert-light text-center py-5 fs-5">
-                    暂无公开文章，请管理员登录后发布内容
+                    {{ _('暂无公开文章，请管理员登录后发布内容') }}
                 </div>
             </div>
             {% endfor %}
@@ -176,15 +161,15 @@
         <nav class="mt-5">
             <ul class="pagination justify-content-center">
                 <li class="page-item {% if page == 1 %}disabled{% endif %}">
-                    <a class="page-link" href="?page={{page - 1}}">上一页</a>
+                    <a class="page-link" href="?page={{ page - 1 }}">{{ _('上一页') }}</a>
                 </li>
                 {% for p in range(1, total_page + 1) %}
                 <li class="page-item {% if p == page %}active{% endif %}">
-                    <a class="page-link" href="?page={{p}}">{{p}}</a>
+                    <a class="page-link" href="?page={{ p }}">{{ p }}</a>
                 </li>
                 {% endfor %}
                 <li class="page-item {% if page == total_page %}disabled{% endif %}">
-                    <a class="page-link" href="?page={{page + 1}}">下一页</a>
+                    <a class="page-link" href="?page={{ page + 1 }}">{{ _('下一页') }}</a>
                 </li>
             </ul>
         </nav>
