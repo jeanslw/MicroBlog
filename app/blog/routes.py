@@ -6,15 +6,14 @@
 - 删除文章用事务,异常时显式 rollback
 - 文章保存时净化 HTML 防止存储型 XSS
 """
-import logging
 from datetime import datetime
 
-from flask import render_template, request, redirect, url_for, flash, current_app
+from flask import current_app, flash, redirect, render_template, request, url_for
 from flask_babel import _
 
 from app.blog import blog_bp
-from app.blog.queries import get_article_list, get_article_detail
-from app.extensions import db, admin_required, log
+from app.blog.queries import get_article_detail, get_article_list
+from app.extensions import admin_required, db, log
 from app.forms import ArticleForm, CategoryForm
 from app.models import Article, Category
 from app.utils import sanitize_html

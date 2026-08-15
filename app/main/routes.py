@@ -2,9 +2,9 @@
 
 不处理根路由 `/`,根路由由 blog.index 提供。
 """
-from urllib.parse import urlparse, urljoin
+from urllib.parse import urljoin, urlparse
 
-from flask import redirect, url_for, session, request, Response
+from flask import Response, redirect, request, session, url_for
 
 from app.main import main_bp
 

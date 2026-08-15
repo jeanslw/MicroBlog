@@ -74,7 +74,7 @@ class Config:
     BABEL_TRANSLATION_DIRECTORIES = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "translations"
     )
-    BABEL_LOCALES = ["zh_CN", "en"]
+    BABEL_LOCALES = ("zh_CN", "en")
 
     # ── 初始管理员 ──────────────────────────────────────
     INIT_ADMIN_USERNAME = os.environ.get("BLOG_INIT_ADMIN_USER", "admin")
@@ -104,7 +104,7 @@ class ProductionConfig(Config):
 
     # 根据 BLOG_DB_TYPE 选择数据库 URI
     @property
-    def SQLALCHEMY_DATABASE_URI(self):  # noqa: N802 - Flask-SQLAlchemy 读类属性
+    def SQLALCHEMY_DATABASE_URI(self):  # Flask-SQLAlchemy 读取大写类属性
         return self._build_db_uri()
 
     @staticmethod

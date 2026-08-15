@@ -4,13 +4,21 @@
 字段名尽量保持与原有 HTML form 字段一致,减少模板改动。
 """
 from flask_wtf import FlaskForm
-from flask_wtf.file import FileField, FileAllowed, FileSize
+from flask_wtf.file import FileAllowed, FileField, FileSize
 from wtforms import (
-    StringField, PasswordField, TextAreaField, IntegerField,
-    SelectField, HiddenField, SubmitField,
+    IntegerField,
+    PasswordField,
+    SelectField,
+    StringField,
+    SubmitField,
+    TextAreaField,
 )
 from wtforms.validators import (
-    DataRequired, Length, Optional, NumberRange, ValidationError,
+    DataRequired,
+    Length,
+    NumberRange,
+    Optional,
+    ValidationError,
 )
 
 

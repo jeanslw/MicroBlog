@@ -8,24 +8,27 @@
 - 图片上传走 Pillow 安全流程（解压炸弹防护 + 缩放）
 """
 import os
-import uuid
-from datetime import datetime
 
-from flask import (render_template, request, redirect, url_for, flash,
-                   session, jsonify, current_app)
+from flask import current_app, flash, jsonify, redirect, render_template, request, session, url_for
 from flask_babel import _
-from flask_login import login_user, logout_user, login_required, current_user
+from flask_login import current_user, login_required, login_user, logout_user
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.admin import admin_bp
 from app.extensions import (
-    db, log, get_client_ip,
-    check_login_lock, record_login_fail, clear_login_fail,
+    check_login_lock,
+    clear_login_fail,
+    db,
+    get_client_ip,
+    log,
+    record_login_fail,
 )
-from app.forms import LoginForm, ChangePwdForm, SiteSettingForm, UploadImageForm
+from app.forms import ChangePwdForm, LoginForm, SiteSettingForm, UploadImageForm
 from app.models import Admin, SiteConfig
 from app.utils import (
-    process_and_save_image, build_safe_filename, upload_dir,
+    build_safe_filename,
+    process_and_save_image,
+    upload_dir,
 )
 
 
@@ -121,7 +124,7 @@ def upload_image():
     form = UploadImageForm()
     if not form.validate_on_submit():
         # 收集第一条错误
-        for field_name, errs in form.errors.items():
+        for _, errs in form.errors.items():
             for err in errs:
                 return jsonify({"error": err}), 400
 

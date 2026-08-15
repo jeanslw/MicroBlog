@@ -16,16 +16,20 @@ import os
 import traceback
 from datetime import date, timedelta
 
-from flask import Flask, render_template, request, session, jsonify
+from flask import Flask, jsonify, render_template, request, session
 from flask_babel import Babel
 from werkzeug.exceptions import HTTPException
 from werkzeug.middleware.proxy_fix import ProxyFix
 
-from config import get_config
 from app.extensions import (
-    db, login_manager, csrf, log, fetch_global_context,
+    csrf,
+    db,
+    fetch_global_context,
+    log,
+    login_manager,
 )
 from app.utils import configure_pillow
+from config import get_config
 
 
 def _setup_logging(app: Flask):
@@ -54,7 +58,7 @@ def _select_locale():
 babel = Babel()
 
 
-def create_app(config_name: str = None):
+def create_app(config_name: str | None = None):
     """应用工厂
 
     Args:
@@ -97,10 +101,9 @@ def create_app(config_name: str = None):
 
     # ── 扩展初始化 ──────────────────────────────────────
     db.init_app(app)
-    migrate = None
     try:
         from flask_migrate import Migrate
-        migrate = Migrate(app, db, directory=os.path.join(root_dir, "migrations"))
+        Migrate(app, db, directory=os.path.join(root_dir, "migrations"))
     except ImportError:
         log.warning("Flask-Migrate 未安装,跳过迁移支持")
 
@@ -115,7 +118,7 @@ def create_app(config_name: str = None):
 
     # ── 启动时初始化数据库与初始数据 ────────────────────
     with app.app_context():
-        from app.database import init_db, ensure_admin_exists, ensure_site_config
+        from app.database import ensure_admin_exists, ensure_site_config, init_db
         try:
             init_db()
             ensure_site_config()
@@ -172,10 +175,10 @@ def create_app(config_name: str = None):
                                message="服务器内部错误,请联系管理员"), 500
 
     # ── 注册蓝图 ────────────────────────────────────────
-    from app.blog import blog_bp
-    from app.comment import comment_bp
     from app.admin import admin_bp
     from app.banner import banner_bp
+    from app.blog import blog_bp
+    from app.comment import comment_bp
     from app.main import main_bp
 
     app.register_blueprint(main_bp)
@@ -199,7 +202,7 @@ def register_cli(app: Flask):
     @with_appcontext
     def init_db_cmd():
         """创建所有数据库表（幂等）"""
-        from app.database import init_db, ensure_site_config, ensure_admin_exists
+        from app.database import ensure_admin_exists, ensure_site_config, init_db
         init_db()
         ensure_site_config()
         ensure_admin_exists()
@@ -213,6 +216,7 @@ def register_cli(app: Flask):
     def create_admin_cmd(username, password):
         """创建管理员账号"""
         from werkzeug.security import generate_password_hash
+
         from app.models import Admin
         if db.session.scalar(db.select(Admin).filter_by(username=username)):
             click.echo(f"Admin '{username}' already exists.")

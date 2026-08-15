@@ -5,10 +5,10 @@
 """
 import math
 
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 
 from app.extensions import db
-from app.models import Article, Comment, Reply, Category
+from app.models import Article, Category, Comment, Reply
 from app.utils import sanitize_html, strip_html
 
 
@@ -26,7 +26,7 @@ def get_categories_with_count():
     return rows
 
 
-def get_article_list(offset: int, limit: int, cid: int = None):
+def get_article_list(offset: int, limit: int, cid: int | None = None):
     """获取已发布文章列表（分页 + 可选栏目筛选）。
 
     返回 (article_list, total_page)

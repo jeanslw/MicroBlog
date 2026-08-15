@@ -9,7 +9,7 @@
 import os
 from datetime import datetime
 
-from flask import render_template, request, redirect, url_for, flash, current_app
+from flask import current_app, flash, redirect, render_template, url_for
 from flask_babel import _
 from flask_login import login_required
 
@@ -18,7 +18,10 @@ from app.extensions import db, log, safe_url
 from app.forms import BannerForm
 from app.models import Banner
 from app.utils import (
-    process_and_save_image, build_safe_filename, upload_dir, project_root,
+    build_safe_filename,
+    process_and_save_image,
+    project_root,
+    upload_dir,
 )
 
 

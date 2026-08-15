@@ -5,10 +5,8 @@
 2. 表名、字段类型严格对齐
 3. 不引入外键约束（原 schema 也无 FK 约束）,但关系映射用 ForeignKey 仅供 ORM 查询使用
 """
-from datetime import datetime
-
 from flask_login import UserMixin
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
+from sqlalchemy import Column, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.mysql import MEDIUMTEXT
 from sqlalchemy.orm import relationship
 

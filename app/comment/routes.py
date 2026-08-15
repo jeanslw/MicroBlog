@@ -6,14 +6,13 @@
 - 点赞需校验文章存在且已发布
 - 防刷：IP + 文章 ID 去重（接受 NAT 局限,生产可换 Redis）
 """
-import logging
 from datetime import datetime
 
-from flask import redirect, url_for, flash, request
+from flask import flash, redirect, url_for
 from flask_babel import _
 
 from app.comment import comment_bp
-from app.extensions import db, log, get_client_ip
+from app.extensions import db, get_client_ip
 from app.forms import CommentForm, ReplyForm
 from app.models import Article, Comment, Reply, VoteLog
 

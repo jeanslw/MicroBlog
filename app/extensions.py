@@ -5,15 +5,13 @@
 """
 import logging
 import time
-from datetime import timedelta
 from functools import wraps
 from urllib.parse import urlparse
 
-from flask import current_app, request, session, flash, redirect, url_for
+from flask import flash, redirect, request, url_for
 from flask_login import LoginManager, current_user
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf import CSRFProtect
-from werkzeug.middleware.proxy_fix import ProxyFix
 
 # 扩展实例（不绑定 app）
 db = SQLAlchemy()
@@ -139,7 +137,7 @@ def fetch_global_context():
     使用 current_app.app_context() 内的 db.session,
     DB 异常时返回默认值避免页面整页崩溃。
     """
-    from app.models import Category, Article, Banner, SiteConfig
+    from app.models import Article, Banner, Category, SiteConfig
     try:
         cats = db.session.execute(
             db.select(

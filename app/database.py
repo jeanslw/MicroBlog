@@ -38,6 +38,7 @@ def ensure_admin_exists():
     - 补建场景（之前未设密码,现在补设）
     """
     from werkzeug.security import generate_password_hash
+
     from app.models import Admin
 
     admin_user = (
@@ -61,7 +62,8 @@ def ensure_admin_exists():
     if not admin_pwd:
         warnings.warn(
             "admin 表为空,但未设置 BLOG_INIT_ADMIN_PWD 环境变量,"
-            "初始管理员未创建。请设置后重启。"
+            "初始管理员未创建。请设置后重启。",
+            stacklevel=2,
         )
         return
 
