@@ -119,6 +119,16 @@ footer {
     border: 1px solid rgba(255, 255, 255, 0.25);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
 }
+/* 管理页页头胶囊：浅色高对比玻璃，与正文深色玻璃卡片分层。
+   解决 .card(45%白) 在深背景下看不出卡片轮廓的问题。 */
+.page-header-card {
+    background: rgba(255, 255, 255, 0.78) !important;
+    backdrop-filter: blur(16px) saturate(1.4);
+    -webkit-backdrop-filter: blur(16px) saturate(1.4);
+    border: 1px solid rgba(255, 255, 255, 0.55) !important;
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.18),
+                inset 0 1px 0 rgba(255, 255, 255, 0.55) !important;
+}
 .blog-card { border-color: rgba(255, 255, 255, 0.25) !important; }
 .table {
     background: rgba(255, 255, 255, 0.45);
