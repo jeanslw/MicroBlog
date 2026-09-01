@@ -106,13 +106,13 @@ footer {
     border-radius: 8px;
 }
 .breadcrumb-item a {
-    color: #0d6efd !important;
-    font-weight: 700 !important;
+    color: #1a1d24 !important;       /* 跟下面栏目列表深色文字一致，不再抢眼 */
+    font-weight: 600 !important;
     text-decoration: none;
 }
 .breadcrumb-item a:hover,
 .breadcrumb-item a:focus {
-    color: #0a58ca !important;
+    color: #0d6efd !important;
     text-decoration: underline;
 }
 .breadcrumb-item.active,
