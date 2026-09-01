@@ -1,0 +1,56 @@
+name: Auto Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+      - 'v[0-9]+.[0-9]+.[0-9]+-*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect prerelease
+        id: prerelease_check
+        run: |
+          if [[ "${{ github.ref_name }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-(alpha|beta|rc|dev|preview)$ ]]; then
+            echo "is_prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate Changelog
+        id: changelog
+        uses: mikepenz/release-changelog-builder-action@v5
+        with:
+          # v5 移除了 tagRegex 输入（v4→v5 破坏性变更），标准 semver tag 无需额外筛选
+          # 不传 fromTag：v5 会自动按 semver 取上一个 tag；首次发布则从第一个 commit 生成
+          configurationJson: |
+            {
+              "categories": [
+                {"title": "🚀 Features", "labels": ["feature", "enhancement"]},
+                {"title": "🐛 Bug Fixes", "labels": ["bug", "fix"]},
+                {"title": "🔧 Maintenance", "labels": ["chore", "refactor"]}
+              ]
+            }
+          toTag: ${{ github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          body: ${{ steps.changelog.outputs.changelog }}
+          draft: false
+          prerelease: ${{ steps.prerelease_check.outputs.is_prerelease }}
+          update_release_body: true
+          update_release_name: true

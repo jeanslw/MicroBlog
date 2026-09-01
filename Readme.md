@@ -1,8 +1,8 @@
 # Blog System Deployment Documentation
 
-Version: v1.1.0
+Version: v1.2.0
 
-Built on Flask 3.1. Features include: article publishing & management, Markdown editor with code highlighting and image upload, comments & likes, article categories, banner carousel, Chinese/English bilingual i18n. All static assets are loaded locally. Supports SQLite and MySQL. Includes 135 automated tests.
+Built on Flask 3.1. Features include: article publishing & management, Markdown editor with code highlighting and image upload, comments & likes, article categories, banner carousel, Chinese/English bilingual i18n. The whole UI uses a glassmorphism transparent style over dynamic animated backgrounds (Aurora / Starry / Flow / Bubbles / Classic) that can be freely switched from a floating palette button, with the choice remembered in localStorage. All static assets are loaded locally. Supports SQLite and MySQL. Includes 135 automated tests.
 
 > **[Chinese](README_ZH-CN.md)**
 
@@ -19,6 +19,7 @@ Built on Flask 3.1. Features include: article publishing & management, Markdown 
 | Category Navigation | Article categories, sidebar category filter |
 | Banner Carousel | Backend banner management, image upload & sorting |
 | Internationalization | Chinese/English auto-switching, follows browser language, dropdown manual switch |
+| UI Theme | Glassmorphism transparent UI, dynamic animated backgrounds (Aurora/Starry/Flow/Bubbles/Classic), one-click style switch with localStorage memory |
 | Security | CSRF protection, HTML sanitization against XSS (nh3), login brute-force protection, secure sessions, image decompression bomb protection |
 | Database | SQLAlchemy ORM, seamless SQLite/MySQL switching |
 | Testing | pytest 135 tests covering auth/blog/comments/security/i18n |
@@ -120,7 +121,7 @@ MicroBlog/
 │   ├── comment/                   # Comment & like module
 │   └── main/                      # General routes (language switch/robots.txt)
 ├── templates/                     # Jinja2 templates
-│   ├── base.html                  # Common layout (navbar/footer/i18n dropdown)
+│   ├── base.html                  # Common layout (navbar/footer/background layer/theme switcher/i18n dropdown)
 │   ├── error.html                 # Generic error page (404/500 etc.)
 │   ├── blog/                      # Index/detail/edit/drafts
 │   ├── admin/                     # Login/password/site settings
@@ -129,6 +130,10 @@ MicroBlog/
     ├── favicon.ico
     ├── banner/                    # Uploaded banner images (.gitkeep placeholder)
     ├── uploads/                   # Uploaded article images (.gitkeep placeholder)
+    ├── css/
+    │   └── themes.css             # Background styles + glassmorphism UI + style switcher
+    ├── js/
+    │   └── theme-switcher.js      # Background style switching (localStorage persistence)
     └── lib/                       # Local third-party libs (9 files, see 3.2)
 ```
 

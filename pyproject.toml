@@ -8,7 +8,7 @@ line-length = 120
 select = ["E", "F", "I", "UP", "B", "SIM", "C4", "RUF"]
 ignore = [
     "E501",  # 行宽不统一（存在 200+ 字符长行），交给 formatter 单独处理
-    "B008",  # FastAPI 的 Depends()/File()/Query() 写在默认参数是标准用法
+    "B008",  # Flask 扩展（如 Flask-Login 的 user_loader 等）在默认参数中调用属标准用法
     "RUF001", "RUF002", "RUF003",  # 中文注释/全角标点被误判为易混淆字符，禁用
 ]
 

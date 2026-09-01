@@ -1,0 +1,250 @@
+/* ============================================================
+   themes.css - 动态背景 + 玻璃拟态透明 UI + 风格切换器
+   由 theme-switcher.js 通过 body[data-bg="..."] 控制背景风格
+   ============================================================ */
+
+/* ---------- 背景层 ---------- */
+.bg-layer {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    overflow: hidden;
+    /* 默认（未设置 data-bg 前）即为极光，避免加载闪烁 */
+    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+}
+
+.bg-layer::before,
+.bg-layer::after {
+    content: "";
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+/* ---------- 风格 1：极光 Aurora（默认） ---------- */
+body[data-bg="aurora"] .bg-layer {
+    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+}
+body[data-bg="aurora"] .bg-layer::before {
+    width: 70vmax; height: 70vmax; left: -22vmax; top: -28vmax;
+    background: radial-gradient(circle at 30% 30%, rgba(124, 58, 237, 0.85), transparent 60%);
+    filter: blur(40px);
+    animation: aurora-drift 20s ease-in-out infinite alternate;
+}
+body[data-bg="aurora"] .bg-layer::after {
+    width: 65vmax; height: 65vmax; right: -24vmax; bottom: -30vmax;
+    background: radial-gradient(circle at 70% 70%, rgba(34, 211, 238, 0.75), transparent 60%);
+    filter: blur(40px);
+    animation: aurora-drift 26s ease-in-out infinite alternate-reverse;
+}
+@keyframes aurora-drift {
+    from { transform: translate(0, 0) scale(1); }
+    to   { transform: translate(10vmax, 8vmax) scale(1.2); }
+}
+
+/* ---------- 风格 2：星空 Starry ---------- */
+body[data-bg="stars"] .bg-layer {
+    background: linear-gradient(180deg, #0b1026 0%, #05070f 100%);
+}
+body[data-bg="stars"] .bg-layer::before {
+    width: 2px; height: 2px; border-radius: 50%;
+    background: #fff;
+    box-shadow:
+        15px 32px #fff, 60px 18px rgba(255,255,255,.8), 95px 60px #fff,
+        130px 40px rgba(255,255,255,.6), 180px 90px #fff, 225px 55px rgba(255,255,255,.9),
+        260px 120px #fff, 300px 70px rgba(255,255,255,.7), 340px 150px #fff,
+        400px 95px rgba(255,255,255,.8), 440px 40px #fff, 480px 130px rgba(255,255,255,.6),
+        35px 120px rgba(255,255,255,.7), 75px 180px #fff, 110px 95px rgba(255,255,255,.6),
+        155px 160px #fff, 200px 200px rgba(255,255,255,.8), 250px 175px #fff,
+        290px 235px rgba(255,255,255,.7), 330px 210px #fff, 380px 260px rgba(255,255,255,.6),
+        430px 235px #fff, 470px 300px rgba(255,255,255,.8), 520px 270px #fff;
+    animation: twinkle 3.5s ease-in-out infinite;
+}
+body[data-bg="stars"] .bg-layer::after {
+    width: 3px; height: 3px; border-radius: 50%;
+    background: rgba(255,255,255,.85);
+    box-shadow:
+        40px 70px rgba(255,255,255,.8), 100px 150px rgba(255,255,255,.6),
+        175px 85px rgba(255,255,255,.7), 240px 200px rgba(255,255,255,.6),
+        310px 140px rgba(255,255,255,.8), 385px 220px rgba(255,255,255,.6),
+        460px 180px rgba(255,255,255,.7), 520px 60px rgba(255,255,255,.6);
+    animation: twinkle 5s ease-in-out infinite reverse;
+}
+@keyframes twinkle {
+    0%, 100% { opacity: 0.25; }
+    50%      { opacity: 1; }
+}
+
+/* ---------- 风格 3：流光 Gradient Flow ---------- */
+body[data-bg="gradient"] .bg-layer {
+    background: linear-gradient(120deg, #ff9a9e, #fecfef, #fbc2eb, #a18cd1, #a1c4fd, #c2e9fb, #ff9a9e);
+    background-size: 400% 400%;
+    animation: gradient-flow 18s ease infinite;
+}
+body[data-bg="gradient"] .bg-layer::before,
+body[data-bg="gradient"] .bg-layer::after { display: none; }
+@keyframes gradient-flow {
+    0%   { background-position: 0% 50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* ---------- 风格 4：气泡 Bubbles ---------- */
+body[data-bg="bubbles"] .bg-layer {
+    background: linear-gradient(160deg, #0f2027, #203a43, #2c5364);
+}
+body[data-bg="bubbles"] .bg-layer::before,
+body[data-bg="bubbles"] .bg-layer::after {
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.95), rgba(255,255,255,.08) 60%);
+    opacity: .45;
+    animation: bubble-rise 14s linear infinite;
+}
+body[data-bg="bubbles"] .bg-layer::before {
+    width: 70px; height: 70px; left: 12%;
+    box-shadow: 160px -90px 0 12px rgba(255,255,255,.25),
+                320px -160px 0 6px rgba(255,255,255,.2),
+                520px -60px 0 18px rgba(255,255,255,.15);
+    bottom: -90px;
+}
+body[data-bg="bubbles"] .bg-layer::after {
+    width: 40px; height: 40px; left: 45%;
+    box-shadow: 220px -50px 0 8px rgba(255,255,255,.22),
+                400px -130px 0 5px rgba(255,255,255,.18),
+                600px -40px 0 10px rgba(255,255,255,.15);
+    bottom: -60px;
+    animation-duration: 18s;
+    animation-delay: 3s;
+}
+@keyframes bubble-rise {
+    from { transform: translateY(0); }
+    to   { transform: translateY(-130vh); }
+}
+
+/* ---------- 风格 5：经典 Classic（原浅色风格） ---------- */
+body[data-bg="classic"] .bg-layer {
+    background: linear-gradient(180deg, #f5f7fa, #e9edf3);
+}
+body[data-bg="classic"] .bg-layer::before,
+body[data-bg="classic"] .bg-layer::after { display: none; }
+
+/* ---------- 玻璃拟态透明 UI ---------- */
+.navbar {
+    background: rgba(23, 26, 33, 0.55) !important;
+    backdrop-filter: blur(12px) saturate(1.4);
+    -webkit-backdrop-filter: blur(12px) saturate(1.4);
+}
+footer {
+    background: rgba(23, 26, 33, 0.55) !important;
+    backdrop-filter: blur(12px) saturate(1.4);
+    -webkit-backdrop-filter: blur(12px) saturate(1.4);
+}
+.breadcrumb {
+    background: rgba(255, 255, 255, 0.55) !important;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+.card {
+    background: rgba(255, 255, 255, 0.72) !important;
+    backdrop-filter: blur(10px) saturate(1.3);
+    -webkit-backdrop-filter: blur(10px) saturate(1.3);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+}
+.sidebar-box {
+    background: rgba(255, 255, 255, 0.72) !important;
+    backdrop-filter: blur(10px) saturate(1.3);
+    -webkit-backdrop-filter: blur(10px) saturate(1.3);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+}
+.blog-card { border-color: rgba(255, 255, 255, 0.35) !important; }
+
+/* ---------- 风格切换器 ---------- */
+.theme-switcher {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    z-index: 1080;
+}
+.theme-toggle {
+    width: 52px; height: 52px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(23, 26, 33, 0.65);
+    color: #fff;
+    font-size: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    transition: transform 0.2s ease;
+}
+.theme-toggle:hover { transform: scale(1.08); }
+.theme-panel {
+    position: absolute;
+    right: 0;
+    bottom: 64px;
+    width: 240px;
+    padding: 14px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+.theme-panel-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 10px;
+}
+.theme-swatches { display: flex; flex-direction: column; gap: 6px; }
+.theme-swatch {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    border: none;
+    background: transparent;
+    border-radius: 10px;
+    padding: 6px 8px;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.15s ease;
+}
+.theme-swatch:hover { background: rgba(0, 0, 0, 0.06); }
+.theme-swatch.active .swatch-label { font-weight: 600; color: #0d6efd; }
+.swatch-preview {
+    width: 34px; height: 24px;
+    border-radius: 6px;
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    flex-shrink: 0;
+}
+.swatch-label { font-size: 13px; color: #333; }
+.sw-aurora   { background: linear-gradient(135deg, #0f0c29, #302b63, #7f00ff); }
+.sw-stars {
+    background-color: #0b1026;
+    background-image: radial-gradient(circle, #fff 1px, transparent 2px),
+                      radial-gradient(circle, rgba(255,255,255,.6) 1px, transparent 2px);
+    background-size: 50px 50px, 70px 70px;
+    background-position: 0 0, 25px 35px;
+}
+.sw-gradient { background: linear-gradient(120deg, #ff9a9e, #fbc2eb, #a18cd1, #a1c4fd); }
+.sw-bubbles {
+    background: radial-gradient(circle at 30% 70%, rgba(255,255,255,.9) 0 3px, transparent 4px),
+                radial-gradient(circle at 70% 30%, rgba(255,255,255,.7) 0 2px, transparent 3px),
+                linear-gradient(160deg, #0f2027, #203a43, #2c5364);
+}
+.sw-classic { background: linear-gradient(180deg, #f5f7fa, #e9edf3); }
+
+/* ---------- 无障碍：减少动态效果 ---------- */
+@media (prefers-reduced-motion: reduce) {
+    .bg-layer::before,
+    .bg-layer::after {
+        animation: none !important;
+    }
+    body[data-bg="gradient"] .bg-layer { animation: none !important; }
+}
