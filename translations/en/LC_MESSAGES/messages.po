@@ -246,9 +246,7 @@ msgstr "Upload Logo Image"
 
 #: templates/admin/site_setting.html
 msgid "仅支持 jpg/jpeg/png/webp，最大 2MB；过大时自动缩放，最长边不超过 400px"
-msgstr ""
-"Only jpg/jpeg/png/webp, max 2MB; oversized images are auto-scaled to a "
-"400px max edge"
+msgstr "Only jpg/jpeg/png/webp, max 2MB; oversized images are auto-scaled to a 400px max edge"
 
 #: app/admin/routes.py
 msgid "Logo 上传失败，请重试"
@@ -608,12 +606,8 @@ msgstr "No published articles"
 msgid "Recall"
 msgstr "Recall"
 
-msgid ""
-"Click recall to move a published article back to drafts (it will no "
-"longer appear on the home page); no content is deleted."
-msgstr ""
-"Click recall to move a published article back to drafts (it will no "
-"longer appear on the home page); no content is deleted."
+msgid "Click recall to move a published article back to drafts (it will no longer appear on the home page); no content is deleted."
+msgstr "Click recall to move a published article back to drafts (it will no longer appear on the home page); no content is deleted."
 
 msgid "Confirm to recall this article to drafts?"
 msgstr "Confirm to recall this article to drafts?"
@@ -624,5 +618,60 @@ msgstr "Recalled to drafts"
 msgid "Article not found"
 msgstr "Article not found"
 
-msgid "Click recall to move a published article back to drafts (it will no longer appear on the home page); no content is deleted."
-msgstr "Click recall to move a published article back to drafts (it will no longer appear on the home page); no content is deleted."
+msgid "文章管理"
+msgstr "Article Management"
+
+msgid "草稿管理"
+msgstr "Draft Management"
+
+msgid "撤回文章"
+msgstr "Recall Articles"
+
+msgid "背景风格"
+msgstr "Background Style"
+
+msgid "切换背景风格"
+msgstr "Switch Background Style"
+
+msgid "背景 1"
+msgstr "Background 1"
+
+msgid "背景 2"
+msgstr "Background 2"
+
+msgid "背景 3"
+msgstr "Background 3"
+
+msgid "背景 4"
+msgstr "Background 4"
+
+msgid "背景 5"
+msgstr "Background 5"
+
+msgid "背景 6"
+msgstr "Background 6"
+
+msgid "背景 7"
+msgstr "Background 7"
+
+msgid "背景 8"
+msgstr "Background 8"
+
+msgid "背景 9"
+msgstr "Background 9"
+
+msgid "背景 10"
+msgstr "Background 10"
+
+msgid "水墨云山"
+msgstr "Ink Wash Mountains"
+
+msgid "湖光山色"
+msgstr "Lake & Mountain Hues"
+
+msgid "经典"
+msgstr "Classic"
+
+msgid "自定义"
+msgstr "Custom"
+

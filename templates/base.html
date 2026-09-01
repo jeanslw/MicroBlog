@@ -142,15 +142,15 @@
 
 <!-- 背景风格切换器 -->
 <div class="theme-switcher" id="themeSwitcher" role="region" aria-label="Background style">
-    <button type="button" class="theme-toggle" id="themeToggle" aria-label="切换背景风格" title="切换背景风格">
+    <button type="button" class="theme-toggle" id="themeToggle" aria-label="{{ _('切换背景风格') }}" title="{{ _('切换背景风格') }}">
         <i class="bi bi-palette"></i>
     </button>
     <div class="theme-panel" id="themePanel" hidden>
-        <div class="theme-panel-title"><i class="bi bi-stars"></i> 背景风格 / Style</div>
+        <div class="theme-panel-title"><i class="bi bi-stars"></i> {{ _('背景风格') }} / Style</div>
         <div class="theme-swatches">
-            {% set builtin = [('bg1','背景 1'),('bg2','背景 2'),('bg3','背景 3'),('bg4','背景 4'),
-                              ('bg5','背景 5'),('bg6','背景 6'),('bg7','背景 7'),('bg8','背景 8'),
-                              ('bg9','背景 9'),('bg10','背景 10'),('vdysjx','水墨云山'),('bg13','湖光山色')] %}
+            {% set builtin = [('bg1', _('背景 1')),('bg2', _('背景 2')),('bg3', _('背景 3')),('bg4', _('背景 4')),
+                              ('bg5', _('背景 5')),('bg6', _('背景 6')),('bg7', _('背景 7')),('bg8', _('背景 8')),
+                              ('bg9', _('背景 9')),('bg10', _('背景 10')),('vdysjx', _('水墨云山')),('bg13', _('湖光山色'))] %}
             {% for key, label in builtin %}
             <button type="button" class="theme-swatch" data-theme="{{ key }}">
                 <span class="swatch-preview sw-{{ key }}"></span><span class="swatch-label">{{ label }}</span>
@@ -158,11 +158,11 @@
             {% endfor %}
             {% if site_bg_custom %}
             <button type="button" class="theme-swatch" data-theme="custom">
-                <span class="swatch-preview sw-custom"></span><span class="swatch-label">自定义 Custom</span>
+                <span class="swatch-preview sw-custom"></span><span class="swatch-label">{{ _('自定义') }} Custom</span>
             </button>
             {% endif %}
             <button type="button" class="theme-swatch" data-theme="classic">
-                <span class="swatch-preview sw-classic"></span><span class="swatch-label">经典 Classic</span>
+                <span class="swatch-preview sw-classic"></span><span class="swatch-label">{{ _('经典') }} Classic</span>
             </button>
         </div>
     </div>

@@ -7,6 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-09-01 19:33+0800\n"
 "PO-Revision-Date: 2026-08-09 10:00+0800\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: zh_Hans_CN\n"
@@ -544,11 +545,11 @@ msgstr "栏目删除失败"
 msgid "栏目不存在"
 msgstr "栏目不存在"
 
-#: templates/blog/index.html templates/blog/detail.html
+#: templates/blog/detail.html templates/blog/index.html
 msgid "确定删除该栏目及标签？该栏目下文章将变为未分类。"
 msgstr "确定删除该栏目及标签？该栏目下文章将变为未分类。"
 
-#: templates/blog/index.html templates/blog/detail.html
+#: templates/blog/detail.html templates/blog/index.html
 msgid "删除栏目"
 msgstr "删除栏目"
 
@@ -593,3 +594,52 @@ msgstr "确定将该文章撤回至草稿箱？"
 
 msgid "已撤回至草稿箱"
 msgstr "已撤回至草稿箱"
+
+msgid "背景风格"
+msgstr ""
+
+msgid "切换背景风格"
+msgstr ""
+
+msgid "背景 1"
+msgstr ""
+
+msgid "背景 2"
+msgstr ""
+
+msgid "背景 3"
+msgstr ""
+
+msgid "背景 4"
+msgstr ""
+
+msgid "背景 5"
+msgstr ""
+
+msgid "背景 6"
+msgstr ""
+
+msgid "背景 7"
+msgstr ""
+
+msgid "背景 8"
+msgstr ""
+
+msgid "背景 9"
+msgstr ""
+
+msgid "背景 10"
+msgstr ""
+
+msgid "水墨云山"
+msgstr ""
+
+msgid "湖光山色"
+msgstr ""
+
+msgid "经典"
+msgstr ""
+
+msgid "自定义"
+msgstr ""
+
