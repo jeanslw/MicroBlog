@@ -147,8 +147,8 @@ MicroBlog/
 ```
 
 ## 5. 快速部署
-<details>
-### <summary> 5.1 裸机快速启动（SQLite，3 步到位）</summary>
+
+### 5.1 裸机快速启动（SQLite，3 步到位）
 
 ```bash
 # 1. 安装依赖
@@ -178,7 +178,7 @@ docker compose --env-file .env.docker --profile full up -d
 # 首页：    http://localhost/
 # 后台登录：http://localhost/admin/login
 ```
-</details>
+
 ## 6. 详细部署
 
 ### 6.1 获取代码

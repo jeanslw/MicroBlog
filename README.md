@@ -148,8 +148,9 @@ MicroBlog/
 
 
 ## 5. Quick Deployment
-<details>
-### <summary> 5.1 Bare-Metal Quick Start (SQLite, 3 steps)</summary>
+
+
+###  5.1 Bare-Metal Quick Start (SQLite, 3 steps)
 
 ```bash
 # 1. Install dependencies
@@ -179,7 +180,6 @@ docker compose --env-file .env.docker --profile full up -d
 # Home:  http://localhost/
 # Admin: http://localhost/admin/login
 ```
-</details>
 ## 6. Detailed Deployment
 
 ### 6.1 Get the Code
