@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}{{ _('撤回文章') }} - {{ site_name }}{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active" aria-current="page">{{ _('撤回文章') }}</li>
+{% endblock %}
+
+{% block content %}
+<div class="card page-header-card blog-card p-3 mb-4">
+    <h3 class="mb-0 fs-4"><i class="bi bi-arrow-counterclockwise"></i> {{ _('撤回文章') }}</h3>
+    <small class="text-muted mt-1 d-block">{{ _('点击撤回即可将已发布的文章移回草稿箱（首页将不再展示），但不会删除任何内容。') }}</small>
+</div>
+
+<div class="card blog-card p-4">
+    {% if articles %}
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead>
+                <tr>
+                    <th>{{ _('标题') }}</th>
+                    <th>{{ _('栏目') }}</th>
+                    <th>{{ _('更新时间') }}</th>
+                    <th>{{ _('操作') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for art in articles %}
+                <tr>
+                    <td><a href="{{ url_for('blog.article_detail', aid=art.id) }}" target="_blank">{{ art.title }}</a></td>
+                    <td>{{ art.category.cat_name if art.category else _('未分类') }}</td>
+                    <td><small class="text-muted">{{ art.update_time }}</small></td>
+                    <td class="d-flex gap-2">
+                        <a href="{{ url_for('blog.article_edit', aid=art.id) }}" class="btn btn-sm btn-outline-primary">{{ _('编辑') }}</a>
+                        <form method="POST" action="{{ url_for('blog.article_recall', aid=art.id) }}"
+                              onsubmit="return confirm('{{ _('确定将该文章撤回至草稿箱？') }}')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-sm btn-warning">{{ _('撤回') }}</button>
+                        </form>
+                        <form method="POST" action="{{ url_for('blog.article_del', aid=art.id) }}"
+                              onsubmit="return confirm('{{ _('删除后将无法恢复，确定继续？') }}')">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="btn btn-sm btn-danger">{{ _('删除') }}</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="alert alert-light text-center py-5 fs-5">
+        <i class="bi bi-check2-circle fs-1 text-success"></i>
+        <p class="mb-0 mt-2">{{ _('暂无已发布文章') }}</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

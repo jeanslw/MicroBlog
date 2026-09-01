@@ -9,7 +9,6 @@
 <div class="card page-header-card blog-card p-3 mb-4">
     <div class="d-flex justify-content-between align-items-center">
         <h3 class="mb-0 fs-4"><i class="bi bi-images"></i> {{ _('Banner轮播管理') }}</h3>
-        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addModal">{{ _('新增轮播图') }}</button>
     </div>
 </div>
 <div class="card blog-card p-4">
@@ -122,4 +121,25 @@
     </div>
 </div>
 {% endfor %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 导航下拉"新增轮播图"通过 ?action=add 访问时自动打开新增 modal
+(function () {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('action') !== 'add') return;
+    const modalEl = document.getElementById('addModal');
+    if (modalEl && window.bootstrap) {
+        const m = new bootstrap.Modal(modalEl);
+        modalEl.addEventListener('hidden.bs.modal', () => {
+            // 关闭时清除 ?action=add 避免重复打开
+            const url = new URL(window.location.href);
+            url.searchParams.delete('action');
+            window.history.replaceState({}, '', url.pathname + (url.search ? url.search : '') + url.hash);
+        });
+        m.show();
+    }
+})();
+</script>
 {% endblock %}

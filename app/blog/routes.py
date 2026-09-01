@@ -149,6 +149,38 @@ def article_del(aid):
     return redirect(url_for("blog.index"))
 
 
+@blog_bp.route("/article/manage")
+@admin_required
+def article_manage():
+    """已发布文章管理：列出 status="publish" 的文章，每条提供「撤回(→草稿)」与删除按钮。"""
+    articles = db.session.scalars(
+        db.select(Article).where(Article.status == "publish").order_by(Article.update_time.desc())
+    ).all()
+    for art in articles:
+        art.brief = strip_html(art.content)
+    return render_template("blog/manage_articles.html", articles=articles)
+
+
+@blog_bp.route("/article/recall/<int:aid>", methods=["POST"])
+@admin_required
+def article_recall(aid):
+    """撤回已发布文章：status 改回 "draft"，文章进入草稿箱。"""
+    article = db.session.get(Article, aid)
+    if not article:
+        flash(_("文章不存在"), "warning")
+        return redirect(url_for("blog.article_manage"))
+    article.status = "draft"
+    article.update_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        db.session.commit()
+        flash(_("已撤回至草稿箱"), "success")
+    except Exception:
+        db.session.rollback()
+        log.error("撤回文章失败 aid=%s", aid, exc_info=True)
+        flash(_("撤回失败,请稍后重试"), "danger")
+    return redirect(url_for("blog.article_manage"))
+
+
 @blog_bp.route("/drafts")
 @admin_required
 def drafts():

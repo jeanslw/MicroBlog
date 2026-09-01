@@ -179,3 +179,36 @@ def banner_del(bid):
     db.session.commit()
     flash(_("已删除"), "success")
     return redirect(url_for("banner.banner_list"))
+
+
+@banner_bp.route("/withdraw_all", methods=["POST"])
+@login_required
+def banner_withdraw_all():
+    """撤回所有轮播图：批量删除全部 banner 记录 + 物理文件（与 banner_del 行为一致）。
+
+    用途：导航"轮播图管理"下拉里的"撤回所有轮播图"操作。
+    破坏性动作，需要 admin 身份。
+    """
+    banners = db.session.scalars(db.select(Banner)).all()
+    if not banners:
+        flash(_("当前没有可撤回的轮播图"), "info")
+        return redirect(url_for("banner.banner_list"))
+
+    for banner in banners:
+        if banner.img_path:
+            abs_path = os.path.join(project_root(), banner.img_path.lstrip("/"))
+            try:
+                if os.path.exists(abs_path):
+                    os.remove(abs_path)
+            except OSError:
+                log.warning("撤回 banner 时删除物理文件失败 bid=%s", banner.id, exc_info=True)
+        db.session.delete(banner)
+
+    try:
+        db.session.commit()
+        flash(_("已撤回全部轮播图"), "success")
+    except Exception:
+        db.session.rollback()
+        log.error("撤回全部 banner 失败", exc_info=True)
+        flash(_("撤回失败,请稍后重试"), "danger")
+    return redirect(url_for("banner.banner_list"))

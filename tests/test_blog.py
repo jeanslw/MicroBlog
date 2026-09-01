@@ -286,3 +286,44 @@ def test_draft_detail_visible_to_admin(login_admin, draft):
     rv = login_admin.get(f"/article/{draft.id}")
     assert rv.status_code == 200
     assert draft.title.encode("utf-8") in rv.data
+
+
+def test_article_manage_requires_login(client):
+    """撤回文章管理页需登录"""
+    rv = client.get("/article/manage", follow_redirects=False)
+    assert rv.status_code == 302
+    assert "/login" in rv.headers.get("Location", "")
+
+
+def test_article_manage_lists_published(login_admin, article, draft):
+    """撤回文章页面只列出已发布文章(status=publish)"""
+    rv = login_admin.get("/article/manage")
+    assert rv.status_code == 200
+    assert article.title.encode("utf-8") in rv.data
+    # 草稿不出现
+    assert draft.title.encode("utf-8") not in rv.data
+
+
+def test_recall_article_moves_to_drafts(login_admin, db, article):
+    """撤回文章后 status 变为 draft,文章出现在草稿箱"""
+    aid = article.id
+    rv = login_admin.post(f"/article/recall/{aid}", follow_redirects=False)
+    assert rv.status_code == 302
+    db.session.expire(article)
+    assert article.status == "draft"
+    rv2 = login_admin.get("/drafts")
+    assert article.title.encode("utf-8") in rv2.data
+
+
+def test_recall_not_found(login_admin):
+    """撤回不存在的文章提示并重定向到 manage"""
+    rv = login_admin.post("/article/recall/99999", follow_redirects=False)
+    assert rv.status_code == 302
+    assert "/article/manage" in rv.headers.get("Location", "")
+
+
+def test_recall_requires_login(client, article):
+    """未登录不能撤回"""
+    rv = client.post(f"/article/recall/{article.id}", follow_redirects=False)
+    assert rv.status_code == 302
+    assert "/login" in rv.headers.get("Location", "")

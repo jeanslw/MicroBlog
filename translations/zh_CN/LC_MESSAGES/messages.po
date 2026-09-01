@@ -551,3 +551,45 @@ msgstr "确定删除该栏目及标签？该栏目下文章将变为未分类。
 #: templates/blog/index.html templates/blog/detail.html
 msgid "删除栏目"
 msgstr "删除栏目"
+
+msgid "文章管理"
+msgstr "文章管理"
+
+msgid "草稿管理"
+msgstr "草稿管理"
+
+msgid "撤回文章"
+msgstr "撤回文章"
+
+msgid "轮播图列表"
+msgstr "轮播图列表"
+
+msgid "撤回所有轮播图"
+msgstr "撤回所有轮播图"
+
+msgid "撤回将删除全部轮播图（含图片文件），确认继续？"
+msgstr "撤回将删除全部轮播图（含图片文件），确认继续？"
+
+msgid "当前没有可撤回的轮播图"
+msgstr "当前没有可撤回的轮播图"
+
+msgid "已撤回全部轮播图"
+msgstr "已撤回全部轮播图"
+
+msgid "撤回失败,请稍后重试"
+msgstr "撤回失败,请稍后重试"
+
+msgid "暂无已发布文章"
+msgstr "暂无已发布文章"
+
+msgid "撤回"
+msgstr "撤回"
+
+msgid "点击撤回即可将已发布的文章移回草稿箱（首页将不再展示），但不会删除任何内容。"
+msgstr "点击撤回即可将已发布的文章移回草稿箱（首页将不再展示），但不会删除任何内容。"
+
+msgid "确定将该文章撤回至草稿箱？"
+msgstr "确定将该文章撤回至草稿箱？"
+
+msgid "已撤回至草稿箱"
+msgstr "已撤回至草稿箱"

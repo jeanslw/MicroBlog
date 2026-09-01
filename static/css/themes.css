@@ -141,6 +141,29 @@ footer {
     border-radius: 8px;
     overflow: hidden;
 }
+/* Bootstrap 5 用 .table 之外的子选择器(.table > :not(caption) > * > *) 以 box-shadow 实现背景，
+   因此仅覆盖 .table 仍会留下纯白 td/th。把子元素也强制透明玻璃，并把条纹 box-shadow 清掉。 */
+.table,
+.table > :not(caption) > * > * {
+    background-color: rgba(255, 255, 255, 0.45) !important;
+    background-image: none !important;
+    box-shadow: none !important;
+}
+.table > thead,
+.table > tbody,
+.table > thead > tr > *,
+.table > tbody > tr > * {
+    background-color: transparent !important;
+}
+.table > thead > tr > th {
+    color: #212529 !important;
+    font-weight: 600;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.35) !important;
+}
+.table > tbody > tr > td {
+    color: #1a1d24 !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.20) !important;
+}
 /* alert-light 占位（"暂无草稿""暂无轮播广告"等）也走玻璃 */
 .alert.alert-light {
     background-color: rgba(255, 255, 255, 0.45) !important;

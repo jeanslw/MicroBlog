@@ -8,7 +8,7 @@
     <link href="{{ url_for('static', filename='lib/bootstrap.min.css') }}" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='lib/bootstrap-icons.css') }}">
     <link href="{{ url_for('static', filename='lib/prism-tomorrow.min.css') }}" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/themes.css') }}?v=20260901b" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/themes.css') }}?v=20260901c" rel="stylesheet">
     <style>
         body { background:transparent; min-height:100vh; display:flex; flex-direction:column; margin:0; }
         main { flex:1; padding:8px 0; }
@@ -55,10 +55,60 @@
             </ul>
             <div class="d-flex gap-1 align-items-center">
                 {% if current_user.is_authenticated %}
-                    <a href="{{ url_for('blog.drafts') }}" class="btn btn-sm btn-outline-light">{{ _('草稿箱') }}</a>
-                    <a href="{{ url_for('blog.article_new') }}" class="btn btn-sm btn-success">{{ _('新建文章') }}</a>
+                    {# 文章管理下拉 #}
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-light dropdown-toggle" type="button"
+                                data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-pencil-square"></i> {{ _('文章管理') }}
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('blog.drafts') }}">
+                                    <i class="bi bi-file-earmark-draft"></i> {{ _('草稿管理') }}
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('blog.article_new') }}">
+                                    <i class="bi bi-plus-circle"></i> {{ _('新建文章') }}
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('blog.article_manage') }}">
+                                    <i class="bi bi-arrow-counterclockwise"></i> {{ _('撤回文章') }}
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
                     <a href="{{ url_for('admin.site_setting') }}" class="btn btn-sm btn-outline-info">{{ _('站点设置') }}</a>
-                    <a href="{{ url_for('banner.banner_list') }}" class="btn btn-sm btn-outline-primary">{{ _('轮播图管理') }}</a>
+                    {# 轮播图管理下拉 #}
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button"
+                                data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-images"></i> {{ _('轮播图管理') }}
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('banner.banner_list') }}">
+                                    <i class="bi bi-list-ul"></i> {{ _('轮播图列表') }}
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('banner.banner_list', action='add') }}">
+                                    <i class="bi bi-plus-circle"></i> {{ _('新增轮播图') }}
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <form method="POST" action="{{ url_for('banner.banner_withdraw_all') }}"
+                                      onsubmit="return confirm('{{ _('撤回将删除全部轮播图(含图片文件),确认继续?') }}')">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="dropdown-item text-warning">
+                                        <i class="bi bi-arrow-counterclockwise"></i> {{ _('撤回所有轮播图') }}
+                                    </button>
+                                </form>
+                            </li>
+                        </ul>
+                    </div>
                     <a href="{{ url_for('admin.change_pwd') }}" class="btn btn-sm btn-outline-warning">{{ _('改密码') }}</a>
                     <form method="POST" action="{{ url_for('admin.logout') }}" class="d-inline">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

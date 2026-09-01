@@ -195,3 +195,25 @@ def test_banner_add_requires_login(client):
     rv = client.post("/banner/add", follow_redirects=False)
     assert rv.status_code == 302
     assert "/login" in rv.headers.get("Location", "")
+
+
+def test_banner_withdraw_all_success(login_admin, db):
+    b1 = Banner(img_path='/static/banner/a.jpg', title='a', create_time='2026-01-01 00:00:00')
+    b2 = Banner(img_path='/static/banner/b.jpg', title='b', create_time='2026-01-01 00:00:00')
+    db.session.add_all([b1, b2])
+    db.session.commit()
+    rv = login_admin.post('/banner/withdraw_all', follow_redirects=False)
+    assert rv.status_code == 302
+    from sqlalchemy import func as _f
+    from sqlalchemy import select as _s
+    assert db.session.scalar(_s(_f.count(Banner.id))) == 0
+
+def test_banner_withdraw_all_empty(login_admin, db):
+    rv = login_admin.post('/banner/withdraw_all', follow_redirects=False)
+    assert rv.status_code == 302
+
+def test_banner_withdraw_all_requires_login(client):
+    rv = client.post('/banner/withdraw_all', follow_redirects=False)
+    assert rv.status_code == 302
+    assert '/login' in rv.headers.get('Location', '')
+

@@ -7,6 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-09-01 18:15+0800\n"
 "PO-Revision-Date: 2026-08-09 10:00+0800\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: en\n"
@@ -245,7 +246,9 @@ msgstr "Upload Logo Image"
 
 #: templates/admin/site_setting.html
 msgid "仅支持 jpg/jpeg/png/webp，最大 2MB；过大时自动缩放，最长边不超过 400px"
-msgstr "Only jpg/jpeg/png/webp, max 2MB; oversized images are auto-scaled to a 400px max edge"
+msgstr ""
+"Only jpg/jpeg/png/webp, max 2MB; oversized images are auto-scaled to a "
+"400px max edge"
 
 #: app/admin/routes.py
 msgid "Logo 上传失败，请重试"
@@ -564,10 +567,62 @@ msgstr "Failed to delete category"
 msgid "栏目不存在"
 msgstr "Category not found"
 
-#: templates/blog/index.html templates/blog/detail.html
+#: templates/blog/detail.html templates/blog/index.html
 msgid "确定删除该栏目及标签？该栏目下文章将变为未分类。"
 msgstr "Delete this category and its tag? Its articles will become uncategorized."
 
-#: templates/blog/index.html templates/blog/detail.html
+#: templates/blog/detail.html templates/blog/index.html
 msgid "删除栏目"
 msgstr "Delete category"
+
+msgid "Article Management"
+msgstr "Article Management"
+
+msgid "Drafts"
+msgstr "Drafts"
+
+msgid "Recall Articles"
+msgstr "Recall Articles"
+
+msgid "Banner List"
+msgstr "Banner List"
+
+msgid "Withdraw All Banners"
+msgstr "Withdraw All Banners"
+
+msgid "Withdraw will delete all banners (including image files). Continue?"
+msgstr "Withdraw will delete all banners (including image files). Continue?"
+
+msgid "No banners to withdraw"
+msgstr "No banners to withdraw"
+
+msgid "All banners withdrawn"
+msgstr "All banners withdrawn"
+
+msgid "Withdraw failed, please retry later"
+msgstr "Withdraw failed, please retry later"
+
+msgid "No published articles"
+msgstr "No published articles"
+
+msgid "Recall"
+msgstr "Recall"
+
+msgid ""
+"Click recall to move a published article back to drafts (it will no "
+"longer appear on the home page); no content is deleted."
+msgstr ""
+"Click recall to move a published article back to drafts (it will no "
+"longer appear on the home page); no content is deleted."
+
+msgid "Confirm to recall this article to drafts?"
+msgstr "Confirm to recall this article to drafts?"
+
+msgid "Recalled to drafts"
+msgstr "Recalled to drafts"
+
+msgid "Article not found"
+msgstr "Article not found"
+
+msgid "Click recall to move a published article back to drafts (it will no longer appear on the home page); no content is deleted."
+msgstr "Click recall to move a published article back to drafts (it will no longer appear on the home page); no content is deleted."
