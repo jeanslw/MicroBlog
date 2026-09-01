@@ -28,7 +28,7 @@ jobs:
 
       - name: Generate Changelog
         id: changelog
-        uses: mikepenz/release-changelog-builder-action@v5
+        uses: mikepenz/release-changelog-builder-action@v6
         with:
           # v5 移除了 tagRegex 输入（v4→v5 破坏性变更），标准 semver tag 无需额外筛选
           # 不传 fromTag：v5 会自动按 semver 取上一个 tag；首次发布则从第一个 commit 生成
