@@ -43,11 +43,21 @@
                     <a class="nav-link ps-0" href="{{ url_for('blog.index') }}">{{ _('全部文章') }}({{ all_article_count }})</a>
                 </li>
                 {% for cat in categories %}
-                <li class="nav-item mb-2">
+                <li class="nav-item mb-2 d-flex align-items-center justify-content-between">
                     <a class="nav-link ps-0" href="{{ url_for('blog.category', cid=cat.id) }}">
                         {{ cat.cat_name }} ({{ cat.art_count }})
                         {% if cat.tag_text %}<span class="badge bg-secondary ms-1">#{{ cat.tag_text }}</span>{% endif %}
                     </a>
+                    {% if current_user.is_authenticated %}
+                    <form method="POST" action="{{ url_for('blog.del_category', cid=cat.id) }}" class="ms-2"
+                          onsubmit="return confirm('{{ _('确定删除该栏目及标签？该栏目下文章将变为未分类。') }}')">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-sm btn-outline-danger p-0 px-1"
+                                title="{{ _('删除栏目') }}" aria-label="{{ _('删除栏目') }}">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </form>
+                    {% endif %}
                 </li>
                 {% else %}
                 <li class="text-muted small">{{ _('管理员尚未创建栏目分类') }}</li>

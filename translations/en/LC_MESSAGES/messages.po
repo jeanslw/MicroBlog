@@ -551,3 +551,23 @@ msgstr "Previous"
 #: templates/blog/index.html:191
 msgid "下一页"
 msgstr "Next"
+
+#: app/blog/routes.py
+msgid "栏目删除成功"
+msgstr "Category deleted"
+
+#: app/blog/routes.py
+msgid "栏目删除失败"
+msgstr "Failed to delete category"
+
+#: app/blog/routes.py
+msgid "栏目不存在"
+msgstr "Category not found"
+
+#: templates/blog/index.html templates/blog/detail.html
+msgid "确定删除该栏目及标签？该栏目下文章将变为未分类。"
+msgstr "Delete this category and its tag? Its articles will become uncategorized."
+
+#: templates/blog/index.html templates/blog/detail.html
+msgid "删除栏目"
+msgstr "Delete category"

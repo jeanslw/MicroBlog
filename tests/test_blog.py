@@ -252,6 +252,29 @@ def test_add_category_requires_login(client):
     assert "/login" in rv.headers.get("Location", "")
 
 
+def test_del_category_success(login_admin, db, article, category):
+    """删除栏目后该栏目消失,其下文章变为未分类"""
+    cid = category.id
+    rv = login_admin.post(f"/category/del/{cid}", follow_redirects=False)
+    assert rv.status_code == 302
+    assert db.session.get(Category, cid) is None
+    db.session.expire(article)
+    assert article.category_id is None
+
+
+def test_del_category_not_found(login_admin):
+    """删除不存在的栏目应提示并跳回首页"""
+    rv = login_admin.post("/category/del/9999", follow_redirects=False)
+    assert rv.status_code == 302
+
+
+def test_del_category_requires_login(client, category):
+    """未登录不能删除栏目"""
+    rv = client.post(f"/category/del/{category.id}", follow_redirects=False)
+    assert rv.status_code == 302
+    assert "/login" in rv.headers.get("Location", "")
+
+
 def test_draft_detail_requires_login(client, draft):
     """匿名访问草稿详情应重定向（草稿仅后台可见）"""
     rv = client.get(f"/article/{draft.id}", follow_redirects=False)

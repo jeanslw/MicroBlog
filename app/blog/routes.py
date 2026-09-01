@@ -12,7 +12,7 @@ from datetime import datetime
 from flask import current_app, flash, redirect, render_template, request, url_for
 from flask_babel import _
 from flask_login import current_user
-from sqlalchemy import func
+from sqlalchemy import func, update
 
 from app.blog import blog_bp
 from app.blog.queries import get_article_detail, get_article_list
@@ -182,4 +182,26 @@ def add_category():
         for field, errors in form.errors.items():
             for err in errors:
                 flash(f"{field}: {err}", "danger")
+    return redirect(url_for("blog.index"))
+
+
+@blog_bp.route("/category/del/<int:cid>", methods=["POST"])
+@admin_required
+def del_category(cid):
+    """删除栏目（含其标签）：该栏目下文章恢复为未分类。"""
+    cat = db.session.get(Category, cid)
+    if cat is None:
+        flash(_("栏目不存在"), "warning")
+        return redirect(url_for("blog.index"))
+    # 先解除文章归属,避免外键约束失败
+    db.session.execute(
+        update(Article).where(Article.category_id == cid).values(category_id=None)
+    )
+    db.session.delete(cat)
+    try:
+        db.session.commit()
+        flash(_("栏目删除成功"), "success")
+    except Exception:
+        db.session.rollback()
+        flash(_("栏目删除失败"), "danger")
     return redirect(url_for("blog.index"))
