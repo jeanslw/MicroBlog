@@ -147,6 +147,37 @@ footer {
     border: 1px solid rgba(255, 255, 255, 0.25) !important;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12) !important;
 }
+
+/* 侧边栏目栏：背景加深方便深色粗体文字读得清；标题与链接字加粗、加深，提升对比度。
+   解决卡片玻璃底 + bootstrap 默认 .nav-link 浅蓝/普通权重在深色背景下看不清的问题。 */
+.sidebar-box {
+    background-color: rgba(255, 255, 255, 0.78) !important;
+    border-color: rgba(255, 255, 255, 0.45) !important;
+    color: #1a1d24;
+}
+.sidebar-box h5,
+.sidebar-box h6 {
+    color: #1a1d24 !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.02em;
+    text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+.sidebar-box .nav-link {
+    color: #1a1d24 !important;
+    font-weight: 600 !important;
+    text-decoration: none;
+    padding: 4px 0;
+    transition: color 0.15s ease, transform 0.15s ease;
+}
+.sidebar-box .nav-link:hover,
+.sidebar-box .nav-link:focus {
+    color: #0d6efd !important;
+    transform: translateX(2px);
+}
+.sidebar-box .nav-link .text-muted {
+    color: #495057 !important;
+    font-weight: 400;
+}
 /* 管理页页头胶囊：浅色高对比玻璃，与正文深色玻璃卡片分层。
    解决 .card(45%白) 在深背景下看不出卡片轮廓的问题。 */
 .page-header-card {
