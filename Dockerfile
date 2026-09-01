@@ -5,11 +5,12 @@
 # ============================================================
 FROM python:3.11-slim
 
-# Python 运行时优化
+# Python 运行时优化 + 时区（避免时间差 8 小时）
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    TZ=Asia/Shanghai
 
 WORKDIR /app
 
@@ -17,6 +18,7 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
         gcc \
         curl \
+        tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 # 先装依赖（利用 Docker 层缓存）
@@ -26,8 +28,8 @@ RUN pip install -r requirements.txt
 # 复制项目代码
 COPY . .
 
-# 创建运行时目录（数据 + 上传图）
-RUN mkdir -p data static/banner
+# 创建运行时目录（数据 + 上传图：文章图/轮播图/自定义背景）
+RUN mkdir -p data static/banner static/uploads/backgrounds
 
 # 容器内非 root 运行
 RUN useradd -r -u 1000 -g root appuser \

@@ -523,3 +523,11 @@ msgstr "上一页"
 #: templates/blog/index.html:191
 msgid "下一页"
 msgstr "下一页"
+
+#: templates/blog/edit.html:99
+msgid "上传 Markdown"
+msgstr "上传 Markdown"
+
+#: app/extensions.py
+msgid "请先登录管理员账号"
+msgstr "请先登录管理员账号"

@@ -73,6 +73,7 @@ def test_english_translation_loaded(app):
     """英文 .mo 翻译应已加载并工作"""
     with app.test_request_context("/", headers={"Accept-Language": "en"}):
         from flask_babel import _
+
         assert _("首页") == "Home"
         assert _("登录") == "Log In"
 
@@ -81,4 +82,5 @@ def test_chinese_translation_loaded(app):
     """中文 .mo 翻译应已加载并工作"""
     with app.test_request_context("/", headers={"Accept-Language": "zh-CN"}):
         from flask_babel import _
+
         assert _("首页") == "首页"

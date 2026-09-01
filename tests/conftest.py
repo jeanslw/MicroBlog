@@ -2,6 +2,7 @@
 
 测试使用 TestingConfig（内存 SQLite + 关闭 CSRF），可重复运行互不影响。
 """
+
 import os
 import tempfile
 
@@ -36,6 +37,7 @@ def app(_tmp_uploads_dir):
         _db.create_all()
         # 初始化站点配置 + 管理员
         from app.database import ensure_admin_exists, ensure_site_config
+
         ensure_site_config()
         ensure_admin_exists()
         yield a
@@ -47,6 +49,7 @@ def app(_tmp_uploads_dir):
 def db(app):
     """数据库 session（绑定到 app）"""
     from app.extensions import db as _db
+
     return _db
 
 
@@ -66,16 +69,21 @@ def runner(app):
 def admin_user(db):
     """返回已创建的管理员对象"""
     from app.models import Admin
+
     return db.session.scalar(db.select(Admin).filter_by(username="admin"))
 
 
 @pytest.fixture()
 def login_admin(client, admin_user):
     """以管理员身份登录 client，返回 client"""
-    rv = client.post("/admin/login", data={
-        "username": "admin",
-        "password": "admin123456",
-    }, follow_redirects=False)
+    rv = client.post(
+        "/admin/login",
+        data={
+            "username": "admin",
+            "password": "admin123456",
+        },
+        follow_redirects=False,
+    )
     assert rv.status_code in (302, 200), f"登录失败: {rv.status_code}"
     return client
 
@@ -84,6 +92,7 @@ def login_admin(client, admin_user):
 def category(db):
     """创建一个示例栏目"""
     from app.models import Category
+
     cat = Category(cat_name="测试栏目", tag_text="test", create_time="2026-01-01 00:00:00")
     db.session.add(cat)
     db.session.commit()
@@ -94,6 +103,7 @@ def category(db):
 def article(db, category):
     """创建一篇已发布文章"""
     from app.models import Article
+
     art = Article(
         title="测试文章标题",
         content="<p>这是测试文章的 <strong>正文</strong> 内容。</p>",
@@ -112,6 +122,7 @@ def article(db, category):
 def draft(db, category):
     """创建一篇草稿"""
     from app.models import Article
+
     art = Article(
         title="草稿文章",
         content="<p>草稿正文</p>",

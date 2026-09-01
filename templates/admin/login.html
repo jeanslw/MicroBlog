@@ -8,38 +8,34 @@
 {% block extra_css %}
 <style>
     body {
-        background: linear-gradient(135deg,#36d1dc,#5b86e5);
+        background: transparent;
     }
     .login-box {
         border-radius: 16px;
         box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-        margin-top:60px;
+        margin-top: 40px;
     }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
-    <div class="col-md-5">
-        <div class="card login-box p-5">
-            <h3 class="text-center mb-4 fw-bold">
+    <div class="col-md-4">
+        <div class="card login-box p-4">
+            <h4 class="text-center mb-3 fw-bold">
                 <i class="bi bi-shield-lock text-primary"></i> {{ _('管理员登录') }}
-            </h3>
-            {% set msgs = get_flashed_messages() %}
-            {% if msgs %}
-                <div class="alert alert-danger">{{ msgs[0] }}</div>
-            {% endif %}
+            </h4>
             <form method="POST">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="mb-3">
                     <label class="form-label">{{ _('账号') }}</label>
-                    <input type="text" name="username" class="form-control form-control-lg" placeholder="admin" required>
+                    <input type="text" name="username" class="form-control" placeholder="admin" required>
                 </div>
-                <div class="mb-4">
+                <div class="mb-3">
                     <label class="form-label">{{ _('密码') }}</label>
-                    <input type="password" name="password" class="form-control form-control-lg" required>
+                    <input type="password" name="password" class="form-control" required>
                 </div>
-                <button class="btn btn-dark w-100 py-2 fs-5">{{ _('登录') }}</button>
+                <button class="btn btn-dark w-100 py-1">{{ _('登录') }}</button>
             </form>
             <div class="text-center mt-4">
                 <a href="{{ url_for('blog.index') }}" class="text-secondary text-decoration-none">

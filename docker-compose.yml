@@ -44,6 +44,10 @@ services:
       BLOG_PAGE_SIZE: ${BLOG_PAGE_SIZE:-6}
       BLOG_STATIC_MAX_AGE: ${BLOG_STATIC_MAX_AGE:-43200}
 
+      # ─ 反代头解析（经 nginx 时取真实客户端 IP / 协议） ─
+      BLOG_PROXY_XFOR: "1"
+      BLOG_PROXY_XPROTO: "1"
+
       # ─ 初始管理员（仅 SQLite 首次建表写入一次） ─
       BLOG_INIT_ADMIN_USER: ${BLOG_INIT_ADMIN_USER:-admin}
       BLOG_INIT_ADMIN_PWD: ${BLOG_INIT_ADMIN_PWD:-}
@@ -54,6 +58,8 @@ services:
       - ./data:/app/data
       # 上传的轮播图持久化
       - ./static/banner:/app/static/banner
+      # 文章图 / Logo / 自定义背景持久化（nginx 也从宿主机同目录读）
+      - ./static/uploads:/app/static/uploads
     depends_on:
       db:
         condition: service_healthy

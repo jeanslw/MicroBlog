@@ -1,21 +1,29 @@
 /**
  * theme-switcher.js - 背景风格切换器
- * 通过 body[data-bg="..."] 切换 themes.css 中定义的背景风格，
- * 选择结果持久化到 localStorage（key: blog-bg-style）。
+ * 默认风格来自后台 SiteConfig.bg_style（base.html 输出到 body[data-bg]），
+ * 前台用户可临时切换并持久化到 localStorage（key: blog-bg-style），
+ * 优先于后台默认值。
  */
 (function () {
     'use strict';
 
     var STORAGE_KEY = 'blog-bg-style';
-    var DEFAULT_STYLE = 'aurora';
-    var SUPPORTED = ['aurora', 'stars', 'gradient', 'bubbles', 'classic'];
+    var DEFAULT_STYLE = document.body.getAttribute('data-bg') || 'bg1';
+    var SUPPORTED = [];
+
+    document.querySelectorAll('.theme-swatch').forEach(function (btn) {
+        SUPPORTED.push(btn.getAttribute('data-theme'));
+    });
 
     function currentStyle() {
+        var saved = null;
         try {
-            return localStorage.getItem(STORAGE_KEY) || DEFAULT_STYLE;
-        } catch (e) {
-            return DEFAULT_STYLE;
+            saved = localStorage.getItem(STORAGE_KEY);
+        } catch (e) { /* 忽略隐私模式异常 */ }
+        if (saved && SUPPORTED.indexOf(saved) !== -1) {
+            return saved;
         }
+        return (SUPPORTED.indexOf(DEFAULT_STYLE) !== -1) ? DEFAULT_STYLE : 'bg1';
     }
 
     function applyStyle(name) {
@@ -30,9 +38,6 @@
 
     function init() {
         var style = currentStyle();
-        if (SUPPORTED.indexOf(style) === -1) {
-            style = DEFAULT_STYLE;
-        }
         applyStyle(style);
         setActive(style);
 

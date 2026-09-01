@@ -11,6 +11,7 @@
 - 启动时自动初始化数据库与管理员
 - Flask CLI 命令（init-db / create-admin）
 """
+
 import logging
 import os
 import traceback
@@ -36,9 +37,7 @@ def _setup_logging(app: Flask):
     """统一日志格式"""
     if not app.logger.handlers:
         handler = logging.StreamHandler()
-        handler.setFormatter(logging.Formatter(
-            "[%(asctime)s] %(levelname)s in %(module)s: %(message)s"
-        ))
+        handler.setFormatter(logging.Formatter("[%(asctime)s] %(levelname)s in %(module)s: %(message)s"))
         app.logger.addHandler(handler)
     app.logger.setLevel(logging.DEBUG if app.debug else logging.INFO)
     # 让 app.extensions.log 也跟随同级别
@@ -79,6 +78,7 @@ def create_app(config_name: str | None = None):
     # ── 加载配置 ────────────────────────────────────────
     if config_name:
         from config import config_map
+
         app.config.from_object(config_map.get(config_name, config_map["default"]))
     else:
         app.config.from_object(get_config())
@@ -103,6 +103,7 @@ def create_app(config_name: str | None = None):
     db.init_app(app)
     try:
         from flask_migrate import Migrate
+
         Migrate(app, db, directory=os.path.join(root_dir, "migrations"))
     except ImportError:
         log.warning("Flask-Migrate 未安装,跳过迁移支持")
@@ -119,6 +120,7 @@ def create_app(config_name: str | None = None):
     # ── 启动时初始化数据库与初始数据 ────────────────────
     with app.app_context():
         from app.database import ensure_admin_exists, ensure_site_config, init_db
+
         try:
             init_db()
             ensure_site_config()
@@ -133,10 +135,12 @@ def create_app(config_name: str | None = None):
     @app.context_processor
     def global_vars():
         ctx = fetch_global_context()
-        ctx.update({
-            "now_year": date.today().year,
-            "current_lang": _select_locale(),
-        })
+        ctx.update(
+            {
+                "now_year": date.today().year,
+                "current_lang": _select_locale(),
+            }
+        )
         return ctx
 
     # ── 错误处理 ────────────────────────────────────────
@@ -171,8 +175,7 @@ def create_app(config_name: str | None = None):
             return traceback.format_exc(), 500
         if request.is_json:
             return jsonify({"error": "服务器内部错误"}), 500
-        return render_template("error.html", code=500,
-                               message="服务器内部错误,请联系管理员"), 500
+        return render_template("error.html", code=500, message="服务器内部错误,请联系管理员"), 500
 
     # ── 注册蓝图 ────────────────────────────────────────
     from app.admin import admin_bp
@@ -203,6 +206,7 @@ def register_cli(app: Flask):
     def init_db_cmd():
         """创建所有数据库表（幂等）"""
         from app.database import ensure_admin_exists, ensure_site_config, init_db
+
         init_db()
         ensure_site_config()
         ensure_admin_exists()
@@ -210,18 +214,17 @@ def register_cli(app: Flask):
 
     @app.cli.command("create-admin")
     @click.option("--username", prompt=True)
-    @click.option("--password", prompt=True, hide_input=True,
-                  confirmation_prompt=True)
+    @click.option("--password", prompt=True, hide_input=True, confirmation_prompt=True)
     @with_appcontext
     def create_admin_cmd(username, password):
         """创建管理员账号"""
         from werkzeug.security import generate_password_hash
 
         from app.models import Admin
+
         if db.session.scalar(db.select(Admin).filter_by(username=username)):
             click.echo(f"Admin '{username}' already exists.")
             return
-        db.session.add(Admin(username=username,
-                             password=generate_password_hash(password)))
+        db.session.add(Admin(username=username, password=generate_password_hash(password)))
         db.session.commit()
         click.echo(f"Created admin: {username}")

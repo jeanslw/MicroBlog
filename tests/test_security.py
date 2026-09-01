@@ -6,7 +6,7 @@ from app.utils import build_safe_filename, sanitize_html, strip_html
 
 def test_sanitize_html_removes_script():
     """script 标签应被移除"""
-    raw = '<script>alert(1)</script><p>正文</p>'
+    raw = "<script>alert(1)</script><p>正文</p>"
     out = sanitize_html(raw)
     assert "<script" not in out
     assert "alert(1)" not in out
@@ -106,6 +106,7 @@ def test_build_safe_filename_no_double_ext():
 def test_build_safe_filename_no_ext_raises():
     """无扩展名应抛错"""
     import pytest
+
     with pytest.raises(ValueError):
         build_safe_filename("noextension")
 
@@ -129,4 +130,4 @@ def test_article_xss_sanitized_on_detail(client, article, db):
     rv = client.get(f"/article/{article.id}")
     assert rv.status_code == 200
     # script 不应出现在响应正文区
-    assert b'<script>alert' not in rv.data
+    assert b"<script>alert" not in rv.data

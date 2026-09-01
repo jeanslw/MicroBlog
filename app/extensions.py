@@ -3,12 +3,14 @@
 所有扩展在此创建实例（但不绑定 app），工厂在 create_app() 时统一 init_app。
 这样避免循环导入，并使测试可重用实例。
 """
+
 import logging
 import time
 from functools import wraps
 from urllib.parse import urlparse
 
 from flask import flash, redirect, request, url_for
+from flask_babel import _
 from flask_login import LoginManager, current_user
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf import CSRFProtect
@@ -31,6 +33,7 @@ log = logging.getLogger("blog")
 @login_manager.user_loader
 def load_user(user_id: str):
     from app.models import Admin
+
     try:
         return db.session.get(Admin, int(user_id))
     except (TypeError, ValueError):
@@ -52,13 +55,13 @@ def get_client_ip() -> str:
 # 设计：用 login_attempt 表持久化 (ip, username) → fail_count, lock_until
 # 避免 extensions.py 早期依赖 models,这里用惰性导入
 
+
 def check_login_lock(ip: str, username: str):
     """检查登录是否被锁定,返回 (locked, remain_seconds)"""
     from app.models import LoginAttempt
+
     try:
-        rec = db.session.execute(
-            db.select(LoginAttempt).filter_by(ip=ip, username=username)
-        ).scalar_one_or_none()
+        rec = db.session.execute(db.select(LoginAttempt).filter_by(ip=ip, username=username)).scalar_one_or_none()
     except Exception:
         # 表尚未建立（首次启动前）或 DB 异常,放行避免阻断
         log.warning("login_lock 查询失败,放行", exc_info=True)
@@ -81,10 +84,9 @@ def record_login_fail(ip: str, username: str, lock_seconds: int = 300) -> int:
     DB 异常时不阻断登录流程,仅告警（与 check_login_lock 的容错策略一致）。
     """
     from app.models import LoginAttempt
+
     try:
-        rec = db.session.execute(
-            db.select(LoginAttempt).filter_by(ip=ip, username=username)
-        ).scalar_one_or_none()
+        rec = db.session.execute(db.select(LoginAttempt).filter_by(ip=ip, username=username)).scalar_one_or_none()
         if not rec:
             rec = LoginAttempt(ip=ip, username=username, fail_count=0, lock_until=0)
             db.session.add(rec)
@@ -102,10 +104,9 @@ def record_login_fail(ip: str, username: str, lock_seconds: int = 300) -> int:
 def clear_login_fail(ip: str, username: str):
     """登录成功后清除失败记录"""
     from app.models import LoginAttempt
+
     try:
-        rec = db.session.execute(
-            db.select(LoginAttempt).filter_by(ip=ip, username=username)
-        ).scalar_one_or_none()
+        rec = db.session.execute(db.select(LoginAttempt).filter_by(ip=ip, username=username)).scalar_one_or_none()
         if rec:
             db.session.delete(rec)
             db.session.commit()
@@ -123,10 +124,12 @@ def admin_required(f):
     @login_required
     def decorated(*args, **kwargs):
         from app.models import Admin
+
         if not isinstance(current_user, Admin):
-            flash("请先登录管理员账号", "warning")
+            flash(_("请先登录管理员账号"), "warning")
             return redirect(url_for("admin.login"))
         return f(*args, **kwargs)
+
     return decorated
 
 
@@ -138,33 +141,44 @@ def fetch_global_context():
     DB 异常时返回默认值避免页面整页崩溃。
     """
     from app.models import Article, Banner, Category, SiteConfig
+
     try:
         cats = db.session.execute(
             db.select(
-                Category.id, Category.cat_name, Category.tag_text,
+                Category.id,
+                Category.cat_name,
+                Category.tag_text,
                 Category.create_time,
                 db.func.count(Article.id).label("art_count"),
             )
-            .outerjoin(Article, db.and_(Category.id == Article.category_id,
-                                         Article.status == "publish"))
+            .outerjoin(Article, db.and_(Category.id == Article.category_id, Article.status == "publish"))
             .group_by(Category.id)
             .order_by(Category.id.desc())
         ).all()
-        total_art = db.session.scalar(
-            db.select(db.func.count(Article.id)).filter(Article.status == "publish")
-        ) or 0
-        banner_list = db.session.execute(
-            db.select(Banner).order_by(Banner.sort.desc())
-        ).scalars().all()
+        total_art = db.session.scalar(db.select(db.func.count(Article.id)).filter(Article.status == "publish")) or 0
+        banner_list = db.session.execute(db.select(Banner).order_by(Banner.sort.desc())).scalars().all()
         site_name = db.session.scalar(db.select(SiteConfig.site_name)) or "博客"
+        site_logo = db.session.scalar(db.select(SiteConfig.logo_path)) or ""
+        site_favicon = db.session.scalar(db.select(SiteConfig.favicon_path)) or ""
+        # favicon_path 存相对路径（如 static/favicon.ico）,转成可访问的 URL
+        if site_favicon and not site_favicon.startswith(("http://", "https://")):
+            site_favicon = "/" + site_favicon.lstrip("/")
+        bg_row = db.session.execute(db.select(SiteConfig.bg_style, SiteConfig.bg_custom)).first()
+        site_bg_style = (bg_row[0] or "bg1") if bg_row else "bg1"
+        site_bg_custom = bg_row[1] if bg_row else ""
     except Exception:
         log.error("全局模板上下文数据库报错", exc_info=True)
         cats, total_art, banner_list, site_name = [], 0, [], "博客"
+        site_logo, site_favicon, site_bg_style, site_bg_custom = "", "", "bg1", ""
     return {
         "categories": cats,
         "all_article_count": total_art,
         "site_name": site_name,
+        "site_logo": site_logo,
+        "site_favicon": site_favicon,
         "banner_list": banner_list,
+        "site_bg_style": site_bg_style,
+        "site_bg_custom": site_bg_custom,
     }
 
 

@@ -33,14 +33,6 @@
 {% endblock %}
 
 {% block content %}
-{% set msgs = get_flashed_messages() %}
-{% if msgs %}
-<div class="alert alert-success alert-dismissible fade show">
-    {{ msgs[0] }}
-    <button class="btn-close" data-bs-dismiss="alert"></button>
-</div>
-{% endif %}
-
 <div class="row g-4">
     <!-- 左侧栏目菜单 -->
     <div class="col-lg-3">
@@ -76,59 +68,71 @@
 
     <!-- 文章正文区域 -->
     <div class="col-lg-9">
+        {% if current_user.is_authenticated %}
         <div class="d-flex gap-2 mb-3">
-            {% if current_user.is_authenticated %}
-                <a href="{{ url_for('blog.article_edit', aid=article.id) }}" class="btn btn-outline-dark">
-                    <i class="bi bi-pencil"></i> {{ _('编辑') }}
-                </a>
-                <form method="POST" action="{{ url_for('blog.article_del', aid=article.id) }}" class="d-inline"
-                      onsubmit="return confirm('确定删除？')">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="btn btn-danger">
-                        <i class="bi bi-trash"></i> {{ _('删除') }}
-                    </button>
-                </form>
-            {% endif %}
-            <form method="POST" action="{{ url_for('comment.vote', aid=article.id) }}" class="d-inline">
+            <a href="{{ url_for('blog.article_edit', aid=article.id) }}" class="btn btn-sm btn-outline-dark">
+                <i class="bi bi-pencil"></i> {{ _('编辑') }}
+            </a>
+            <form method="POST" action="{{ url_for('blog.article_del', aid=article.id) }}" class="d-inline"
+                  onsubmit="return confirm('确定删除？')">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-hand-thumbs-up"></i> {{ _('点赞') }} {{ article.vote_num }}
+                <button type="submit" class="btn btn-sm btn-danger">
+                    <i class="bi bi-trash"></i> {{ _('删除') }}
                 </button>
             </form>
-            <a href="{{ url_for('blog.index') }}" class="btn btn-outline-dark">{{ _('返回首页') }}</a>
         </div>
-        <div class="card p-5 mb-5">
-            <h2 class="fw-bold">{{ article.title }}</h2>
-            <p class="text-muted mb-4">
+        {% endif %}
+        <div class="card p-4 mb-4">
+            <h4 class="fw-bold">{{ article.title }}</h4>
+            <p class="text-muted mb-3">
                 <i class="bi bi-calendar3"></i> {{ _('发布：%(time)s', time=article.create_time) }}
             </p>
             <hr>
-            <div class="fs-5 lh-lg article-content">
+            <div class="lh-lg article-content">
                 {{ article.content|safe }}
             </div>
         </div>
 
-        <!-- 发表评论 -->
-        <div class="card p-4 mb-5" id="comment_box">
-            <h5 class="fw-bold mb-3"><i class="bi bi-chat-dots text-primary"></i> {{ _('发表评论') }}</h5>
-            <form action="{{ url_for('comment.add_comment', aid=article.id) }}" method="POST">
+        <!-- 文章下方：点赞 + 评论（并列小按钮） -->
+        <div class="text-center mb-4 d-flex justify-content-center gap-2">
+            <form method="POST" action="{{ url_for('comment.vote', aid=article.id) }}" class="d-inline">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <div class="row g-3">
-                    <div class="col-md-3">
-                        <input type="text" name="username" class="form-control" placeholder="{{ _('昵称（默认游客）') }}">
-                    </div>
-                    <div class="col-md-7">
-                        <input type="text" name="content" class="form-control" placeholder="{{ _('写下你的看法...') }}" required>
-                    </div>
-                    <div class="col-md-2">
-                        <button class="btn btn-primary w-100">{{ _('提交') }}</button>
-                    </div>
-                </div>
+                <button type="submit" class="btn btn-primary btn-sm px-3">
+                    <i class="bi bi-hand-thumbs-up"></i> {{ _('点赞') }} {{ article.vote_num }}
+                </button>
             </form>
+            <button type="button" class="btn btn-outline-primary btn-sm px-3" data-bs-toggle="modal" data-bs-target="#commentModal">
+                <i class="bi bi-chat-dots"></i> {{ _('评论') }}
+            </button>
+        </div>
+
+        <!-- 评论弹窗（提交后随页面刷新自动关闭） -->
+        <div class="modal fade" id="commentModal" tabindex="-1" aria-labelledby="commentModalLabel" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content">
+                    <div class="modal-header py-2">
+                        <h6 class="modal-title fw-bold" id="commentModalLabel">
+                            <i class="bi bi-chat-dots text-primary"></i> {{ _('发表评论') }}
+                        </h6>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <form action="{{ url_for('comment.add_comment', aid=article.id) }}" method="POST">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <div class="modal-body pt-2">
+                            <input type="text" name="username" class="form-control form-control-sm mb-2" placeholder="{{ _('昵称（默认游客）') }}">
+                            <textarea name="content" class="form-control form-control-sm" rows="3" placeholder="{{ _('写下你的看法...') }}" required></textarea>
+                        </div>
+                        <div class="modal-footer py-2">
+                            <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">{{ _('取消') }}</button>
+                            <button type="submit" class="btn btn-sm btn-primary">{{ _('提交') }}</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
         </div>
 
         <!-- 全部评论 -->
-        <h5 class="fw-bold mb-3"><i class="bi bi-chat-square-text"></i> {{ _('全部评论（%(num)s）', num=comments|length) }}</h5>
+        <h5 class="fw-bold mb-3" id="comment_box"><i class="bi bi-chat-square-text"></i> {{ _('全部评论（%(num)s）', num=comments|length) }}</h5>
         {% for c in comments %}
         <div class="mb-4 border-start border-primary ps-3 py-2">
             <div class="fw-semibold">{{ c.username }}

@@ -134,6 +134,9 @@ CREATE TABLE `site_config` (
   `id` int NOT NULL AUTO_INCREMENT,
   `site_name` varchar(100) NOT NULL DEFAULT '我的博客',
   `favicon_path` varchar(200) DEFAULT 'static/favicon.ico',
+  `logo_path` varchar(200) DEFAULT '' COMMENT '网站 Logo 图片 URL（导航栏显示，上传时过大自动缩放）',
+  `bg_style` varchar(50) DEFAULT 'bg1' COMMENT '背景风格：bg1~bg10/vdysjx/bg13 内置图库或 custom 自定义',
+  `bg_custom` varchar(500) DEFAULT '' COMMENT '自定义背景图片 URL（bg_style=custom 时生效）',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -148,7 +151,7 @@ CREATE TABLE `vote_log` (
   `ip` varchar(100) DEFAULT NULL,
   `create_time` varchar(50) DEFAULT NULL,
   PRIMARY KEY (`id`),
-  KEY `idx_article_ip` (`article_id`, `ip`)
+  UNIQUE KEY `uk_article_ip` (`article_id`, `ip`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
@@ -171,8 +174,8 @@ CREATE TABLE `login_attempt` (
 -- 初始化数据
 -- --------------------------------------------------------
 -- 站点配置（仅一条）
-INSERT INTO `site_config` (`id`, `site_name`, `favicon_path`)
-VALUES (1, '我的博客', 'static/favicon.ico');
+INSERT INTO `site_config` (`id`, `site_name`, `favicon_path`, `logo_path`, `bg_style`, `bg_custom`)
+VALUES (1, '我的博客', 'static/favicon.ico', '', 'bg1', '');
 
 -- ⚠️ 不在此插入初始管理员账号（避免明文密码）
 -- 请用以下任一方式创建管理员：

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{{ site_name }}{% endblock %}</title>
-    <link rel="icon" href="{{ url_for('static', filename='favicon.ico') }}" type="image/x-icon">
+    <link rel="icon" href="{{ site_favicon or url_for('static', filename='favicon.ico') }}" type="image/x-icon">
     <link href="{{ url_for('static', filename='lib/bootstrap.min.css') }}" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='lib/bootstrap-icons.css') }}">
     <link href="{{ url_for('static', filename='lib/prism-tomorrow.min.css') }}" rel="stylesheet">
@@ -15,19 +15,25 @@
         .blog-card { border-radius:14px; box-shadow:0 3px 15px rgba(0,0,0,0.06); border:none; transition:0.25s ease; margin-bottom:18px; }
         .blog-card:hover { transform:translateY(-6px); box-shadow:0 8px 24px rgba(0,0,0,0.1); }
         .sidebar-box { border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,0.05); padding:20px; position:sticky; top:20px; min-height:240px; }
-        footer { color:#fff; padding:24px 0; text-align:center; }
+        footer { color:#fff; padding:12px 0; text-align:center; }
         pre { background:#2d2d2d; color:#ccc; padding:12px 16px; border-radius:8px; overflow-x:auto; font-family:'Fira Code','Consolas','Courier New',monospace; font-size:14px; line-height:1.6; }
         :not(pre) > code { color:#e83e8c; background:#f8f9fa; padding:2px 6px; border-radius:4px; font-family:'Fira Code','Consolas',monospace; font-size:0.9em; }
         .breadcrumb-item + .breadcrumb-item::before { content:"-"; }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
-<body>
+<body data-bg="{{ site_bg_style }}"{% if site_bg_custom %} style="--custom-bg: url('{{ site_bg_custom }}')"{% endif %}>
 <!-- 动态背景层（风格由 themes.css + theme-switcher.js 控制） -->
 <div class="bg-layer" id="bgLayer" aria-hidden="true"></div>
-<nav class="navbar navbar-expand-lg navbar-dark py-2 mb-2">
+<!-- Flash Toast 容器（牛皮癣式提示，不占用页面布局） -->
+<div class="toast-container position-fixed top-0 end-0 p-3" id="flashToastContainer"
+     style="z-index:3000;" aria-live="polite" aria-atomic="true"></div>
+<nav class="navbar navbar-expand-lg navbar-dark py-1 mb-2">
     <div class="container">
-        <a class="navbar-brand fs-2 fw-bold" href="{{ url_for('blog.index') }}"><i class="bi bi-journal-text me-2"></i>{{ site_name }}</a>
+        <a class="navbar-brand fs-4 fw-bold d-flex align-items-center gap-2" href="{{ url_for('blog.index') }}">
+            {% if site_logo %}<img src="{{ site_logo }}" class="navbar-logo" alt="{{ site_name }}">{% else %}<i class="bi bi-journal-text me-2"></i>{% endif %}
+            <span>{{ site_name }}</span>
+        </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu">
             <span class="navbar-toggler-icon"></span>
         </button>
@@ -47,36 +53,33 @@
                     </ul>
                 </li>
             </ul>
-            <div class="d-flex gap-2 align-items-center">
+            <div class="d-flex gap-1 align-items-center">
                 {% if current_user.is_authenticated %}
-                    <a href="{{ url_for('blog.drafts') }}" class="btn btn-outline-light">{{ _('草稿箱') }}</a>
-                    <a href="{{ url_for('blog.article_new') }}" class="btn btn-success">{{ _('新建文章') }}</a>
-                    <a href="{{ url_for('admin.site_setting') }}" class="btn btn-outline-info">{{ _('站点设置') }}</a>
-                    <a href="{{ url_for('banner.banner_list') }}" class="btn btn-outline-primary">{{ _('轮播图管理') }}</a>
-                    <a href="{{ url_for('admin.change_pwd') }}" class="btn btn-outline-warning">{{ _('改密码') }}</a>
+                    <a href="{{ url_for('blog.drafts') }}" class="btn btn-sm btn-outline-light">{{ _('草稿箱') }}</a>
+                    <a href="{{ url_for('blog.article_new') }}" class="btn btn-sm btn-success">{{ _('新建文章') }}</a>
+                    <a href="{{ url_for('admin.site_setting') }}" class="btn btn-sm btn-outline-info">{{ _('站点设置') }}</a>
+                    <a href="{{ url_for('banner.banner_list') }}" class="btn btn-sm btn-outline-primary">{{ _('轮播图管理') }}</a>
+                    <a href="{{ url_for('admin.change_pwd') }}" class="btn btn-sm btn-outline-warning">{{ _('改密码') }}</a>
                     <form method="POST" action="{{ url_for('admin.logout') }}" class="d-inline">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="btn btn-danger">{{ _('退出登录') }}</button>
+                        <button type="submit" class="btn btn-sm btn-danger">{{ _('退出登录') }}</button>
                     </form>
                 {% endif %}
-                <div class="dropdown ms-2">
-                    <button class="btn btn-outline-light dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                        <i class="bi bi-translate"></i>
-                        {% if current_lang == 'zh_CN' %}中文{% else %}EN{% endif %}
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-end">
-                        <li><a class="dropdown-item {% if current_lang == 'zh_CN' %}active{% endif %}" href="{{ url_for('main.set_lang', lang='zh_CN', next=request.path) }}">中文</a></li>
-                        <li><a class="dropdown-item {% if current_lang == 'en' %}active{% endif %}" href="{{ url_for('main.set_lang', lang='en', next=request.path) }}">English</a></li>
-                    </ul>
-                </div>
+                <button type="button" class="lang-toggle ms-1" id="langToggleBtn"
+                        data-next-lang="{% if current_lang == 'zh_CN' %}en{% else %}zh_CN{% endif %}"
+                        data-url="{{ url_for('main.set_lang', lang='__LANG__', next=request.path) }}"
+                        title="{{ _('切换语言') }}">
+                    <i class="bi bi-translate"></i>
+                    <span>{% if current_lang == 'zh_CN' %}中{% else %}EN{% endif %}</span>
+                </button>
             </div>
         </div>
     </div>
 </nav>
 
 <main class="container">
-    <nav aria-label="breadcrumb" class="mb-4">
-        <ol class="breadcrumb bg-light p-3 rounded">
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb bg-light p-2 rounded">
             <li class="breadcrumb-item"><a href="{{ url_for('blog.index') }}">{{ _('首页') }}</a></li>
             {% block breadcrumb %}{% endblock %}
         </ol>
@@ -98,18 +101,19 @@
     <div class="theme-panel" id="themePanel" hidden>
         <div class="theme-panel-title"><i class="bi bi-stars"></i> 背景风格 / Style</div>
         <div class="theme-swatches">
-            <button type="button" class="theme-swatch" data-theme="aurora">
-                <span class="swatch-preview sw-aurora"></span><span class="swatch-label">极光 Aurora</span>
+            {% set builtin = [('bg1','背景 1'),('bg2','背景 2'),('bg3','背景 3'),('bg4','背景 4'),
+                              ('bg5','背景 5'),('bg6','背景 6'),('bg7','背景 7'),('bg8','背景 8'),
+                              ('bg9','背景 9'),('bg10','背景 10'),('vdysjx','水墨云山'),('bg13','湖光山色')] %}
+            {% for key, label in builtin %}
+            <button type="button" class="theme-swatch" data-theme="{{ key }}">
+                <span class="swatch-preview sw-{{ key }}"></span><span class="swatch-label">{{ label }}</span>
             </button>
-            <button type="button" class="theme-swatch" data-theme="stars">
-                <span class="swatch-preview sw-stars"></span><span class="swatch-label">星空 Starry</span>
+            {% endfor %}
+            {% if site_bg_custom %}
+            <button type="button" class="theme-swatch" data-theme="custom">
+                <span class="swatch-preview sw-custom"></span><span class="swatch-label">自定义 Custom</span>
             </button>
-            <button type="button" class="theme-swatch" data-theme="gradient">
-                <span class="swatch-preview sw-gradient"></span><span class="swatch-label">流光 Flow</span>
-            </button>
-            <button type="button" class="theme-swatch" data-theme="bubbles">
-                <span class="swatch-preview sw-bubbles"></span><span class="swatch-label">气泡 Bubbles</span>
-            </button>
+            {% endif %}
             <button type="button" class="theme-swatch" data-theme="classic">
                 <span class="swatch-preview sw-classic"></span><span class="swatch-label">经典 Classic</span>
             </button>
@@ -121,6 +125,10 @@
 <script src="{{ url_for('static', filename='lib/prism.min.js') }}"></script>
 <script src="{{ url_for('static', filename='lib/prism-autoloader.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/theme-switcher.js') }}"></script>
+<script type="application/json" id="flashData">{{ get_flashed_messages(with_categories=true) | tojson }}</script>
+<script src="{{ url_for('static', filename='js/flash-toast.js') }}"></script>
+<script src="{{ url_for('static', filename='js/lang-toggle.js') }}"></script>
+<script src="{{ url_for('static', filename='js/cursor-effect.js') }}"></script>
 {% block extra_js %}{% endblock %}
 </body>
 </html>

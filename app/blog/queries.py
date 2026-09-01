@@ -3,6 +3,7 @@
 提供文章列表、文章详情、评论聚合等查询。
 所有返回值为 ORM 对象或字典,供模板直接使用。
 """
+
 import math
 
 from sqlalchemy import func, select
@@ -16,7 +17,10 @@ def get_categories_with_count():
     """获取所有栏目 + 已发布文章数（用于侧边栏/导航）"""
     rows = db.session.execute(
         select(
-            Category.id, Category.cat_name, Category.tag_text, Category.create_time,
+            Category.id,
+            Category.cat_name,
+            Category.tag_text,
+            Category.create_time,
             func.count(Article.id).label("art_count"),
         )
         .outerjoin(Article, (Category.id == Article.category_id) & (Article.status == "publish"))
@@ -31,13 +35,11 @@ def get_article_list(offset: int, limit: int, cid: int | None = None):
 
     返回 (article_list, total_page)
     """
-    base_filter = (Article.status == "publish")
+    base_filter = Article.status == "publish"
     if cid:
         base_filter = db.and_(base_filter, Article.category_id == cid)
 
-    total = db.session.scalar(
-        select(func.count(Article.id)).where(base_filter)
-    ) or 0
+    total = db.session.scalar(select(func.count(Article.id)).where(base_filter)) or 0
     total_page = max(math.ceil(total / limit) if limit > 0 else 1, 1)
 
     # 评论计数子查询
@@ -80,11 +82,7 @@ def get_article_detail(aid: int):
     article.content = sanitize_html(article.content)
 
     # 一次性查出所有评论
-    comments = db.session.scalars(
-        select(Comment)
-        .where(Comment.article_id == aid)
-        .order_by(Comment.create_time)
-    ).all()
+    comments = db.session.scalars(select(Comment).where(Comment.article_id == aid).order_by(Comment.create_time)).all()
 
     if not comments:
         return article, []
@@ -92,9 +90,7 @@ def get_article_detail(aid: int):
     # 一次性查出所有回复
     comment_ids = [c.id for c in comments]
     replies = db.session.scalars(
-        select(Reply)
-        .where(Reply.comment_id.in_(comment_ids))
-        .order_by(Reply.create_time)
+        select(Reply).where(Reply.comment_id.in_(comment_ids)).order_by(Reply.create_time)
     ).all()
 
     # 按 comment_id 分组

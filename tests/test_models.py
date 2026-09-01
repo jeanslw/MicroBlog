@@ -1,4 +1,5 @@
 """数据模型测试。"""
+
 import pytest
 from sqlalchemy.exc import IntegrityError
 
@@ -18,6 +19,7 @@ from app.models import (
 def test_admin_password_hashing(db):
     """Admin 密码应使用 hash 存储"""
     from werkzeug.security import generate_password_hash
+
     pwd = "secret123"
     hashed = generate_password_hash(pwd)
     admin = Admin(username="tester", password=hashed)
@@ -57,31 +59,23 @@ def test_article_default_status(db, category):
 
 def test_article_comment_cascade(db, article):
     """删除文章应级联删除评论"""
-    c1 = Comment(article_id=article.id, username="u", content="c1",
-                 create_time="2026-01-01 00:00:00")
-    c2 = Comment(article_id=article.id, username="u", content="c2",
-                 create_time="2026-01-01 00:00:00")
+    c1 = Comment(article_id=article.id, username="u", content="c1", create_time="2026-01-01 00:00:00")
+    c2 = Comment(article_id=article.id, username="u", content="c2", create_time="2026-01-01 00:00:00")
     db.session.add_all([c1, c2])
     db.session.commit()
-    assert db.session.scalar(
-        db.select(db.func.count(Comment.id)).where(Comment.article_id == article.id)
-    ) == 2
+    assert db.session.scalar(db.select(db.func.count(Comment.id)).where(Comment.article_id == article.id)) == 2
 
     db.session.delete(article)
     db.session.commit()
-    assert db.session.scalar(
-        db.select(db.func.count(Comment.id)).where(Comment.article_id == article.id)
-    ) == 0
+    assert db.session.scalar(db.select(db.func.count(Comment.id)).where(Comment.article_id == article.id)) == 0
 
 
 def test_comment_reply_cascade(db, article):
     """删除评论应级联删除其回复"""
-    c = Comment(article_id=article.id, username="u", content="c",
-                create_time="2026-01-01 00:00:00")
+    c = Comment(article_id=article.id, username="u", content="c", create_time="2026-01-01 00:00:00")
     db.session.add(c)
     db.session.commit()
-    r = Reply(comment_id=c.id, username="r", content="reply",
-              create_time="2026-01-01 00:00:00")
+    r = Reply(comment_id=c.id, username="r", content="reply", create_time="2026-01-01 00:00:00")
     db.session.add(r)
     db.session.commit()
 
@@ -119,8 +113,7 @@ def test_login_attempt_record(db):
 
 def test_vote_log_record(db, article):
     """VoteLog 可写入"""
-    v = VoteLog(article_id=article.id, ip="1.1.1.1",
-                create_time="2026-01-01 00:00:00")
+    v = VoteLog(article_id=article.id, ip="1.1.1.1", create_time="2026-01-01 00:00:00")
     db.session.add(v)
     db.session.commit()
     assert v.id is not None

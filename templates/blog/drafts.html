@@ -10,13 +10,6 @@
     <h3><i class="bi bi-file-earmark-draft"></i> {{ _('草稿箱') }}</h3>
     <a href="{{ url_for('blog.article_new') }}" class="btn btn-success">{{ _('新建文章') }}</a>
 </div>
-{% set msgs = get_flashed_messages() %}
-{% if msgs %}
-    <div class="alert alert-success alert-dismissible fade show">
-        {{ msgs[0] }}
-        <button class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-{% endif %}
 <div class="row g-4">
     {% for art in drafts %}
     <div class="col-md-6 col-lg-4">

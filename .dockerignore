@@ -23,6 +23,17 @@ venv
 # 本地数据（容器内自建或挂载卷）
 data/
 static/banner/
+static/uploads/
+
+# 测试与 CI（构建运行时不需要）
+tests/
+.github/
+nginx/
+
+# 构建期配置（运行时不需要）
+pyproject.toml
+pytest.ini
+messages.pot
 
 # Docker 自身文件，避免循环
 Dockerfile

@@ -8,12 +8,14 @@
 所有配置通过 app.config.from_object() 加载,业务常量也写入 app.config,
 其他模块读取时用 current_app.config['KEY'] 或直接 import 对应常量。
 """
+
 import os
 import secrets
 
 # 优先加载项目根目录 .env（若存在），不强制依赖 python-dotenv
 try:
     from dotenv import load_dotenv
+
     load_dotenv()
 except ImportError:
     pass
@@ -57,7 +59,7 @@ class Config:
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
     PERMANENT_SESSION_LIFETIME = 60 * 60 * 12  # 12 小时（秒）
-    PERMANENT_SESSION_LIFETIME_DELTA = None   # 由 __init__.py 转 timedelta
+    PERMANENT_SESSION_LIFETIME_DELTA = None  # 由 __init__.py 转 timedelta
 
     # ── 静态文件 ────────────────────────────────────────
     SEND_FILE_MAX_AGE_DEFAULT = int(os.environ.get("BLOG_STATIC_MAX_AGE", "0"))
@@ -71,9 +73,7 @@ class Config:
     # ── Babel ───────────────────────────────────────────
     BABEL_DEFAULT_LOCALE = "zh_CN"
     # translations/ 位于项目根目录（config.py 所在目录），非 app/ 子目录
-    BABEL_TRANSLATION_DIRECTORIES = os.path.join(
-        os.path.dirname(os.path.abspath(__file__)), "translations"
-    )
+    BABEL_TRANSLATION_DIRECTORIES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "translations")
     BABEL_LOCALES = ("zh_CN", "en")
 
     # ── 初始管理员 ──────────────────────────────────────
@@ -92,40 +92,18 @@ class DevelopmentConfig(Config):
     SQLALCHEMY_DATABASE_URI = os.environ.get(
         "BLOG_SQLITE_PATH",
         "data/blog.db",
-    ) and "sqlite:///" + os.path.abspath(
-        os.environ.get("BLOG_SQLITE_PATH", "data/blog.db")
-    )
+    ) and "sqlite:///" + os.path.abspath(os.environ.get("BLOG_SQLITE_PATH", "data/blog.db"))
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 
 class ProductionConfig(Config):
     DEBUG = False
     SESSION_COOKIE_SECURE = True  # 生产强制 Secure Cookie
-
-    # 根据 BLOG_DB_TYPE 选择数据库 URI
-    @property
-    def SQLALCHEMY_DATABASE_URI(self):  # Flask-SQLAlchemy 读取大写类属性
-        return self._build_db_uri()
-
-    @staticmethod
-    def _build_db_uri() -> str:
-        db_type = os.environ.get("BLOG_DB_TYPE", "sqlite")
-        if db_type == "mysql":
-            host = os.environ.get("BLOG_MYSQL_HOST", "localhost")
-            user = os.environ.get("BLOG_MYSQL_USER", "root")
-            pwd = os.environ.get("BLOG_MYSQL_PWD", "")
-            db = os.environ.get("BLOG_MYSQL_DB", "flask_blog")
-            return f"mysql+pymysql://{user}:{pwd}@{host}/{db}?charset=utf8mb4"
-        # 默认 SQLite
-        path = os.environ.get("BLOG_SQLITE_PATH", "data/blog.db")
-        return "sqlite:///" + os.path.abspath(path)
-
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 
-# 因为 SQLALCHEMY_DATABASE_URI 在 ProductionConfig 是 property,
-# Flask-SQLAlchemy 在 from_object 时无法直接读 property,这里在类外部
-# 预先计算并设置为类属性。
+# 在类外部预先计算并设置 SQLALCHEMY_DATABASE_URI（Flask-SQLAlchemy
+# 通过 from_object 读取类属性）。
 def _resolve_db_uri_for_class(cls):
     db_type = os.environ.get("BLOG_DB_TYPE", "sqlite")
     if db_type == "mysql":
@@ -133,9 +111,7 @@ def _resolve_db_uri_for_class(cls):
         user = os.environ.get("BLOG_MYSQL_USER", "root")
         pwd = os.environ.get("BLOG_MYSQL_PWD", "")
         db = os.environ.get("BLOG_MYSQL_DB", "flask_blog")
-        cls.SQLALCHEMY_DATABASE_URI = (
-            f"mysql+pymysql://{user}:{pwd}@{host}/{db}?charset=utf8mb4"
-        )
+        cls.SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{user}:{pwd}@{host}/{db}?charset=utf8mb4"
         # MySQL 连接建立时显式启用严格模式,确保部署到外部 MySQL（非 Docker,
         # 服务端可能未设 sql-mode）时也按严格模式运行,避免静默截断/隐式转换。
         # 仅在 MySQL 方言下注入 connect_args,SQLite 不受影响。

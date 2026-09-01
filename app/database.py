@@ -10,6 +10,7 @@
 注：文件名从 db.py 改为 database.py，避免与 app.extensions.db 实例
 在 app 包命名空间中产生属性遮蔽（module shadowing）。
 """
+
 import os
 import warnings
 
@@ -27,6 +28,29 @@ def init_db():
     from app import models  # noqa: F401
 
     db.create_all()
+    _migrate_site_config()
+
+
+def _migrate_site_config():
+    """轻量迁移：为旧版 site_config 表补齐背景相关列（幂等）。
+
+    新装环境表结构已包含新列,直接跳过；旧库（v1.1.0 及以前）通过
+    ALTER TABLE 追加 bg_style / bg_custom,避免老数据迁移 SQLite/MySQL 报错。
+    """
+    try:
+        inspector = db.inspect(db.engine)
+        if "site_config" not in inspector.get_table_names():
+            return
+        cols = {c["name"] for c in inspector.get_columns("site_config")}
+        with db.engine.begin() as conn:
+            if "bg_style" not in cols:
+                conn.execute(db.text("ALTER TABLE site_config ADD COLUMN bg_style VARCHAR(50) NOT NULL DEFAULT 'bg1'"))
+            if "bg_custom" not in cols:
+                conn.execute(db.text("ALTER TABLE site_config ADD COLUMN bg_custom VARCHAR(500) NOT NULL DEFAULT ''"))
+            if "logo_path" not in cols:
+                conn.execute(db.text("ALTER TABLE site_config ADD COLUMN logo_path VARCHAR(200) NOT NULL DEFAULT ''"))
+    except Exception as e:
+        log.warning("site_config 背景列迁移失败,可手动执行 ALTER TABLE: %s", e)
 
 
 def ensure_admin_exists():
@@ -41,14 +65,8 @@ def ensure_admin_exists():
 
     from app.models import Admin
 
-    admin_user = (
-        os.environ.get("BLOG_INIT_ADMIN_USER")
-        or current_app.config.get("INIT_ADMIN_USERNAME", "admin")
-    )
-    admin_pwd = (
-        os.environ.get("BLOG_INIT_ADMIN_PWD")
-        or current_app.config.get("INIT_ADMIN_PASSWORD", "")
-    )
+    admin_user = os.environ.get("BLOG_INIT_ADMIN_USER") or current_app.config.get("INIT_ADMIN_USERNAME", "admin")
+    admin_pwd = os.environ.get("BLOG_INIT_ADMIN_PWD") or current_app.config.get("INIT_ADMIN_PASSWORD", "")
 
     try:
         count = db.session.scalar(db.select(db.func.count(Admin.id)))
@@ -61,8 +79,7 @@ def ensure_admin_exists():
 
     if not admin_pwd:
         warnings.warn(
-            "admin 表为空,但未设置 BLOG_INIT_ADMIN_PWD 环境变量,"
-            "初始管理员未创建。请设置后重启。",
+            "admin 表为空,但未设置 BLOG_INIT_ADMIN_PWD 环境变量,初始管理员未创建。请设置后重启。",
             stacklevel=2,
         )
         return

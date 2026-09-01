@@ -7,20 +7,119 @@
 
 {% block content %}
 <div class="row justify-content-center mt-4">
-    <div class="col-md-6">
-        <div class="card p-5">
+    <div class="col-md-7">
+        <div class="card p-4">
             <h4 class="mb-4 fw-bold"><i class="bi bi-gear"></i> {{ _('站点全局设置') }}</h4>
-            {% set msg = get_flashed_messages() %}
-            {% if msg %}<div class="alert alert-success">{{ msg[0] }}</div>{% endif %}
-            <form method="POST">
+
+            <form method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <div class="mb-4">
+
+                <div class="mb-3">
                     <label class="form-label">{{ _('博客网站名称') }}</label>
-                    <input type="text" name="site_name" class="form-control form-control-lg" value="{{ site.site_name }}" required>
+                    <input type="text" name="site_name" class="form-control" value="{{ site.site_name }}" required>
                 </div>
+
+                <hr>
+                <h6 class="fw-bold mb-3"><i class="bi bi-image"></i> {{ _('背景风格') }}</h6>
+
+                <div class="mb-3">
+                    <label class="form-label">{{ _('内置背景图库') }}</label>
+                    <div class="row g-2" id="bgGallery">
+                        {% for val, label in form.bg_style.choices %}
+                        {% if val != 'custom' %}
+                        <div class="col-3">
+                            <label class="bg-option {% if site.bg_style == val %}active{% endif %}"
+                                   data-bg="{{ val }}" title="{{ label }}">
+                                <input type="radio" name="bg_style" value="{{ val }}"
+                                       {% if site.bg_style == val %}checked{% endif %} class="d-none">
+                                <span class="bg-thumb bg-thumb-{{ val }}"></span>
+                                <span class="bg-name">{{ label }}</span>
+                            </label>
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                        <div class="col-3">
+                            <label class="bg-option {% if site.bg_style == 'custom' %}active{% endif %}"
+                                   data-bg="custom" title="{{ _('自定义图片') }}">
+                                <input type="radio" name="bg_style" value="custom"
+                                       {% if site.bg_style == 'custom' %}checked{% endif %} class="d-none">
+                                <span class="bg-thumb bg-thumb-custom"></span>
+                                <span class="bg-name">{{ _('自定义图片') }}</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3" id="customBgFields">
+                    <label class="form-label">{{ _('自定义背景图片') }}</label>
+                    <input type="text" name="bg_custom" class="form-control mb-2"
+                           placeholder="/static/uploads/backgrounds/xxx.jpg 或 http(s)://..."
+                           value="{{ site.bg_custom }}">
+                    <input type="file" name="bg_upload" class="form-control"
+                           accept=".jpg,.jpeg,.png,.webp">
+                    <div class="form-text">{{ _('可填图片 URL，或直接上传一张本地图片（自动缩放到 1920 宽）') }}</div>
+                </div>
+
+                <hr>
+                <h6 class="fw-bold mb-3"><i class="bi bi-image"></i> {{ _('网站 Logo') }}</h6>
+
+                <div class="mb-3">
+                    <label class="form-label">{{ _('上传 Logo 图片') }}</label>
+                    <div class="d-flex align-items-center gap-3">
+                        {% if site.logo_path %}
+                        <img src="{{ site.logo_path }}" class="logo-preview" alt="Logo">
+                        {% endif %}
+                        <input type="file" name="logo_upload" class="form-control"
+                               accept=".jpg,.jpeg,.png,.webp">
+                    </div>
+                    <div class="form-text">{{ _('仅支持 jpg/jpeg/png/webp，最大 2MB；过大时自动缩放，最长边不超过 400px') }}</div>
+                </div>
+
                 <button class="btn btn-primary w-100 py-2">{{ _('保存设置') }}</button>
             </form>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const opts = document.querySelectorAll('.bg-option');
+    const customFields = document.getElementById('customBgFields');
+    function refresh() {
+        const active = document.querySelector('input[name="bg_style"]:checked');
+        const isCustom = active && active.value === 'custom';
+        customFields.style.display = isCustom ? 'block' : 'none';
+        opts.forEach(o => o.classList.toggle('active',
+            o.dataset.bg === (active ? active.value : '')));
+    }
+    opts.forEach(o => o.addEventListener('click', function () {
+        const radio = this.querySelector('input[type="radio"]');
+        if (radio) { radio.checked = true; refresh(); }
+    }));
+    refresh();
+});
+</script>
+<style>
+.bg-option { cursor: pointer; border: 2px solid rgba(0,0,0,.12); border-radius: 8px;
+    padding: 4px; display: block; text-align: center; transition: border-color .15s; }
+.bg-option.active { border-color: #0d6efd; box-shadow: 0 0 0 2px rgba(13,110,253,.25); }
+.bg-thumb { display: block; width: 100%; height: 52px; border-radius: 5px;
+    background-size: cover; background-position: center; }
+.bg-name { font-size: 12px; color: #555; display: block; margin-top: 3px; }
+.bg-thumb-bg1 { background-image: url("{{ url_for('static', filename='backgrounds/250818083142_background1.jpg') }}"); }
+.bg-thumb-bg2 { background-image: url("{{ url_for('static', filename='backgrounds/250818083143_background2.jpg') }}"); }
+.bg-thumb-bg3 { background-image: url("{{ url_for('static', filename='backgrounds/250818083142_background3.jpg') }}"); }
+.bg-thumb-bg4 { background-image: url("{{ url_for('static', filename='backgrounds/250818083142_background4.jpg') }}"); }
+.bg-thumb-bg5 { background-image: url("{{ url_for('static', filename='backgrounds/250818083143_background5.jpg') }}"); }
+.bg-thumb-bg6 { background-image: url("{{ url_for('static', filename='backgrounds/250818083143_background6.jpg') }}"); }
+.bg-thumb-bg7 { background-image: url("{{ url_for('static', filename='backgrounds/250818083143_background7.jpg') }}"); }
+.bg-thumb-bg8 { background-image: url("{{ url_for('static', filename='backgrounds/250818083143_background8.jpg') }}"); }
+.bg-thumb-bg9 { background-image: url("{{ url_for('static', filename='backgrounds/250818083142_background9.jpg') }}"); }
+.bg-thumb-bg10 { background-image: url("{{ url_for('static', filename='backgrounds/250818083143_background10.jpg') }}"); }
+.bg-thumb-vdysjx { background-image: url("{{ url_for('static', filename='backgrounds/250818083148_vdysjx.webp') }}"); }
+.bg-thumb-bg13 { background-image: url("{{ url_for('static', filename='backgrounds/250818085901_13.webp') }}"); }
+.bg-thumb-custom { background: linear-gradient(135deg,#667eea,#764ba2); }
+</style>
 {% endblock %}

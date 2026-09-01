@@ -3,6 +3,7 @@
 所有写操作通过表单类统一校验,自动附带 CSRF token。
 字段名尽量保持与原有 HTML form 字段一致,减少模板改动。
 """
+
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileAllowed, FileField, FileSize
 from wtforms import (
@@ -30,8 +31,7 @@ class LoginForm(FlaskForm):
 
 class ChangePwdForm(FlaskForm):
     old_pwd = PasswordField("原密码", validators=[DataRequired()])
-    new_pwd = PasswordField("新密码",
-                            validators=[DataRequired(), Length(min=6, max=128)])
+    new_pwd = PasswordField("新密码", validators=[DataRequired(), Length(min=6, max=128)])
     confirm_pwd = PasswordField("确认新密码", validators=[DataRequired()])
 
     def validate_confirm_pwd(self, field):
@@ -39,15 +39,53 @@ class ChangePwdForm(FlaskForm):
             raise ValidationError("两次输入的新密码不一致")
 
 
+# 内置背景图库（与 static/backgrounds/ 及 themes.css 选择器一一对应）
+BG_STYLE_CHOICES = [
+    ("bg1", "背景 1"),
+    ("bg2", "背景 2"),
+    ("bg3", "背景 3"),
+    ("bg4", "背景 4"),
+    ("bg5", "背景 5"),
+    ("bg6", "背景 6"),
+    ("bg7", "背景 7"),
+    ("bg8", "背景 8"),
+    ("bg9", "背景 9"),
+    ("bg10", "背景 10"),
+    ("vdysjx", "水墨云山"),
+    ("bg13", "湖光山色"),
+    ("custom", "自定义图片"),
+]
+
+
 class SiteSettingForm(FlaskForm):
-    site_name = StringField("站点名称",
-                            validators=[DataRequired(), Length(max=100)])
+    site_name = StringField("站点名称", validators=[DataRequired(), Length(max=100)])
+    bg_style = SelectField("背景风格", choices=BG_STYLE_CHOICES, default="bg1")
+    bg_custom = StringField(
+        "自定义背景图片 URL",
+        validators=[Optional(), Length(max=500)],
+        description="bg_style 选“自定义图片”时生效，可填 /static/... 或 http(s)://",
+    )
+    bg_upload = FileField(
+        "上传自定义背景图",
+        validators=[
+            Optional(),
+            FileAllowed(["jpg", "jpeg", "png", "webp"], "仅支持 jpg/jpeg/png/webp"),
+            FileSize(max_size=10 * 1024 * 1024),
+        ],
+    )
+    logo_upload = FileField(
+        "上传网站 Logo",
+        validators=[
+            Optional(),
+            FileAllowed(["jpg", "jpeg", "png", "webp"], "仅支持 jpg/jpeg/png/webp"),
+            FileSize(max_size=2 * 1024 * 1024),
+        ],
+    )
     submit = SubmitField("保存")
 
 
 class CategoryForm(FlaskForm):
-    cat_name = StringField("栏目名称",
-                           validators=[DataRequired(), Length(max=60)])
+    cat_name = StringField("栏目名称", validators=[DataRequired(), Length(max=60)])
     tag_text = StringField("标签", validators=[Optional(), Length(max=60)])
     submit = SubmitField("新增栏目")
 
@@ -55,32 +93,36 @@ class CategoryForm(FlaskForm):
 class ArticleForm(FlaskForm):
     title = StringField("标题", validators=[DataRequired(), Length(max=500)])
     content = TextAreaField("正文", validators=[DataRequired()])
-    status = SelectField("状态", choices=[("draft", "草稿"), ("publish", "发布")],
-                         default="draft")
+    status = SelectField("状态", choices=[("draft", "草稿"), ("publish", "发布")], default="draft")
     category_id = SelectField("栏目", coerce=int, validators=[Optional()])
     submit = SubmitField("保存")
 
 
 class BannerForm(FlaskForm):
-    banner_img = FileField("轮播图", validators=[
-        Optional(),
-        FileAllowed(["jpg", "jpeg", "png", "gif"], "仅支持 jpg/jpeg/png/gif"),
-        FileSize(max_size=10 * 1024 * 1024),
-    ])
+    banner_img = FileField(
+        "轮播图",
+        validators=[
+            Optional(),
+            FileAllowed(["jpg", "jpeg", "png", "gif"], "仅支持 jpg/jpeg/png/gif"),
+            FileSize(max_size=10 * 1024 * 1024),
+        ],
+    )
     link_url = StringField("跳转链接", validators=[Optional(), Length(max=500)])
     title = StringField("标题", validators=[Optional(), Length(max=100)])
     desc_text = StringField("描述", validators=[Optional(), Length(max=200)])
-    sort_num = IntegerField("排序", validators=[Optional(), NumberRange(min=0)],
-                            default=0)
+    sort_num = IntegerField("排序", validators=[Optional(), NumberRange(min=0)], default=0)
     submit = SubmitField("保存")
 
 
 class UploadImageForm(FlaskForm):
-    image = FileField("图片", validators=[
-        DataRequired(),
-        FileAllowed(["jpg", "jpeg", "png", "gif"], "仅支持 jpg/jpeg/png/gif"),
-        FileSize(max_size=10 * 1024 * 1024),
-    ])
+    image = FileField(
+        "图片",
+        validators=[
+            DataRequired(),
+            FileAllowed(["jpg", "jpeg", "png", "gif"], "仅支持 jpg/jpeg/png/gif"),
+            FileSize(max_size=10 * 1024 * 1024),
+        ],
+    )
 
 
 class CommentForm(FlaskForm):

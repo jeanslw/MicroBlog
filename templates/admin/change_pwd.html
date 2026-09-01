@@ -10,10 +10,6 @@
     <div class="col-md-6">
         <div class="card p-5">
             <h4 class="mb-4 fw-bold"><i class="bi bi-key-fill text-warning"></i> {{ _('修改登录密码') }}</h4>
-            {% set msgs = get_flashed_messages() %}
-            {% if msgs %}
-                <div class="alert alert-danger">{{ msgs[0] }}</div>
-            {% endif %}
             <form method="POST">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="mb-3">

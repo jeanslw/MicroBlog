@@ -5,8 +5,9 @@
 2. 表名、字段类型严格对齐
 3. 不引入外键约束（原 schema 也无 FK 约束）,但关系映射用 ForeignKey 仅供 ORM 查询使用
 """
+
 from flask_login import UserMixin
-from sqlalchemy import Column, ForeignKey, Integer, String, Text
+from sqlalchemy import Column, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.mysql import MEDIUMTEXT
 from sqlalchemy.orm import relationship
 
@@ -56,8 +57,7 @@ class Article(db.Model):
     category_id = Column(Integer, ForeignKey("category.id"))
 
     category = relationship("Category", back_populates="articles")
-    comments = relationship("Comment", back_populates="article",
-                            cascade="all, delete-orphan")
+    comments = relationship("Comment", back_populates="article", cascade="all, delete-orphan")
 
     def __repr__(self):
         return f"<Article {self.id} {self.title!r}>"
@@ -73,8 +73,7 @@ class Comment(db.Model):
     create_time = Column(String(50))
 
     article = relationship("Article", back_populates="comments")
-    replies = relationship("Reply", back_populates="comment",
-                            cascade="all, delete-orphan")
+    replies = relationship("Reply", back_populates="comment", cascade="all, delete-orphan")
 
 
 class Reply(db.Model):
@@ -107,10 +106,18 @@ class SiteConfig(db.Model):
     id = Column(Integer, primary_key=True, autoincrement=True)
     site_name = Column(String(100), nullable=False, default="我的博客")
     favicon_path = Column(String(200), default="static/favicon.ico")
+    # 网站 Logo 图片 URL（导航栏显示；上传时过大自动缩放）
+    logo_path = Column(String(200), default="")
+    # 背景风格：bg1~bg10 / vdysjx / bg13（内置图库）或 custom（自定义）
+    bg_style = Column(String(50), default="bg1")
+    # 自定义背景图片 URL（bg_style=custom 时生效）
+    bg_custom = Column(String(500), default="")
 
 
 class VoteLog(db.Model):
     __tablename__ = "vote_log"
+    # 与 MySQL/init.sql 对齐:同一 IP 对同一文章只能点赞一次
+    __table_args__ = (UniqueConstraint("article_id", "ip", name="uk_article_ip"),)
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     article_id = Column(Integer)
@@ -120,7 +127,10 @@ class VoteLog(db.Model):
 
 class LoginAttempt(db.Model):
     """登录失败计数（跨 worker 共享,替代进程内字典）"""
+
     __tablename__ = "login_attempt"
+    # 与 MySQL/init.sql 对齐:同一 IP + 用户名只有一条计数记录
+    __table_args__ = (UniqueConstraint("ip", "username", name="uk_ip_username"),)
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     ip = Column(String(100), nullable=False)

@@ -19,7 +19,7 @@ Built on Flask 3.1. Features include: article publishing & management, Markdown 
 | Category Navigation | Article categories, sidebar category filter |
 | Banner Carousel | Backend banner management, image upload & sorting |
 | Internationalization | Chinese/English auto-switching, follows browser language, dropdown manual switch |
-| UI Theme | Glassmorphism transparent UI, dynamic animated backgrounds (Aurora/Starry/Flow/Bubbles/Classic), one-click style switch with localStorage memory |
+| UI Theme | Glassmorphism transparent UI, 12 built-in 1920x1080 HD background images, one-click switch via floating palette; custom background can be uploaded or set by URL in the admin panel; choice remembered in localStorage |
 | Security | CSRF protection, HTML sanitization against XSS (nh3), login brute-force protection, secure sessions, image decompression bomb protection |
 | Database | SQLAlchemy ORM, seamless SQLite/MySQL switching |
 | Testing | pytest 135 tests covering auth/blog/comments/security/i18n |
@@ -131,9 +131,10 @@ MicroBlog/
     ├── banner/                    # Uploaded banner images (.gitkeep placeholder)
     ├── uploads/                   # Uploaded article images (.gitkeep placeholder)
     ├── css/
-    │   └── themes.css             # Background styles + glassmorphism UI + style switcher
+    │   └── themes.css             # Background library + glassmorphism UI + style switcher
     ├── js/
     │   └── theme-switcher.js      # Background style switching (localStorage persistence)
+    ├── backgrounds/               # Built-in background image library (12 HD images)
     └── lib/                       # Local third-party libs (9 files, see 3.2)
 ```
 
@@ -516,9 +517,10 @@ Passwords are stored as `generate_password_hash` hashes — **plaintext password
 from werkzeug.security import generate_password_hash
 from app.models import Admin
 from app.extensions import db
+
 # Execute within app context
-admin = db.session.query(Admin).filter_by(username='admin').first()
-admin.password = generate_password_hash('new-password')
+admin = db.session.query(Admin).filter_by(username="admin").first()
+admin.password = generate_password_hash("new-password")
 db.session.commit()
 ```
 

@@ -1,7 +1,12 @@
 /* ============================================================
-   themes.css - 动态背景 + 玻璃拟态透明 UI + 风格切换器
-   由 theme-switcher.js 通过 body[data-bg="..."] 控制背景风格
+   themes.css - 图片动态背景 + 玻璃拟态透明 UI + 风格切换器
+   body[data-bg] 由后台 SiteConfig.bg_style 决定默认值，
+   theme-switcher.js 支持前台临时切换（localStorage 记忆）。
+   内置背景图库对应 static/backgrounds/ 下的 12 张高清图。
    ============================================================ */
+
+/* ---------- 整体缩小（约 85%，含字体/图标/菜单栏） ---------- */
+html { font-size: 13.5px; }
 
 /* ---------- 背景层 ---------- */
 .bg-layer {
@@ -9,170 +14,244 @@
     inset: 0;
     z-index: -1;
     overflow: hidden;
-    /* 默认（未设置 data-bg 前）即为极光，避免加载闪烁 */
-    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+    /* 默认（未设置 data-bg 前）即第一张背景图，避免加载闪烁 */
+    background: url("../backgrounds/250818083142_background1.jpg") center / cover no-repeat;
 }
-
-.bg-layer::before,
 .bg-layer::after {
     content: "";
     position: absolute;
-    border-radius: 50%;
+    inset: 0;
     pointer-events: none;
 }
 
-/* ---------- 风格 1：极光 Aurora（默认） ---------- */
-body[data-bg="aurora"] .bg-layer {
-    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+/* ---------- 内置图库（与 forms.py BG_STYLE_CHOICES 对应） ---------- */
+body[data-bg="bg1"] .bg-layer {
+    background: url("../backgrounds/250818083142_background1.jpg") center / cover no-repeat;
 }
-body[data-bg="aurora"] .bg-layer::before {
-    width: 70vmax; height: 70vmax; left: -22vmax; top: -28vmax;
-    background: radial-gradient(circle at 30% 30%, rgba(124, 58, 237, 0.85), transparent 60%);
-    filter: blur(40px);
-    animation: aurora-drift 20s ease-in-out infinite alternate;
+body[data-bg="bg2"] .bg-layer {
+    background: url("../backgrounds/250818083143_background2.jpg") center / cover no-repeat;
 }
-body[data-bg="aurora"] .bg-layer::after {
-    width: 65vmax; height: 65vmax; right: -24vmax; bottom: -30vmax;
-    background: radial-gradient(circle at 70% 70%, rgba(34, 211, 238, 0.75), transparent 60%);
-    filter: blur(40px);
-    animation: aurora-drift 26s ease-in-out infinite alternate-reverse;
+body[data-bg="bg3"] .bg-layer {
+    background: url("../backgrounds/250818083142_background3.jpg") center / cover no-repeat;
 }
-@keyframes aurora-drift {
-    from { transform: translate(0, 0) scale(1); }
-    to   { transform: translate(10vmax, 8vmax) scale(1.2); }
+body[data-bg="bg4"] .bg-layer {
+    background: url("../backgrounds/250818083142_background4.jpg") center / cover no-repeat;
 }
-
-/* ---------- 风格 2：星空 Starry ---------- */
-body[data-bg="stars"] .bg-layer {
-    background: linear-gradient(180deg, #0b1026 0%, #05070f 100%);
+body[data-bg="bg5"] .bg-layer {
+    background: url("../backgrounds/250818083143_background5.jpg") center / cover no-repeat;
 }
-body[data-bg="stars"] .bg-layer::before {
-    width: 2px; height: 2px; border-radius: 50%;
-    background: #fff;
-    box-shadow:
-        15px 32px #fff, 60px 18px rgba(255,255,255,.8), 95px 60px #fff,
-        130px 40px rgba(255,255,255,.6), 180px 90px #fff, 225px 55px rgba(255,255,255,.9),
-        260px 120px #fff, 300px 70px rgba(255,255,255,.7), 340px 150px #fff,
-        400px 95px rgba(255,255,255,.8), 440px 40px #fff, 480px 130px rgba(255,255,255,.6),
-        35px 120px rgba(255,255,255,.7), 75px 180px #fff, 110px 95px rgba(255,255,255,.6),
-        155px 160px #fff, 200px 200px rgba(255,255,255,.8), 250px 175px #fff,
-        290px 235px rgba(255,255,255,.7), 330px 210px #fff, 380px 260px rgba(255,255,255,.6),
-        430px 235px #fff, 470px 300px rgba(255,255,255,.8), 520px 270px #fff;
-    animation: twinkle 3.5s ease-in-out infinite;
+body[data-bg="bg6"] .bg-layer {
+    background: url("../backgrounds/250818083143_background6.jpg") center / cover no-repeat;
 }
-body[data-bg="stars"] .bg-layer::after {
-    width: 3px; height: 3px; border-radius: 50%;
-    background: rgba(255,255,255,.85);
-    box-shadow:
-        40px 70px rgba(255,255,255,.8), 100px 150px rgba(255,255,255,.6),
-        175px 85px rgba(255,255,255,.7), 240px 200px rgba(255,255,255,.6),
-        310px 140px rgba(255,255,255,.8), 385px 220px rgba(255,255,255,.6),
-        460px 180px rgba(255,255,255,.7), 520px 60px rgba(255,255,255,.6);
-    animation: twinkle 5s ease-in-out infinite reverse;
+body[data-bg="bg7"] .bg-layer {
+    background: url("../backgrounds/250818083143_background7.jpg") center / cover no-repeat;
 }
-@keyframes twinkle {
-    0%, 100% { opacity: 0.25; }
-    50%      { opacity: 1; }
+body[data-bg="bg8"] .bg-layer {
+    background: url("../backgrounds/250818083143_background8.jpg") center / cover no-repeat;
+}
+body[data-bg="bg9"] .bg-layer {
+    background: url("../backgrounds/250818083142_background9.jpg") center / cover no-repeat;
+}
+body[data-bg="bg10"] .bg-layer {
+    background: url("../backgrounds/250818083143_background10.jpg") center / cover no-repeat;
+}
+body[data-bg="vdysjx"] .bg-layer {
+    background: url("../backgrounds/250818083148_vdysjx.webp") center / cover no-repeat;
+}
+body[data-bg="bg13"] .bg-layer {
+    background: url("../backgrounds/250818085901_13.webp") center / cover no-repeat;
 }
 
-/* ---------- 风格 3：流光 Gradient Flow ---------- */
-body[data-bg="gradient"] .bg-layer {
-    background: linear-gradient(120deg, #ff9a9e, #fecfef, #fbc2eb, #a18cd1, #a1c4fd, #c2e9fb, #ff9a9e);
-    background-size: 400% 400%;
-    animation: gradient-flow 18s ease infinite;
-}
-body[data-bg="gradient"] .bg-layer::before,
-body[data-bg="gradient"] .bg-layer::after { display: none; }
-@keyframes gradient-flow {
-    0%   { background-position: 0% 50%; }
-    50%  { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
+/* ---------- 自定义背景（后台上传/URL，CSS 变量由 base.html 输出） ---------- */
+body[data-bg="custom"] .bg-layer {
+    background: var(--custom-bg, url("../backgrounds/250818083142_background1.jpg")) center / cover no-repeat;
 }
 
-/* ---------- 风格 4：气泡 Bubbles ---------- */
-body[data-bg="bubbles"] .bg-layer {
-    background: linear-gradient(160deg, #0f2027, #203a43, #2c5364);
-}
-body[data-bg="bubbles"] .bg-layer::before,
-body[data-bg="bubbles"] .bg-layer::after {
-    border-radius: 50%;
-    background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.95), rgba(255,255,255,.08) 60%);
-    opacity: .45;
-    animation: bubble-rise 14s linear infinite;
-}
-body[data-bg="bubbles"] .bg-layer::before {
-    width: 70px; height: 70px; left: 12%;
-    box-shadow: 160px -90px 0 12px rgba(255,255,255,.25),
-                320px -160px 0 6px rgba(255,255,255,.2),
-                520px -60px 0 18px rgba(255,255,255,.15);
-    bottom: -90px;
-}
-body[data-bg="bubbles"] .bg-layer::after {
-    width: 40px; height: 40px; left: 45%;
-    box-shadow: 220px -50px 0 8px rgba(255,255,255,.22),
-                400px -130px 0 5px rgba(255,255,255,.18),
-                600px -40px 0 10px rgba(255,255,255,.15);
-    bottom: -60px;
-    animation-duration: 18s;
-    animation-delay: 3s;
-}
-@keyframes bubble-rise {
-    from { transform: translateY(0); }
-    to   { transform: translateY(-130vh); }
-}
-
-/* ---------- 风格 5：经典 Classic（原浅色风格） ---------- */
+/* ---------- 经典浅色风格 ---------- */
 body[data-bg="classic"] .bg-layer {
     background: linear-gradient(180deg, #f5f7fa, #e9edf3);
 }
-body[data-bg="classic"] .bg-layer::before,
-body[data-bg="classic"] .bg-layer::after { display: none; }
 
-/* ---------- 玻璃拟态透明 UI ---------- */
+/* ---------- 图片背景暗色遮罩：保证白字与卡片可读性 ---------- */
+body[data-bg]:not([data-bg="classic"]) .bg-layer::after {
+    background: rgba(8, 10, 16, 0.38);
+}
+
+/* ---------- 玻璃拟态透明 UI（header/footer/卡片全透明化） ---------- */
 .navbar {
-    background: rgba(23, 26, 33, 0.55) !important;
-    backdrop-filter: blur(12px) saturate(1.4);
-    -webkit-backdrop-filter: blur(12px) saturate(1.4);
+    background: rgba(15, 18, 28, 0.45) !important;
+    backdrop-filter: blur(12px) saturate(1.5);
+    -webkit-backdrop-filter: blur(12px) saturate(1.5);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    /* 滚动时吸顶；层级最高防止被正文/下拉菜单遮挡 */
+    position: sticky;
+    top: 0;
+    z-index: 1030;
 }
 footer {
-    background: rgba(23, 26, 33, 0.55) !important;
-    backdrop-filter: blur(12px) saturate(1.4);
-    -webkit-backdrop-filter: blur(12px) saturate(1.4);
+    background: rgba(15, 18, 28, 0.45) !important;
+    backdrop-filter: blur(12px) saturate(1.5);
+    -webkit-backdrop-filter: blur(12px) saturate(1.5);
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 12px 0;
+    font-size: 0.85rem;
+    position: relative;
+    z-index: 1020;
 }
 .breadcrumb {
-    background: rgba(255, 255, 255, 0.55) !important;
+    background: rgba(255, 255, 255, 0.45) !important;
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
 }
-.card {
-    background: rgba(255, 255, 255, 0.72) !important;
-    backdrop-filter: blur(10px) saturate(1.3);
-    -webkit-backdrop-filter: blur(10px) saturate(1.3);
-    border: 1px solid rgba(255, 255, 255, 0.35);
+/* 导航栏下拉菜单层级最高，不被遮挡 */
+.navbar .dropdown-menu {
+    z-index: 2000;
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+/* 所有卡片/面板/表格统一半透明玻璃 */
+.card,
+.sidebar-box {
+    background: rgba(255, 255, 255, 0.45) !important;
+    backdrop-filter: blur(12px) saturate(1.3);
+    -webkit-backdrop-filter: blur(12px) saturate(1.3);
+    border: 1px solid rgba(255, 255, 255, 0.25);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
 }
-.sidebar-box {
-    background: rgba(255, 255, 255, 0.72) !important;
-    backdrop-filter: blur(10px) saturate(1.3);
-    -webkit-backdrop-filter: blur(10px) saturate(1.3);
-    border: 1px solid rgba(255, 255, 255, 0.35);
+.blog-card { border-color: rgba(255, 255, 255, 0.25) !important; }
+.table {
+    background: rgba(255, 255, 255, 0.45);
+    backdrop-filter: blur(12px) saturate(1.3);
+    -webkit-backdrop-filter: blur(12px) saturate(1.3);
+    border-radius: 8px;
+    overflow: hidden;
 }
-.blog-card { border-color: rgba(255, 255, 255, 0.35) !important; }
+/* 浅灰块（评论回复、表单背景等）也半透明 */
+.bg-light {
+    background: rgba(255, 255, 255, 0.30) !important;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+}
+/* 表单控件半透明玻璃（全部模块统一） */
+.form-control,
+.form-select {
+    background: rgba(255, 255, 255, 0.28) !important;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    color: #1a1d24;
+}
+.form-control:focus,
+.form-select:focus {
+    background: rgba(255, 255, 255, 0.38) !important;
+    color: #1a1d24;
+    border-color: rgba(13, 110, 253, 0.6);
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.15);
+}
+.form-control::placeholder { color: rgba(30, 34, 44, 0.50); }
+.alert {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+/* ---------- 语言切换（低调、小字体、无边框） ---------- */
+.lang-toggle {
+    border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.80);
+    font-size: 0.78rem;
+    padding: 3px 8px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.lang-toggle:hover,
+.lang-toggle:focus {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+}
+/* 去掉下拉箭头，更隐蔽 */
+.lang-toggle::after { display: none; }
+
+/* ---------- Flash Toast（牛皮癣式提示，悬浮右上角不占布局） ----------
+ * 所有类别统一外观：深色半透明玻璃 + 统一浅色图标，仅以图标形状区分语义。 */
+.flash-toast {
+    background: rgba(15, 18, 28, 0.55);
+    backdrop-filter: blur(12px) saturate(1.4);
+    -webkit-backdrop-filter: blur(12px) saturate(1.4);
+    color: #f8f9fa;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 10px;
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.28);
+    font-size: 0.85rem;
+}
+.flash-toast .toast-body { padding: 8px 12px; }
+.flash-toast-icon { font-size: 1rem; color: #c8d3e0; }
+.flash-toast-close { filter: brightness(0.95); }
+
+/* ---------- 导航栏 Logo（显示尺寸受限，不超出导航高度） ---------- */
+.navbar-logo {
+    height: 30px;
+    width: auto;
+    max-width: 160px;
+    object-fit: contain;
+}
+
+/* ---------- 站点设置页 Logo 预览 ---------- */
+.logo-preview {
+    height: 40px;
+    width: auto;
+    max-width: 180px;
+    object-fit: contain;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    border-radius: 6px;
+    padding: 2px;
+    background: rgba(255, 255, 255, 0.6);
+}
+
+/* ---------- 鼠标移动跟随粒子特效（仅桌面端生效，不拦截鼠标事件） ---------- */
+#cursorFx {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1200;
+    overflow: hidden;
+}
+#cursorFx span {
+    position: absolute;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    opacity: 0;
+    transition: transform 0.9s ease-out, opacity 0.9s ease-out;
+    will-change: transform, opacity;
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.45);
+}
+
+/* ---------- 弹窗（评论等）统一玻璃拟态 ---------- */
+.modal-content {
+    background: rgba(255, 255, 255, 0.60);
+    backdrop-filter: blur(14px) saturate(1.4);
+    -webkit-backdrop-filter: blur(14px) saturate(1.4);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 12px;
+}
 
 /* ---------- 风格切换器 ---------- */
 .theme-switcher {
     position: fixed;
-    right: 24px;
-    bottom: 24px;
-    z-index: 1080;
+    right: 20px;
+    bottom: 20px;
+    z-index: 2000;
 }
 .theme-toggle {
-    width: 52px; height: 52px;
+    width: 46px; height: 46px;
     border: none;
     border-radius: 50%;
-    background: rgba(23, 26, 33, 0.65);
+    background: rgba(15, 18, 28, 0.65);
     color: #fff;
-    font-size: 22px;
+    font-size: 20px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -186,65 +265,74 @@ footer {
 .theme-panel {
     position: absolute;
     right: 0;
-    bottom: 64px;
-    width: 240px;
-    padding: 14px;
+    bottom: 56px;
+    width: 250px;
+    max-height: 62vh;
+    overflow-y: auto;
+    padding: 12px;
     border-radius: 14px;
-    background: rgba(255, 255, 255, 0.92);
+    background: rgba(255, 255, 255, 0.94);
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
 }
 .theme-panel-title {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     color: #333;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
 }
-.theme-swatches { display: flex; flex-direction: column; gap: 6px; }
+.theme-swatches {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
 .theme-swatch {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
     width: 100%;
     border: none;
     background: transparent;
-    border-radius: 10px;
-    padding: 6px 8px;
+    border-radius: 8px;
+    padding: 4px 6px;
     cursor: pointer;
     text-align: left;
     transition: background 0.15s ease;
 }
 .theme-swatch:hover { background: rgba(0, 0, 0, 0.06); }
+.theme-swatch.active { outline: 2px solid #0d6efd; outline-offset: 1px; }
 .theme-swatch.active .swatch-label { font-weight: 600; color: #0d6efd; }
 .swatch-preview {
-    width: 34px; height: 24px;
-    border-radius: 6px;
-    border: 1px solid rgba(0, 0, 0, 0.12);
+    width: 40px; height: 26px;
+    border-radius: 5px;
+    border: 1px solid rgba(0, 0, 0, 0.15);
     flex-shrink: 0;
+    background-size: cover;
+    background-position: center;
 }
-.swatch-label { font-size: 13px; color: #333; }
-.sw-aurora   { background: linear-gradient(135deg, #0f0c29, #302b63, #7f00ff); }
-.sw-stars {
-    background-color: #0b1026;
-    background-image: radial-gradient(circle, #fff 1px, transparent 2px),
-                      radial-gradient(circle, rgba(255,255,255,.6) 1px, transparent 2px);
-    background-size: 50px 50px, 70px 70px;
-    background-position: 0 0, 25px 35px;
-}
-.sw-gradient { background: linear-gradient(120deg, #ff9a9e, #fbc2eb, #a18cd1, #a1c4fd); }
-.sw-bubbles {
-    background: radial-gradient(circle at 30% 70%, rgba(255,255,255,.9) 0 3px, transparent 4px),
-                radial-gradient(circle at 70% 30%, rgba(255,255,255,.7) 0 2px, transparent 3px),
-                linear-gradient(160deg, #0f2027, #203a43, #2c5364);
+.swatch-label { font-size: 12px; color: #333; }
+
+/* 内置图缩略图（切换器面板） */
+.sw-bg1 { background-image: url("../backgrounds/250818083142_background1.jpg"); }
+.sw-bg2 { background-image: url("../backgrounds/250818083143_background2.jpg"); }
+.sw-bg3 { background-image: url("../backgrounds/250818083142_background3.jpg"); }
+.sw-bg4 { background-image: url("../backgrounds/250818083142_background4.jpg"); }
+.sw-bg5 { background-image: url("../backgrounds/250818083143_background5.jpg"); }
+.sw-bg6 { background-image: url("../backgrounds/250818083143_background6.jpg"); }
+.sw-bg7 { background-image: url("../backgrounds/250818083143_background7.jpg"); }
+.sw-bg8 { background-image: url("../backgrounds/250818083143_background8.jpg"); }
+.sw-bg9 { background-image: url("../backgrounds/250818083142_background9.jpg"); }
+.sw-bg10 { background-image: url("../backgrounds/250818083143_background10.jpg"); }
+.sw-vdysjx { background-image: url("../backgrounds/250818083148_vdysjx.webp"); }
+.sw-bg13 { background-image: url("../backgrounds/250818085901_13.webp"); }
+.sw-custom {
+    background-color: #667eea;
+    background-image: var(--custom-bg, linear-gradient(135deg, #667eea, #764ba2));
 }
 .sw-classic { background: linear-gradient(180deg, #f5f7fa, #e9edf3); }
 
 /* ---------- 无障碍：减少动态效果 ---------- */
 @media (prefers-reduced-motion: reduce) {
-    .bg-layer::before,
-    .bg-layer::after {
-        animation: none !important;
-    }
-    body[data-bg="gradient"] .bg-layer { animation: none !important; }
+    * { transition: none !important; animation: none !important; }
 }

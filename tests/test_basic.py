@@ -35,8 +35,7 @@ def test_404_handler(client):
 
 def test_404_json_handler(client):
     """JSON 请求的 404 应返回 JSON"""
-    rv = client.get("/this-path-does-not-exist",
-                    headers={"Accept": "application/json"})
+    rv = client.get("/this-path-does-not-exist", headers={"Accept": "application/json"})
     assert rv.status_code == 404
 
 

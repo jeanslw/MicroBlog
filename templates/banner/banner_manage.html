@@ -7,8 +7,6 @@
 
 {% block content %}
 <h3 class="mb-4"><i class="bi bi-images"></i> {{ _('Banner轮播管理') }}</h3>
-{% set msg = get_flashed_messages() %}
-{% if msg %}<div class="alert alert-success">{{ msg[0] }}</div>{% endif %}
 <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#addModal">{{ _('新增轮播图') }}</button>
 <div class="card p-4">
     <table class="table table-hover">

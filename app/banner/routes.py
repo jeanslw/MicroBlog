@@ -6,6 +6,7 @@
 - 删除时 try/finally 关闭游标 → ORM 自动管理,删除文件失败不阻断
 - url_prefix="/banner",所以路由用相对路径
 """
+
 import os
 from datetime import datetime
 
@@ -28,9 +29,7 @@ from app.utils import (
 @banner_bp.route("/")
 @login_required
 def banner_list():
-    banners = db.session.scalars(
-        db.select(Banner).order_by(Banner.sort.desc())
-    ).all()
+    banners = db.session.scalars(db.select(Banner).order_by(Banner.sort.desc())).all()
     return render_template("banner/banner_manage.html", banner_list=banners)
 
 
@@ -66,7 +65,9 @@ def banner_add():
     img.stream.seek(0)
     try:
         process_and_save_image(
-            img.stream, save_path, ext,
+            img.stream,
+            save_path,
+            ext,
             max_width=current_app.config.get("BANNER_MAX_WIDTH", 1920),
         )
     except Exception as e:
@@ -75,15 +76,19 @@ def banner_add():
         return redirect(url_for("banner.banner_list"))
 
     img_path = f"/static/banner/{final_name}"
-    link = safe_url(form.link_url.data or "")[:current_app.config.get("LINK_MAX_LEN", 500)]
+    link = safe_url(form.link_url.data or "")[: current_app.config.get("LINK_MAX_LEN", 500)]
     title = (form.title.data or "").strip()[:100]
     desc = (form.desc_text.data or "").strip()[:200]
     sort_num = form.sort_num.data or 0
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     banner = Banner(
-        img_path=img_path, link_url=link, title=title,
-        desc_text=desc, sort=sort_num, create_time=now,
+        img_path=img_path,
+        link_url=link,
+        title=title,
+        desc_text=desc,
+        sort=sort_num,
+        create_time=now,
     )
     db.session.add(banner)
     db.session.commit()
@@ -106,7 +111,7 @@ def banner_edit(bid):
         flash(_("轮播图不存在"), "warning")
         return redirect(url_for("banner.banner_list"))
 
-    banner.link_url = safe_url(form.link_url.data or "")[:current_app.config.get("LINK_MAX_LEN", 500)]
+    banner.link_url = safe_url(form.link_url.data or "")[: current_app.config.get("LINK_MAX_LEN", 500)]
     banner.title = (form.title.data or "").strip()[:100]
     banner.desc_text = (form.desc_text.data or "").strip()[:200]
     banner.sort = form.sort_num.data or 0
@@ -128,7 +133,9 @@ def banner_edit(bid):
         img.stream.seek(0)
         try:
             process_and_save_image(
-                img.stream, save_path, ext,
+                img.stream,
+                save_path,
+                ext,
                 max_width=current_app.config.get("BANNER_MAX_WIDTH", 1920),
             )
         except Exception as e:

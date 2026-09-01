@@ -14,8 +14,8 @@
     .CodeMirror {
         border-radius: 0 0 8px 8px;
         border-color: #dee2e6;
-        min-height: 500px;
-        font-size: 15px;
+        min-height: 400px;
+        font-size: 14px;
         line-height: 1.7;
     }
     .editor-preview {
@@ -67,21 +67,19 @@
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-lg-10">
-        <div class="card edit-card p-5">
-            <h4 class="mb-4 fw-bold">
+        <div class="card edit-card p-4">
+            <h5 class="mb-3 fw-bold">
                 {% if article %}<i class="bi bi-pencil-square"></i> {{ _('编辑文章') }}{% else %}<i class="bi bi-plus-circle"></i> {{ _('新建文章') }}{% endif %}
-            </h4>
-            {% set msg = get_flashed_messages() %}
-            {% if msg %}<div class="alert alert-success">{{ msg[0] }}</div>{% endif %}
+            </h5>
             <form method="POST" id="article_form">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="mb-3">
                     <label class="form-label fw-semibold">{{ _('文章标题') }}</label>
-                    <input type="text" name="title" class="form-control form-control-lg" value="{{ article.title if article else '' }}" required>
+                    <input type="text" name="title" class="form-control" value="{{ article.title if article else '' }}" required>
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-semibold">{{ _('所属栏目') }}</label>
-                    <select name="category_id" class="form-select form-select-lg">
+                    <select name="category_id" class="form-select">
                         <option value="0">{{ _('无分类') }}</option>
                         {% for cat in categories %}
                         <option value="{{ cat.id }}" {% if article and article.category_id == cat.id %}selected{% endif %}>
@@ -95,9 +93,11 @@
                         {{ _('正文内容（Markdown 编辑器 — 使用') }} <code>```{{ _('语言') }}</code> {{ _('插入代码块）') }}
                     </label>
                     <div style="position: relative;">
-                        <textarea id="rich_content" name="content" rows="12" class="form-control">{{ article.content if article else '' }}</textarea>
+                        <textarea id="rich_content" name="content" rows="10" class="form-control">{{ article.content if article else '' }}</textarea>
                         <div class="upload-btn">
-                            <button type="button" id="upload_image_btn">📷 {{ _('上传图片') }}</button>
+                            <button type="button" id="upload_md_btn">📄 {{ _('上传 Markdown') }}</button>
+                            <input type="file" id="md_upload_input" accept=".md,.markdown,text/markdown,text/x-markdown,text/plain" style="display:none;">
+                            <button type="button" id="upload_image_btn" data-upload-url="{{ url_for('admin.upload_image') }}">📷 {{ _('上传图片') }}</button>
                             <input type="file" id="image_upload_input" accept="image/jpeg,image/png,image/gif" style="display:none;">
                         </div>
                     </div>
@@ -116,8 +116,8 @@
                     </div>
                 </div>
                 <div class="d-flex gap-3">
-                    <button type="submit" class="btn btn-success flex-grow-1 py-2 fs-5">{{ _('提交保存') }}</button>
-                    <a href="{{ url_for('blog.index') }}" class="btn btn-secondary flex-grow-1 py-2 text-center text-decoration-none">{{ _('取消') }}</a>
+                    <button type="submit" class="btn btn-success flex-grow-1 py-1">{{ _('提交保存') }}</button>
+                    <a href="{{ url_for('blog.index') }}" class="btn btn-secondary flex-grow-1 py-1 text-center text-decoration-none">{{ _('取消') }}</a>
                 </div>
             </form>
         </div>
@@ -218,14 +218,15 @@ var easyMDE = new EasyMDE({
     },
     status: ['lines', 'words', 'cursor'],
     styleSelectedText: false,
-    minHeight: '500px'
+    minHeight: '400px'
 });
 
 // 自定义图片上传功能
 (function() {
     var uploadBtn = document.getElementById('upload_image_btn');
     var fileInput = document.getElementById('image_upload_input');
-    var csrfToken = '{{ csrf_token() }}';
+    var csrfTokenEl = document.querySelector('#article_form input[name="csrf_token"]');
+    var csrfToken = csrfTokenEl ? csrfTokenEl.value : '';
 
     uploadBtn.addEventListener('click', function() {
         fileInput.click();
@@ -256,7 +257,7 @@ var easyMDE = new EasyMDE({
         formData.append('image', file);
 
         var xhr = new XMLHttpRequest();
-        xhr.open('POST', '{{ url_for('admin.upload_image') }}');
+        xhr.open('POST', uploadBtn.getAttribute('data-upload-url') || '');
         xhr.setRequestHeader('X-CSRF-Token', csrfToken);
 
         xhr.onload = function() {
@@ -289,6 +290,59 @@ var easyMDE = new EasyMDE({
         };
 
         xhr.send(formData);
+    });
+})();
+
+// 上传 Markdown 文件：读取内容并导入编辑器（自动渲染标题/章节/列表等）
+(function() {
+    var mdBtn = document.getElementById('upload_md_btn');
+    var mdInput = document.getElementById('md_upload_input');
+    if (!mdBtn || !mdInput) return;
+
+    mdBtn.addEventListener('click', function() {
+        mdInput.click();
+    });
+
+    mdInput.addEventListener('change', function(e) {
+        var file = e.target.files[0];
+        if (!file) return;
+
+        // 校验文件类型
+        var name = (file.name || '').toLowerCase();
+        var isMd = /\.(md|markdown)$/.test(name) || file.type === 'text/markdown' || file.type === 'text/x-markdown';
+        if (!isMd) {
+            alert('仅支持 .md / .markdown 格式的 Markdown 文件');
+            mdInput.value = '';
+            return;
+        }
+
+        // 校验文件大小 (2MB)
+        if (file.size > 2 * 1024 * 1024) {
+            alert('Markdown 文件大小不能超过 2MB');
+            mdInput.value = '';
+            return;
+        }
+
+        // 编辑器已有内容时确认是否覆盖
+        if (easyMDE.value().trim().length > 0) {
+            if (!confirm('导入 Markdown 文件将覆盖当前正文，是否继续？')) {
+                mdInput.value = '';
+                return;
+            }
+        }
+
+        var reader = new FileReader();
+        reader.onload = function(ev) {
+            var text = ev.target.result || '';
+            easyMDE.value(text);
+            // 刷新编辑器与字数统计
+            easyMDE.codemirror.refresh();
+            easyMDE.codemirror.clearHistory();
+        };
+        reader.onerror = function() {
+            alert('读取 Markdown 文件失败，请检查文件编码（建议 UTF-8）');
+        };
+        reader.readAsText(file, 'utf-8');
     });
 })();
 

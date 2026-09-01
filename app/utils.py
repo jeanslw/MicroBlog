@@ -5,22 +5,58 @@
 - 图片安全处理（Pillow 解压炸弹防护）
 - 文件名安全化 + UUID 命名
 """
+
 import os
 import re
 import uuid
 
 import nh3
-from PIL import Image, ImageFile
+from PIL import Image, ImageFile, ImageSequence
 from werkzeug.utils import secure_filename
 
 # ── HTML 净化（白名单） ─────────────────────────────────
 # 允许的标签
 ALLOWED_TAGS = {
-    "p", "h1", "h2", "h3", "h4", "h5", "h6",
-    "a", "img", "strong", "em", "b", "i", "u", "s", "del", "ins", "sub", "sup",
-    "ul", "ol", "li", "blockquote", "pre", "code", "br", "hr",
-    "table", "thead", "tbody", "tr", "th", "td", "caption",
-    "span", "div", "section", "article", "header", "footer",
+    "p",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "a",
+    "img",
+    "strong",
+    "em",
+    "b",
+    "i",
+    "u",
+    "s",
+    "del",
+    "ins",
+    "sub",
+    "sup",
+    "ul",
+    "ol",
+    "li",
+    "blockquote",
+    "pre",
+    "code",
+    "br",
+    "hr",
+    "table",
+    "thead",
+    "tbody",
+    "tr",
+    "th",
+    "td",
+    "caption",
+    "span",
+    "div",
+    "section",
+    "article",
+    "header",
+    "footer",
 }
 
 # 允许的属性
@@ -35,8 +71,12 @@ ALLOWED_ATTRS = {
     "th": {"class", "colspan", "rowspan"},
     "td": {"class", "colspan", "rowspan"},
     "p": {"class", "style"},
-    "h1": {"class"}, "h2": {"class"}, "h3": {"class"},
-    "h4": {"class"}, "h5": {"class"}, "h6": {"class"},
+    "h1": {"class"},
+    "h2": {"class"},
+    "h3": {"class"},
+    "h4": {"class"},
+    "h5": {"class"},
+    "h6": {"class"},
     "blockquote": {"class"},
 }
 
@@ -93,12 +133,64 @@ def process_and_save_image(
         PIL.UnidentifiedImageError, OSError, ValueError 等异常由调用方处理
     """
     image = Image.open(file_storage)
+    ext_lower = ext.lower()
 
-    # 等比缩放（仅当超过 max_width 时）
+    if ext_lower == "gif":
+        # GIF 单独处理:逐帧缩放 + 保留动画
+        _save_gif(image, save_path, max_width)
+        return
+
+    # 非 GIF：等比缩放（仅当超过 max_width 时）
     if image.width > max_width:
         ratio = max_width / image.width
         new_height = int(image.height * ratio)
         image = image.resize((max_width, new_height), Image.LANCZOS)
+
+    if ext_lower in ("jpg", "jpeg"):
+        # JPEG 不支持透明通道,RGBA/P 模式需先转 RGB
+        if image.mode in ("RGBA", "P", "LA"):
+            image = image.convert("RGB")
+        image.save(save_path, "JPEG", quality=quality, optimize=True)
+    elif ext_lower == "png":
+        image.save(save_path, "PNG", optimize=True)
+    else:
+        # 兜底：原格式
+        image.save(save_path)
+
+
+def _save_gif(image: Image.Image, save_path: str, max_width: int) -> None:
+    """保存 GIF 并保留动画帧;超宽时逐帧等比缩放"""
+    frames = list(ImageSequence.Iterator(image)) or [image]
+    scaled: list[Image.Image] = []
+    for frame in frames:
+        if frame.width > max_width:
+            ratio = max_width / frame.width
+            frame = frame.resize((max_width, int(frame.height * ratio)), Image.LANCZOS)
+        scaled.append(frame)
+    scaled[0].save(
+        save_path,
+        "GIF",
+        save_all=True,
+        append_images=scaled[1:],
+        optimize=True,
+        loop=0,
+    )
+
+
+def process_and_resize_logo(
+    file_storage,
+    save_path: str,
+    ext: str,
+    max_edge: int = 400,
+    quality: int = 90,
+) -> None:
+    """打开 Logo 图,等比缩放使长边不超过 max_edge,按格式保存。
+
+    Logo 过大时自动缩小（thumbnail 保持宽高比、不拉伸），输出尺寸
+    始终控制在限制内。Raises 交由调用方处理。
+    """
+    image = Image.open(file_storage)
+    image.thumbnail((max_edge, max_edge), Image.LANCZOS)
 
     ext_lower = ext.lower()
     if ext_lower in ("jpg", "jpeg"):
@@ -108,10 +200,8 @@ def process_and_save_image(
         image.save(save_path, "JPEG", quality=quality, optimize=True)
     elif ext_lower == "png":
         image.save(save_path, "PNG", optimize=True)
-    elif ext_lower == "gif":
-        image.save(save_path, "GIF")
     else:
-        # 兜底：原格式
+        # webp 等：按扩展名自动推导格式保存
         image.save(save_path)
 
 
@@ -147,10 +237,45 @@ def upload_dir(subdir: str = "uploads") -> str:
     return path
 
 
+# ── 上传文件清理（删除文章/换图时回收磁盘空间） ─────────────
+# 本项目上传 URL 不带查询参数,排除 ? 避免把 ?x=1 误当文件名
+_UPLOAD_URL_RE = re.compile(r"/static/uploads/[^\"'\s<>?]+")
+
+
+def collect_static_upload_urls(html: str) -> set[str]:
+    """从 HTML 内容中提取 /static/uploads/ 图片 URL 集合"""
+    if not html:
+        return set()
+    return set(_UPLOAD_URL_RE.findall(html))
+
+
+def remove_static_upload(url: str | None) -> bool:
+    """安全删除 static/uploads 下的文件。
+
+    - 仅处理 /static/uploads/ 开头的 URL（外部 http(s) 背景图不删）
+    - 解析后的绝对路径必须仍位于 uploads 目录内（防路径穿越）
+    - 文件不存在视为已删除,返回 False 表示未执行删除
+    """
+    if not url or "/static/uploads/" not in url:
+        return False
+    rel = url.split("/static/uploads/", 1)[1].split("?", 1)[0]
+    upload_root = os.path.abspath(upload_dir("uploads"))
+    abs_path = os.path.abspath(os.path.join(upload_root, rel))
+    if not abs_path.startswith(upload_root + os.sep):
+        return False
+    try:
+        if os.path.isfile(abs_path):
+            os.remove(abs_path)
+            return True
+    except OSError:
+        pass
+    return False
+
+
 def to_abs_url_path(abs_path: str) -> str:
     """把项目内文件绝对路径转换为 URL 路径 /static/..."""
     root = project_root().replace("\\", "/")
     path = abs_path.replace("\\", "/")
     if path.startswith(root):
-        return path[len(root):]
+        return path[len(root) :]
     return path

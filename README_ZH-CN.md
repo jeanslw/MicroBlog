@@ -19,7 +19,7 @@
 | 分类导航 | 文章栏目分类、侧边栏分类筛选 |
 | Banner 轮播 | 后台管理轮播图、图片上传与排序 |
 | 国际化 | 中英双语自动切换，跟随浏览器语言，下拉框手动切换 |
-| UI 主题 | 玻璃拟态透明 UI，动态动画背景（极光/星空/流光/气泡/经典），调色盘一键切换，localStorage 记忆选择 |
+| UI 主题 | 玻璃拟态透明 UI，内置 12 张 1920x1080 高清背景图库，右下角调色盘一键切换；后台可上传或填 URL 自定义背景；localStorage 记忆选择 |
 | 安全 | CSRF 保护、HTML 净化防 XSS（nh3）、登录防暴力破解、安全 Session、图片解压炸弹防护 |
 | 数据库 | SQLAlchemy ORM，SQLite / MySQL 无缝切换 |
 | 测试 | pytest 135 项测试，覆盖认证/博客/评论/安全/i18n 等模块 |
@@ -131,9 +131,10 @@ MicroBlog/
     ├── banner/                    # 上传的轮播图（.gitkeep 占位）
     ├── uploads/                   # 上传的文章图片（.gitkeep 占位）
     ├── css/
-    │   └── themes.css             # 背景风格 + 玻璃拟态 UI + 风格切换器样式
+    │   └── themes.css             # 背景图库 + 玻璃拟态 UI + 风格切换器样式
     ├── js/
     │   └── theme-switcher.js      # 背景风格切换（localStorage 持久化）
+    ├── backgrounds/               # 内置背景图库（12 张高清背景图）
     └── lib/                       # 本地第三方库（9 个文件，见 3.2 节）
 ```
 
@@ -518,9 +519,10 @@ chmod 755 data
 from werkzeug.security import generate_password_hash
 from app.models import Admin
 from app.extensions import db
+
 # 在 app context 中执行
-admin = db.session.query(Admin).filter_by(username='admin').first()
-admin.password = generate_password_hash('新密码')
+admin = db.session.query(Admin).filter_by(username="admin").first()
+admin.password = generate_password_hash("新密码")
 db.session.commit()
 ```
 

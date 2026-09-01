@@ -235,6 +235,22 @@ msgstr "Global Site Settings"
 msgid "博客网站名称"
 msgstr "Blog Site Name"
 
+#: templates/admin/site_setting.html
+msgid "网站 Logo"
+msgstr "Site Logo"
+
+#: templates/admin/site_setting.html
+msgid "上传 Logo 图片"
+msgstr "Upload Logo Image"
+
+#: templates/admin/site_setting.html
+msgid "仅支持 jpg/jpeg/png/webp，最大 2MB；过大时自动缩放，最长边不超过 400px"
+msgstr "Only jpg/jpeg/png/webp, max 2MB; oversized images are auto-scaled to a 400px max edge"
+
+#: app/admin/routes.py
+msgid "Logo 上传失败，请重试"
+msgstr "Logo upload failed, please retry"
+
 #: templates/admin/site_setting.html:21
 msgid "保存设置"
 msgstr "Save Settings"
@@ -379,6 +395,10 @@ msgstr "Back to Home"
 msgid "发布：%(time)s"
 msgstr "Published: %(time)s"
 
+#: templates/blog/detail.html
+msgid "评论"
+msgstr "Comment"
+
 #: templates/blog/detail.html:113
 msgid "发表评论"
 msgstr "Post a Comment"
@@ -457,7 +477,15 @@ msgstr "language"
 msgid "插入代码块）"
 msgstr "to insert code blocks)"
 
-#: templates/blog/edit.html:100
+#: templates/blog/edit.html:99
+msgid "上传 Markdown"
+msgstr "Upload Markdown"
+
+#: app/extensions.py
+msgid "请先登录管理员账号"
+msgstr "Please log in as an administrator first"
+
+#: templates/blog/edit.html:101
 msgid "上传图片"
 msgstr "Upload Image"
 
