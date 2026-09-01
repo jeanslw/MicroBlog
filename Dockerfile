@@ -3,7 +3,7 @@
 # 基础镜像：python:3.11-slim（兼顾体积与兼容性）
 # 运行方式：gunicorn 4 worker
 # ============================================================
-FROM python:3.11-slim
+FROM python:3.14-slim
 
 # Python 运行时优化 + 时区（避免时间差 8 小时）
 ENV PYTHONDONTWRITEBYTECODE=1 \
