@@ -99,9 +99,26 @@ footer {
     z-index: 1020;
 }
 .breadcrumb {
-    background: rgba(255, 255, 255, 0.45) !important;
+    background: rgba(255, 255, 255, 0.55) !important;
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 8px;
+}
+.breadcrumb-item a {
+    color: #0d6efd !important;
+    font-weight: 700 !important;
+    text-decoration: none;
+}
+.breadcrumb-item a:hover,
+.breadcrumb-item a:focus {
+    color: #0a58ca !important;
+    text-decoration: underline;
+}
+.breadcrumb-item.active,
+.breadcrumb-item + .breadcrumb-item::before {
+    color: #495057 !important;
+    font-weight: 600;
 }
 /* 当前页(首页 nav-link.active) 与其他导航视觉一致；不抢眼 + 无下划线（链接功能保留） */
 .navbar .nav-link,
