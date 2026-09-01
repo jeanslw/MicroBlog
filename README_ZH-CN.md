@@ -145,9 +145,9 @@ MicroBlog/
     ├── backgrounds/               # 内置背景图库（12 张高清背景图）
     └── lib/                       # 本地第三方库（9 个文件，见 3.2 节）
 ```
-<details>
-## 5. 快速部署
 
+## 5. 快速部署
+<details>
 ### <summary> 5.1 裸机快速启动（SQLite，3 步到位）</summary>
 
 ```bash
@@ -178,7 +178,7 @@ docker compose --env-file .env.docker --profile full up -d
 # 首页：    http://localhost/
 # 后台登录：http://localhost/admin/login
 ```
-
+</details>
 ## 6. 详细部署
 
 ### 6.1 获取代码
@@ -428,7 +428,7 @@ server {
     ssl_certificate_key /etc/nginx/certs/privkey.pem;
 }
 ```
-</details>
+
 生产环境**仅开放 80/443**，不要把 5000（Flask）和 3306（MySQL）暴露到公网。
 
 ## 7. 管理员登录与后台地址

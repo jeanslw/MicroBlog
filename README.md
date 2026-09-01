@@ -146,9 +146,9 @@ MicroBlog/
     └── lib/                       # Local third-party libs (9 files, see 3.2)
 ```
 
-<details>
-## 5. Quick Deployment
 
+## 5. Quick Deployment
+<details>
 ### <summary> 5.1 Bare-Metal Quick Start (SQLite, 3 steps)</summary>
 
 ```bash
@@ -179,7 +179,7 @@ docker compose --env-file .env.docker --profile full up -d
 # Home:  http://localhost/
 # Admin: http://localhost/admin/login
 ```
-
+</details>
 ## 6. Detailed Deployment
 
 ### 6.1 Get the Code
@@ -427,7 +427,7 @@ server {
     ssl_certificate_key /etc/nginx/certs/privkey.pem;
 }
 ```
-</details>
+
 In production **only expose 80/443**; do NOT expose 5000 (Flask) or 3306 (MySQL) to the public internet.
 
 
