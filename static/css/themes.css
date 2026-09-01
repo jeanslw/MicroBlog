@@ -103,6 +103,19 @@ footer {
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
 }
+/* 当前页(首页 nav-link.active) 与其他导航视觉一致；不抢眼 + 无下划线（链接功能保留） */
+.navbar .nav-link,
+.navbar .nav-link.active,
+.navbar .nav-link:focus {
+    text-decoration: none !important;
+    color: rgba(255, 255, 255, 0.85) !important;
+}
+.navbar .nav-link.active,
+.navbar .nav-link:hover {
+    color: #fff !important;
+    background-color: rgba(255, 255, 255, 0.10) !important;
+}
+
 /* 导航栏下拉菜单层级最高，不被遮挡
    0.88 白 ≈ 纯白；改 0.60 + 毛玻璃，透出背景色，与全站玻璃风一致 */
 .navbar .dropdown-menu {

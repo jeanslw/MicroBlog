@@ -6,11 +6,6 @@
 {% endblock %}
 
 {% block content %}
-<div class="card page-header-card blog-card p-3 mb-4">
-    <h3 class="mb-0 fs-4"><i class="bi bi-arrow-counterclockwise"></i> {{ _('撤回文章') }}</h3>
-    <small class="text-muted mt-1 d-block">{{ _('点击撤回即可将已发布的文章移回草稿箱（首页将不再展示），但不会删除任何内容。') }}</small>
-</div>
-
 <div class="card blog-card p-4">
     {% if articles %}
     <div class="table-responsive">
