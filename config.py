@@ -135,8 +135,8 @@ class TestingConfig(Config):
     WTF_CSRF_ENABLED = False  # 测试关闭 CSRF 方便 test_client
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    # 测试固定密钥,保证 session 跨请求一致
-    SECRET_KEY = "testing-secret-key-do-not-use-in-prod"
+    # 测试密钥由 tests/conftest.py 通过 BLOG_SECRET_KEY 环境变量注入,
+    # 不再在代码中硬编码,避免 CI 密钥扫描误报。
 
 
 # 配置字典
