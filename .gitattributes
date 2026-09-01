@@ -1,3 +1,17 @@
+# 统一行尾为 LF（覆盖全局 core.autocrlf=true）
+* text=auto eol=lf
+
+# 二进制文件不要做行尾转换
+*.mo binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.zip binary
+
 *.py linguist-language=python
 *.js linguist-language=python
 *.css linguist-language=python
