@@ -4,6 +4,14 @@
 
 基于 Flask 3.1 框架，功能包括：文章发布与管理、Markdown 编辑器（支持代码高亮与图片上传）、评论与点赞、文章分类、Banner 轮播、中英双语 i18n。整体 UI 采用玻璃拟态透明风格，搭配动态炫酷背景（极光 / 星空 / 流光 / 气泡 / 经典），右下角悬浮调色盘按钮一键自由切换风格，选择记忆在 localStorage 中。全部静态资源本地加载，支持 SQLite 与 MySQL，内置 135 项自动化测试。
 
+<p align="center">
+  <a href="https://gitee.com/jeanslw/MicroBlog/tree/v1.2.0"><img src="https://img.shields.io/github/v/release/jeanslw/MicroBlog?style=flat-square&label=Release" alt="Release"></a>
+  <a href="https://gitee.com/jeanslw/devops_cd"><img src="https://img.shields.io/github/last-commit/jeanslw/MicroBlog?style=flat-square&label=Last%20Commit" alt="Last Commit"></a>
+  <a href="https://www.python.org"><img src="https://img.shields.io/badge/Python-3.10+-777BB4?logo=python&logoColor=white" alt="Language"></a>
+  <a href="https://flask.palletsprojects.com"><img src="https://img.shields.io/badge/Flask-3.1.0+-777BB4?logo=Flask&logoColor=white" alt="framework"></a>
+  <a href="https://gitee.com/jeanslw/MicroBlog/blob/main/LICENSE"><img src="https://img.shields.io/github/license/jeanslw/MicroBlog?style=flat-square" alt="License"></a>
+</p>
+
 > **[英文版](README.md)**
 
 ![Overview](MyBlog_ZH-CN.png)
@@ -137,10 +145,10 @@ MicroBlog/
     ├── backgrounds/               # 内置背景图库（12 张高清背景图）
     └── lib/                       # 本地第三方库（9 个文件，见 3.2 节）
 ```
-
+<details>
 ## 5. 快速部署
 
-### 5.1 裸机快速启动（SQLite，3 步到位）
+### <summary> 5.1 裸机快速启动（SQLite，3 步到位）</summary>
 
 ```bash
 # 1. 安装依赖
@@ -420,7 +428,7 @@ server {
     ssl_certificate_key /etc/nginx/certs/privkey.pem;
 }
 ```
-
+</details>
 生产环境**仅开放 80/443**，不要把 5000（Flask）和 3306（MySQL）暴露到公网。
 
 ## 7. 管理员登录与后台地址
