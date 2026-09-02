@@ -40,34 +40,27 @@ jobs:
           from pathlib import Path
 
           ver = sys.argv[1]
-          print(f"::debug::extract version={ver!r}")
           changelog = Path("docs/CHANGELOG.md")
           if not changelog.exists():
               body = "⚠️ CHANGELOG.md not found"
-              print("::debug::CHANGELOG.md not found")
           else:
               out, found = [], False
-              # Match headings like ## v1.3.0 ... or ## [v1.3.0] ...
+              # 兼容标题格式：## v0.0.0 ... 与 ## [v0.0.0] ...
               heading_re = re.compile(r"^##\s+\[?(?:v?)(\d+\.\d+\.\d+)\]?")
               lines = changelog.read_text(encoding="utf-8-sig").splitlines()
-              print(f"::debug::CHANGELOG first 5 lines={lines[:5]!r}")
-              for i, line in enumerate(lines, start=1):
+              for line in lines:
                   m = heading_re.match(line)
                   if m:
-                      print(f"::debug::line {i} heading={line!r} ver={m.group(1)!r}")
                       if found:
                           break
                       if m.group(1) == ver.lstrip("v"):
                           found = True
-                          print(f"::debug::matched version at line {i}")
                           continue
                   if found:
                       out.append(line)
               body = "\n".join(out) if out else f"No changelog entry found for {ver}"
-              print(f"::debug::extracted lines={len(out)}")
 
           Path("release_notes.md").write_text(body + "\n", encoding="utf-8")
-          print(f"::debug::wrote release_notes.md ({len(body)} chars)")
           PY
 
       - name: Publish GitHub Release
