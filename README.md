@@ -1,6 +1,6 @@
 # Blog System Deployment Documentation
 
-Version: v1.2.0
+Version: v1.3.0
 
 Built on Flask 3.1.0 Features include: article publishing & management, Markdown editor with code highlighting and image upload, comments & likes, article categories, banner carousel, Chinese/English bilingual i18n. The whole UI uses a glassmorphism transparent style over dynamic animated backgrounds (Aurora / Starry / Flow / Bubbles / Classic) that can be freely switched from a floating palette button, with the choice remembered in localStorage. All static assets are loaded locally. Supports SQLite and MySQL. Includes 135 automated tests.
 
