@@ -9,6 +9,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -70,20 +74,47 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
           VERSION="${{ github.ref_name }}"
+          HEAD_SHA="$(git rev-parse HEAD)"
           TITLE="Release ${VERSION}"
           NOTES="release_notes.md"
-          IS_PRERELEASE="${{ steps.prerelease_check.outputs.is_prerelease }}"
-          if [ "$IS_PRERELEASE" = "true" ]; then
-            PRERELEASE="--prerelease"
-          else
-            PRERELEASE=""
+
+          PRERELEASE_FLAG=""
+          if [ "${{ steps.prerelease_check.outputs.is_prerelease }}" = "true" ]; then
+            PRERELEASE_FLAG="--prerelease"
           fi
 
+          create_release() {
+            echo "Creating release ${VERSION} @ ${HEAD_SHA}"
+            gh release create "$VERSION" --title "$TITLE" --notes-file "$NOTES" --draft=false $PRERELEASE_FLAG
+          }
+
           if gh release view "$VERSION" >/dev/null 2>&1; then
-            echo "Release $VERSION already exists -> updating it"
-            gh release edit "$VERSION" --title "$TITLE" --notes-file "$NOTES" $PRERELEASE
+            TARGET="$(gh release view "$VERSION" --json targetCommitish --jq .targetCommitish)"
+            echo "Existing release ${VERSION} (target=${TARGET}, HEAD=${HEAD_SHA})"
+            if [ "$TARGET" != "$HEAD_SHA" ]; then
+              # 旧 release 指向过期 commit（如 tag 被 force-push / 重建后残留）
+              echo "Target mismatch -> deleting stale release and recreating"
+              gh release delete "$VERSION" --yes
+              for i in $(seq 1 30); do
+                if ! gh release view "$VERSION" >/dev/null 2>&1; then break; fi
+                echo "Waiting for release deletion to propagate ($i)..."
+                sleep 2
+              done
+              create_release
+            else
+              # 同 commit：更新 title/body，并确保最终为正式发布（非 draft）
+              echo "Updating release ${VERSION} and ensuring it is published"
+              gh release edit "$VERSION" --title "$TITLE" --notes-file "$NOTES" --draft=false $PRERELEASE_FLAG
+            fi
           else
-            echo "Creating release $VERSION"
-            gh release create "$VERSION" --title "$TITLE" --notes-file "$NOTES" $PRERELEASE
+            create_release
           fi
+
+          # 最终校验：确认 release 已正式发布
+          if ! gh release view "$VERSION" --json isDraft --jq '.isDraft' 2>/dev/null | grep -q '^false$'; then
+            echo "::error::Release ${VERSION} is still not published"
+            exit 1
+          fi
+          echo "Release ${VERSION} is live"
