@@ -1,6 +1,6 @@
 # MicroBlog Changelog
 
-## [1.3.0] - 2026-09-02
+## [v1.3.0] - 2026-09-02
 
 Admin panel redesign, full-site search, and RSS/Atom feeds.
 
@@ -28,7 +28,7 @@ Admin panel redesign, full-site search, and RSS/Atom feeds.
 
 ---
 
-## [1.2.0] - 2026-09-01
+## [v1.2.0] - 2026-09-01
 
 Glassmorphism UI + theme switcher + Python CI + full test suite, plus dozens of admin/blog feature and bug-fix commits on top of the v1.0.0 baseline.
 
@@ -66,7 +66,7 @@ Glassmorphism UI + theme switcher + Python CI + full test suite, plus dozens of 
 
 ---
 
-## [1.0.0] - 2026-08-15
+## [v1.0.0] - 2026-08-15
 
 The complete first release, covering everything from the initial commit to the ruff-normalized baseline . 
 
