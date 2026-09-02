@@ -36,23 +36,31 @@ jobs:
           from pathlib import Path
 
           ver, out_path = sys.argv[1], sys.argv[2]
+          print(f"::debug::extract version={ver!r}")
           changelog = Path("docs/CHANGELOG.md")
           if not changelog.exists():
               body = "⚠️ CHANGELOG.md not found"
+              print("::debug::CHANGELOG.md not found")
           else:
               out, found = [], False
-              heading = re.compile(r"^##\s+\[?v?\d+\.\d+\.\d+\]?")
-              for line in changelog.read_text(encoding="utf-8").splitlines():
-                  if heading.match(line):
+              # Match headings like ## v1.3.0 ... or ## [v1.3.0] ...
+              heading_re = re.compile(r"^##\s+\[?(?:v?)(\d+\.\d+\.\d+)\]?")
+              lines = changelog.read_text(encoding="utf-8-sig").splitlines()
+              print(f"::debug::CHANGELOG first 5 lines={lines[:5]!r}")
+              for i, line in enumerate(lines, start=1):
+                  m = heading_re.match(line)
+                  if m:
+                      print(f"::debug::line {i} heading={line!r} ver={m.group(1)!r}")
                       if found:
                           break
-                      m = re.search(r"v?\d+\.\d+\.\d+", line)
-                      if m and m.group(0) == ver:
+                      if m.group(1) == ver.lstrip("v"):
                           found = True
+                          print(f"::debug::matched version at line {i}")
                           continue
                   if found:
                       out.append(line)
               body = "\n".join(out) if out else f"No changelog entry found for {ver}"
+              print(f"::debug::extracted lines={len(out)}")
 
           with open(out_path, "a", encoding="utf-8") as fh:
               fh.write(f"changelog<<EOF\n{body}\nEOF\n")
