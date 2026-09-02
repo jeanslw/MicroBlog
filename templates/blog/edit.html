@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "admin/admin_base.html" %}
 {% block title %}{% if article %}{{ _('编辑文章') }}{% else %}{{ _('新建文章') }}{% endif %} - {{ site_name }}{% endblock %}
 
 {% block breadcrumb %}
@@ -8,7 +8,7 @@
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='lib/easymde.min.css') }}">
 <style>
-    .edit-card {border-radius:14px;box-shadow:0 4px 20px rgba(0,0,0,0.08);margin-top:20px;}
+    .edit-card {border-radius:14px;box-shadow:0 4px 20px rgba(0,0,0,0.08);}
     /* EasyMDE 编辑器暗色适配 */
     .editor-toolbar { border-radius: 8px 8px 0 0; border-color: #dee2e6; }
     .CodeMirror {
@@ -64,10 +64,10 @@
 </style>
 {% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="row justify-content-center">
-    <div class="col-lg-10">
-        <div class="card edit-card p-4">
+    <div class="col-12">
+        <div class="card edit-card admin-panel-card p-4">
             <h5 class="mb-3 fw-bold">
                 {% if article %}<i class="bi bi-pencil-square"></i> {{ _('编辑文章') }}{% else %}<i class="bi bi-plus-circle"></i> {{ _('新建文章') }}{% endif %}
             </h5>

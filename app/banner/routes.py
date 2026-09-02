@@ -12,10 +12,9 @@ from datetime import datetime
 
 from flask import current_app, flash, redirect, render_template, url_for
 from flask_babel import _
-from flask_login import login_required
 
 from app.banner import banner_bp
-from app.extensions import db, log, safe_url
+from app.extensions import admin_required, db, log, safe_url
 from app.forms import BannerForm
 from app.models import Banner
 from app.utils import (
@@ -27,14 +26,14 @@ from app.utils import (
 
 
 @banner_bp.route("/")
-@login_required
+@admin_required
 def banner_list():
     banners = db.session.scalars(db.select(Banner).order_by(Banner.sort.desc())).all()
     return render_template("banner/banner_manage.html", banner_list=banners)
 
 
 @banner_bp.route("/add", methods=["POST"])
-@login_required
+@admin_required
 def banner_add():
     form = BannerForm()
     if not form.validate_on_submit():
@@ -97,7 +96,7 @@ def banner_add():
 
 
 @banner_bp.route("/edit/<int:bid>", methods=["POST"])
-@login_required
+@admin_required
 def banner_edit(bid):
     form = BannerForm()
     if not form.validate_on_submit():
@@ -158,7 +157,7 @@ def banner_edit(bid):
 
 
 @banner_bp.route("/del/<int:bid>", methods=["POST"])
-@login_required
+@admin_required
 def banner_del(bid):
     """删除 banner 记录 + 物理文件（文件删除失败不阻断）"""
     banner = db.session.get(Banner, bid)
@@ -181,34 +180,37 @@ def banner_del(bid):
     return redirect(url_for("banner.banner_list"))
 
 
-@banner_bp.route("/withdraw_all", methods=["POST"])
-@login_required
-def banner_withdraw_all():
-    """撤回所有轮播图：批量删除全部 banner 记录 + 物理文件（与 banner_del 行为一致）。
-
-    用途：导航"轮播图管理"下拉里的"撤回所有轮播图"操作。
-    破坏性动作，需要 admin 身份。
-    """
-    banners = db.session.scalars(db.select(Banner)).all()
-    if not banners:
-        flash(_("当前没有可撤回的轮播图"), "info")
+@banner_bp.route("/withdraw/<int:bid>", methods=["POST"])
+@admin_required
+def banner_withdraw(bid):
+    """撤回（下架）单条轮播图：仅标记为不展示，记录与图片保留，可重新启用。"""
+    banner = db.session.get(Banner, bid)
+    if not banner:
+        flash(_("轮播图不存在"), "warning")
+        return redirect(url_for("banner.banner_list"))
+    if not banner.is_active:
+        flash(_("该轮播图已撤回"), "info")
         return redirect(url_for("banner.banner_list"))
 
-    for banner in banners:
-        if banner.img_path:
-            abs_path = os.path.join(project_root(), banner.img_path.lstrip("/"))
-            try:
-                if os.path.exists(abs_path):
-                    os.remove(abs_path)
-            except OSError:
-                log.warning("撤回 banner 时删除物理文件失败 bid=%s", banner.id, exc_info=True)
-        db.session.delete(banner)
+    banner.is_active = False
+    db.session.commit()
+    flash(_("已撤回，首页不再展示该轮播图"), "success")
+    return redirect(url_for("banner.banner_list"))
 
-    try:
-        db.session.commit()
-        flash(_("已撤回全部轮播图"), "success")
-    except Exception:
-        db.session.rollback()
-        log.error("撤回全部 banner 失败", exc_info=True)
-        flash(_("撤回失败,请稍后重试"), "danger")
+
+@banner_bp.route("/activate/<int:bid>", methods=["POST"])
+@admin_required
+def banner_activate(bid):
+    """重新启用已撤回的轮播图，恢复首页展示。"""
+    banner = db.session.get(Banner, bid)
+    if not banner:
+        flash(_("轮播图不存在"), "warning")
+        return redirect(url_for("banner.banner_list"))
+    if banner.is_active:
+        flash(_("该轮播图正在展示"), "info")
+        return redirect(url_for("banner.banner_list"))
+
+    banner.is_active = True
+    db.session.commit()
+    flash(_("已重新启用"), "success")
     return redirect(url_for("banner.banner_list"))

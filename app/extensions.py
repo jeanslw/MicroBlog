@@ -156,7 +156,9 @@ def fetch_global_context():
             .order_by(Category.id.desc())
         ).all()
         total_art = db.session.scalar(db.select(db.func.count(Article.id)).filter(Article.status == "publish")) or 0
-        banner_list = db.session.execute(db.select(Banner).order_by(Banner.sort.desc())).scalars().all()
+        banner_list = db.session.execute(
+            db.select(Banner).filter(Banner.is_active.is_(True)).order_by(Banner.sort.desc())
+        ).scalars().all()
         site_name = db.session.scalar(db.select(SiteConfig.site_name)) or "博客"
         site_logo = db.session.scalar(db.select(SiteConfig.logo_path)) or ""
         site_favicon = db.session.scalar(db.select(SiteConfig.favicon_path)) or ""

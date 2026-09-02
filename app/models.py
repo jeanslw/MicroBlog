@@ -7,7 +7,7 @@
 """
 
 from flask_login import UserMixin
-from sqlalchemy import Column, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.mysql import MEDIUMTEXT
 from sqlalchemy.orm import relationship
 
@@ -98,6 +98,8 @@ class Banner(db.Model):
     desc_text = Column(String(200), default="")
     sort = Column(Integer, default=0)
     create_time = Column(String(50))
+    # 是否在首页轮播展示：True=展示中；False=已撤回（下架，保留记录可重新启用）
+    is_active = Column(Boolean, nullable=False, default=True)
 
 
 class SiteConfig(db.Model):

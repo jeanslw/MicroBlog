@@ -643,3 +643,140 @@ msgstr ""
 msgid "自定义"
 msgstr ""
 
+msgid "搜索文章"
+msgstr "搜索文章"
+
+msgid "搜索结果"
+msgstr "搜索结果"
+
+msgid "共 %(total)s 篇文章"
+msgstr "共 %(total)s 篇文章"
+
+msgid "未找到相关文章"
+msgstr "未找到相关文章"
+
+msgid "本站订阅"
+msgstr "本站订阅"
+
+msgid "输入新栏目名称"
+msgstr "输入新栏目名称"
+
+msgid "重命名栏目"
+msgstr "重命名栏目"
+
+msgid "栏目重命名成功"
+msgstr "栏目重命名成功"
+
+msgid "栏目重命名失败"
+msgstr "栏目重命名失败"
+
+msgid "栏目名称不能为空"
+msgstr "栏目名称不能为空"
+
+msgid "RSS / Atom 订阅"
+msgstr "RSS / Atom 订阅"
+
+#: templates/base.html
+msgid "RSS 订阅"
+msgstr "RSS 订阅"
+
+#: templates/base.html
+msgid "Atom 订阅"
+msgstr "Atom 订阅"
+
+msgid "管理后台"
+msgstr "管理后台"
+
+msgid "站点管理"
+msgstr "站点管理"
+
+msgid "账户安全"
+msgstr "账户安全"
+
+msgid "新建轮播图"
+msgstr "新建轮播图"
+
+msgid "撤回轮播图"
+msgstr "撤回轮播图"
+
+msgid "确认退出登录?"
+msgstr "确认退出登录?"
+
+msgid "欢迎进入管理后台。点击左侧菜单进入对应功能模块。"
+msgstr "欢迎进入管理后台。点击左侧菜单进入对应功能模块。"
+
+msgid "当前站点"
+msgstr "当前站点"
+
+msgid "管理员"
+msgstr "管理员"
+
+msgid "草稿 / 新建 / 撤回"
+msgstr "草稿 / 新建 / 撤回"
+
+msgid "列表 / 新建 / 撤回"
+msgstr "列表 / 新建 / 撤回"
+
+msgid "确定删除？"
+msgstr "确定删除？"
+
+msgid "确定删除该草稿？"
+msgstr "确定删除该草稿？"
+
+msgid "删除后将无法恢复，确定继续？"
+msgstr "删除后将无法恢复，确定继续？"
+
+msgid "编辑轮播图"
+msgstr "编辑轮播图"
+
+msgid "请确认"
+msgstr "请确认"
+
+msgid "确认"
+msgstr "确认"
+
+msgid "页面不存在"
+msgstr "页面不存在"
+
+msgid "服务器内部错误,请联系管理员"
+msgstr "服务器内部错误,请联系管理员"
+
+#: banner withdrawal/enable feature
+msgid "状态"
+msgstr "状态"
+
+#: banner withdrawal/enable feature
+msgid "展示中"
+msgstr "展示中"
+
+#: banner withdrawal/enable feature
+msgid "已撤回"
+msgstr "已撤回"
+
+#: banner withdrawal/enable feature
+msgid "确定撤回该轮播图？撤回后首页不再展示，可随时重新启用。"
+msgstr "确定撤回该轮播图？撤回后首页不再展示，可随时重新启用。"
+
+#: banner withdrawal/enable feature
+msgid "确定重新启用该轮播图？"
+msgstr "确定重新启用该轮播图？"
+
+#: banner withdrawal/enable feature
+msgid "启用"
+msgstr "启用"
+
+#: banner withdrawal/enable feature
+msgid "该轮播图已撤回"
+msgstr "该轮播图已撤回"
+
+#: banner withdrawal/enable feature
+msgid "该轮播图正在展示"
+msgstr "该轮播图正在展示"
+
+#: banner withdrawal/enable feature
+msgid "已撤回，首页不再展示该轮播图"
+msgstr "已撤回，首页不再展示该轮播图"
+
+#: banner withdrawal/enable feature
+msgid "已重新启用"
+msgstr "已重新启用"

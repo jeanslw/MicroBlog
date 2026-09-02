@@ -1,12 +1,12 @@
-{% extends "base.html" %}
-{% block title %}{{ _('撤回文章') }} - {{ site_name }}{% endblock %}
+{% extends "admin/admin_base.html" %}
+{% block title %}{{ _('文章列表') }} - {{ site_name }}{% endblock %}
 
 {% block breadcrumb %}
-<li class="breadcrumb-item active" aria-current="page">{{ _('撤回文章') }}</li>
+<li class="breadcrumb-item active" aria-current="page">{{ _('文章列表') }}</li>
 {% endblock %}
 
-{% block content %}
-<div class="card blog-card p-4">
+{% block admin_content %}
+<div class="card admin-panel-card p-4">
     {% if articles %}
     <div class="table-responsive">
         <table class="table table-hover mb-0">
@@ -26,15 +26,13 @@
                     <td><small class="text-muted">{{ art.update_time }}</small></td>
                     <td class="d-flex gap-2">
                         <a href="{{ url_for('blog.article_edit', aid=art.id) }}" class="btn btn-sm btn-outline-primary">{{ _('编辑') }}</a>
-                        <form method="POST" action="{{ url_for('blog.article_recall', aid=art.id) }}"
-                              onsubmit="return confirm('{{ _('确定将该文章撤回至草稿箱？') }}')">
+                        <form method="POST" action="{{ url_for('blog.article_recall', aid=art.id) }}">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-sm btn-warning">{{ _('撤回') }}</button>
+                            <button type="button" class="btn btn-sm btn-warning" data-confirm="{{ _('确定将该文章撤回至草稿箱？') }}">{{ _('撤回') }}</button>
                         </form>
-                        <form method="POST" action="{{ url_for('blog.article_del', aid=art.id) }}"
-                              onsubmit="return confirm('{{ _('删除后将无法恢复，确定继续？') }}')">
+                        <form method="POST" action="{{ url_for('blog.article_del', aid=art.id) }}">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                            <button type="submit" class="btn btn-sm btn-danger">{{ _('删除') }}</button>
+                            <button type="button" class="btn btn-sm btn-danger" data-confirm="{{ _('删除后将无法恢复，确定继续？') }}">{{ _('删除') }}</button>
                         </form>
                     </td>
                 </tr>

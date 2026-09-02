@@ -17,6 +17,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.admin import admin_bp
 from app.extensions import (
+    admin_required,
     check_login_lock,
     clear_login_fail,
     db,
@@ -37,9 +38,9 @@ from app.utils import (
 
 @admin_bp.route("/login", methods=["GET", "POST"])
 def login():
-    # 已登录直接跳首页
+    # 已登录直接进管理后台
     if current_user.is_authenticated:
-        return redirect(url_for("blog.index"))
+        return redirect(url_for("admin.panel"))
 
     form = LoginForm()
     if form.validate_on_submit():
@@ -58,10 +59,10 @@ def login():
             session.permanent = True
             clear_login_fail(ip, username)
             flash(_("登录成功"), "success")
-            next_url = request.args.get("next") or url_for("blog.index")
+            next_url = request.args.get("next") or url_for("admin.panel")
             # 防止开放重定向（//evil.com 也不能放行）
             if not next_url.startswith("/") or next_url.startswith("//"):
-                next_url = url_for("blog.index")
+                next_url = url_for("admin.panel")
             return redirect(next_url)
 
         fails = record_login_fail(ip, username)
@@ -82,8 +83,15 @@ def logout():
     return redirect(url_for("blog.index"))
 
 
+@admin_bp.route("/panel", methods=["GET", "POST"])
+@admin_required
+def panel():
+    """管理后台首页：左侧菜单 + 默认展示站点设置，便于后续扩展"""
+    return _site_setting_view("admin/panel.html")
+
+
 @admin_bp.route("/change_pwd", methods=["GET", "POST"])
-@login_required
+@admin_required
 def change_pwd():
     form = ChangePwdForm()
     if form.validate_on_submit():
@@ -101,8 +109,13 @@ def change_pwd():
 
 
 @admin_bp.route("/site_setting", methods=["GET", "POST"])
-@login_required
+@admin_required
 def site_setting():
+    return _site_setting_view("admin/site_setting.html")
+
+
+def _site_setting_view(template):
+    """站点设置公共视图：panel 首页与独立站点设置页共用"""
     site = db.session.get(SiteConfig, 1)
     if not site:
         site = SiteConfig(id=1, site_name="我的博客", favicon_path="static/favicon.ico")
@@ -133,7 +146,7 @@ def site_setting():
                 except Exception:
                     log.error("背景图上传失败", exc_info=True)
                     flash(_("背景图上传失败，请重试"), "danger")
-                    return render_template("admin/site_setting.html", form=form, site=site)
+                    return render_template(template, form=form, site=site)
             elif form.bg_custom.data and form.bg_custom.data.strip():
                 site.bg_custom = form.bg_custom.data.strip()
                 site.bg_style = "custom"
@@ -165,7 +178,7 @@ def site_setting():
             except Exception:
                 log.error("Logo 上传失败", exc_info=True)
                 flash(_("Logo 上传失败，请重试"), "danger")
-                return render_template("admin/site_setting.html", form=form, site=site)
+                return render_template(template, form=form, site=site)
         db.session.commit()
         # 清理被替换的旧背景/旧 Logo 文件,避免磁盘堆积
         if old_bg_custom and old_bg_custom != site.bg_custom:
@@ -174,11 +187,11 @@ def site_setting():
             remove_static_upload(old_logo)
         flash(_("站点设置保存完成"), "success")
         return redirect(url_for("admin.site_setting"))
-    return render_template("admin/site_setting.html", form=form, site=site)
+    return render_template(template, form=form, site=site)
 
 
 @admin_bp.route("/upload", methods=["POST"])
-@login_required
+@admin_required
 def upload_image():
     """接收编辑器上传的图片,自动压缩/缩放后返回 JSON {url} 或 {error}"""
     form = UploadImageForm()

@@ -91,7 +91,12 @@ def add_comment(aid):
 
 @comment_bp.route("/reply/add/<int:aid>/<int:cid>", methods=["POST"])
 def add_reply(aid, cid):
-    """回复评论：校验评论存在 + 关联文章存在"""
+    """回复评论：校验文章已发布 + 评论存在且关联"""
+    article = db.session.get(Article, aid)
+    if not article or article.status != "publish":
+        flash(_("文章不存在或未发布"), "warning")
+        return redirect(url_for("blog.index"))
+
     comment = db.session.get(Comment, cid)
     if not comment or comment.article_id != aid:
         flash(_("评论不存在"), "warning")

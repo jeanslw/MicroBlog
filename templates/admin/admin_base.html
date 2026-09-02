@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* 左侧管理菜单：毛玻璃半透明 */
+    .admin-sidebar {
+        position: sticky;
+        top: 20px;
+        background-color: rgba(255, 255, 255, .55) !important;
+        -webkit-backdrop-filter: blur(14px) saturate(160%) !important;
+        backdrop-filter: blur(14px) saturate(160%) !important;
+        border: 1px solid rgba(255, 255, 255, .45) !important;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, .12) !important;
+    }
+    .admin-menu-group + .admin-menu-group {
+        margin-top: 1.1rem;
+    }
+    .admin-menu-title {
+        font-size: .92rem;
+        font-weight: 800;
+        text-transform: none;
+        letter-spacing: 0;
+        padding: 0 .75rem;
+        margin-bottom: .4rem;
+        margin-top: .2rem;
+        opacity: .9;
+    }
+    .admin-menu-list {
+        --bs-list-group-border-radius: .5rem;
+    }
+    .admin-menu-list .list-group-item {
+        border: none !important;
+        padding: .45rem .75rem;
+        margin-bottom: .125rem;
+        border-radius: .375rem !important;
+        background-color: transparent !important;
+        color: inherit !important;
+    }
+    .admin-menu-list .list-group-item i {
+        width: 1.25rem;
+        text-align: center;
+    }
+    .admin-menu-list .list-group-item:hover {
+        background-color: rgba(255, 255, 255, .4) !important;
+    }
+    .admin-menu-list .list-group-item.active {
+        background-color: rgba(13, 110, 253, .9) !important;
+        color: #fff !important;
+        box-shadow: 0 4px 12px rgba(13, 110, 253, .35);
+    }
+    .admin-menu-list form {
+        margin: 0;
+    }
+    .admin-menu-list .btn-logout {
+        width: 100%;
+        text-align: left;
+        padding: .45rem .75rem;
+        border-radius: .375rem;
+        border: none;
+        background: transparent;
+        color: inherit;
+    }
+    .admin-menu-list .btn-logout:hover {
+        background-color: rgba(220, 53, 69, .12) !important;
+        color: #dc3545;
+    }
+    /* 右侧内容区统一毛玻璃卡片 —— 双类选择器提升优先级，覆盖 Bootstrap .card */
+    .admin-panel-card.card {
+        background-color: rgba(255, 255, 255, .55) !important;
+        -webkit-backdrop-filter: blur(14px) saturate(160%) !important;
+        backdrop-filter: blur(14px) saturate(160%) !important;
+        border: 1px solid rgba(255, 255, 255, .45) !important;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, .12) !important;
+        border-radius: 14px !important;
+    }
+    /* 统一确认弹窗：毛玻璃 */
+    .admin-modal-glass {
+        background-color: rgba(255, 255, 255, .72) !important;
+        -webkit-backdrop-filter: blur(18px) saturate(160%) !important;
+        backdrop-filter: blur(18px) saturate(160%) !important;
+        border: 1px solid rgba(255, 255, 255, .55);
+        box-shadow: 0 16px 40px rgba(0, 0, 0, .2);
+        border-radius: 14px;
+    }
+</style>
+<div class="row g-4">
+    <!-- 左侧菜单区 -->
+    <aside class="col-md-3 col-lg-2">
+        <div class="card admin-sidebar">
+            <div class="card-body p-2">
+                <!-- 站点设置 -->
+                <div class="admin-menu-group">
+                    <div class="admin-menu-title">{{ _('站点设置') }}</div>
+                    <div class="list-group list-group-flush admin-menu-list">
+                        <a class="list-group-item list-group-item-action {% if request.endpoint in ['admin.panel', 'admin.site_setting'] %}active{% endif %}"
+                           href="{{ url_for('admin.site_setting') }}">
+                            <i class="bi bi-sliders"></i> {{ _('站点设置') }}
+                        </a>
+                    </div>
+                </div>
+
+                <!-- 文章管理 -->
+                <div class="admin-menu-group">
+                    <div class="admin-menu-title">{{ _('文章管理') }}</div>
+                    <div class="list-group list-group-flush admin-menu-list">
+                        <a class="list-group-item list-group-item-action {% if request.endpoint == 'blog.drafts' %}active{% endif %}"
+                           href="{{ url_for('blog.drafts') }}">
+                            <i class="bi bi-file-earmark-draft"></i> {{ _('草稿箱') }}
+                        </a>
+                        <a class="list-group-item list-group-item-action {% if request.endpoint in ['blog.article_new', 'blog.article_edit'] %}active{% endif %}"
+                           href="{{ url_for('blog.article_new') }}">
+                            <i class="bi bi-plus-circle"></i> {{ _('新建文章') }}
+                        </a>
+                        <a class="list-group-item list-group-item-action {% if request.endpoint == 'blog.article_manage' %}active{% endif %}"
+                           href="{{ url_for('blog.article_manage') }}">
+                            <i class="bi bi-list-ul"></i> {{ _('文章列表') }}
+                        </a>
+                    </div>
+                </div>
+
+                <!-- 轮播图管理 -->
+                <div class="admin-menu-group">
+                    <div class="admin-menu-title">{{ _('轮播图管理') }}</div>
+                    <div class="list-group list-group-flush admin-menu-list">
+                        <a class="list-group-item list-group-item-action {% if request.endpoint == 'banner.banner_list' and request.args.get('action') != 'add' %}active{% endif %}"
+                           href="{{ url_for('banner.banner_list') }}">
+                            <i class="bi bi-list-ul"></i> {{ _('轮播图列表') }}
+                        </a>
+                        <a class="list-group-item list-group-item-action {% if request.endpoint == 'banner.banner_list' and request.args.get('action') == 'add' %}active{% endif %}"
+                           href="{{ url_for('banner.banner_list', action='add') }}">
+                            <i class="bi bi-plus-circle"></i> {{ _('新建轮播图') }}
+                        </a>
+                    </div>
+                </div>
+
+                <!-- 账户安全 -->
+                <div class="admin-menu-group">
+                    <div class="admin-menu-title">{{ _('账户安全') }}</div>
+                    <div class="list-group list-group-flush admin-menu-list">
+                        <a class="list-group-item list-group-item-action {% if request.endpoint == 'admin.change_pwd' %}active{% endif %}"
+                           href="{{ url_for('admin.change_pwd') }}">
+                            <i class="bi bi-key"></i> {{ _('修改密码') }}
+                        </a>
+                        <form method="POST" action="{{ url_for('admin.logout') }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="button" class="btn-logout" data-confirm="{{ _('确认退出登录?') }}">
+                                <i class="bi bi-box-arrow-right"></i> {{ _('退出登录') }}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- 右侧功能区展示区 -->
+    <section class="col-md-9 col-lg-10">
+        {% block admin_content %}{% endblock %}
+    </section>
+</div>
+
+<!-- 通用确认弹窗（替代原生 confirm） -->
+<div class="modal fade" id="adminConfirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content admin-modal-glass">
+            <div class="modal-header border-0">
+                <h5 class="modal-title fw-bold"><i class="bi bi-question-circle text-primary me-2"></i>{{ _('请确认') }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="{{ _('关闭') }}"></button>
+            </div>
+            <div class="modal-body pt-1 pb-3" id="adminConfirmBody"></div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _('取消') }}</button>
+                <button type="button" class="btn btn-primary" id="adminConfirmOk">{{ _('确认') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    'use strict';
+    var modalEl = document.getElementById('adminConfirmModal');
+    var bodyEl = document.getElementById('adminConfirmBody');
+    var okBtn = document.getElementById('adminConfirmOk');
+    if (!modalEl || typeof bootstrap === 'undefined') return;
+
+    var modal = new bootstrap.Modal(modalEl);
+    var currentForm = null;
+
+    document.querySelectorAll('[data-confirm]').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            var form = btn.closest('form');
+            if (!form) return;
+            currentForm = form;
+            bodyEl.textContent = btn.getAttribute('data-confirm') || '';
+            modal.show();
+        });
+    });
+
+    okBtn.addEventListener('click', function () {
+        if (currentForm) currentForm.submit();
+    });
+
+    modalEl.addEventListener('hidden.bs.modal', function () {
+        currentForm = null;
+        bodyEl.textContent = '';
+    });
+});
+</script>
+{% endblock %}

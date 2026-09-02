@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}{{ _('搜索结果') }} - {{ site_name }}{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active" aria-current="page">{{ _('搜索结果') }}</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .article-preview {
+        display: -webkit-box;
+        -webkit-line-clamp: 4;
+        line-clamp: 4;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        font-size: 15px;
+        line-height: 1.6;
+        color: #555;
+        margin-bottom: 10px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-lg-10">
+        <h4 class="fw-bold mb-1"><i class="bi bi-search"></i> {{ _('搜索结果') }}</h4>
+        {% if q %}
+        <p class="text-muted">
+            <span class="badge bg-secondary">“{{ q }}”</span>
+            {{ _('共 %(total)s 篇文章', total=total) }}
+        </p>
+        {% endif %}
+
+        {% for art in articles %}
+        <div class="card blog-card p-4">
+            <div class="card-body p-0">
+                <h5 class="fw-bold d-flex align-items-center gap-1 mb-1">
+                    <i class="bi bi-fire text-danger fs-6"></i>
+                    <a href="{{ url_for('blog.article_detail', aid=art.id) }}" class="text-dark text-decoration-none">
+                        {{ art.title }}
+                    </a>
+                </h5>
+                <p class="text-muted small">
+                    <i class="bi bi-calendar3"></i> {{ art.create_time }}
+                    {% if art.category %}
+                    <span class="ms-2"><i class="bi bi-folder"></i> {{ art.category.cat_name }}</span>
+                    {% endif %}
+                </p>
+                <div class="article-preview">{{ art.brief }}</div>
+            </div>
+            <div class="mt-3">
+                <a href="{{ url_for('blog.article_detail', aid=art.id) }}" class="btn btn-primary btn-sm">{{ _('阅读全文') }}</a>
+            </div>
+        </div>
+        {% else %}
+        <div class="alert alert-light text-center py-5 fs-5">
+            {{ _('未找到相关文章') }}
+        </div>
+        {% endfor %}
+
+        {% if total_page > 1 %}
+        <nav class="mt-4">
+            <ul class="pagination justify-content-center">
+                <li class="page-item {% if page == 1 %}disabled{% endif %}">
+                    <a class="page-link" href="?q={{ q|urlencode }}&page={{ page - 1 }}">{{ _('上一页') }}</a>
+                </li>
+                {% for p in range(1, total_page + 1) %}
+                <li class="page-item {% if p == page %}active{% endif %}">
+                    <a class="page-link" href="?q={{ q|urlencode }}&page={{ p }}">{{ p }}</a>
+                </li>
+                {% endfor %}
+                <li class="page-item {% if page == total_page %}disabled{% endif %}">
+                    <a class="page-link" href="?q={{ q|urlencode }}&page={{ page + 1 }}">{{ _('下一页') }}</a>
+                </li>
+            </ul>
+        </nav>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

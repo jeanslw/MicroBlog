@@ -6,7 +6,7 @@
 
 import math
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 
 from app.extensions import db
 from app.models import Article, Category, Comment, Reply
@@ -101,3 +101,37 @@ def get_article_detail(aid: int):
         c.reply_list = reply_map.get(c.id, [])
 
     return article, comments
+
+
+def search_articles(keyword: str, offset: int, limit: int):
+    """按关键词搜索已发布文章（标题/正文模糊匹配）。
+
+    返回 (article_list, total_page, total)
+    """
+    like = f"%{keyword}%"
+    base_filter = db.and_(
+        Article.status == "publish",
+        or_(Article.title.like(like), Article.content.like(like)),
+    )
+    total = db.session.scalar(select(func.count(Article.id)).where(base_filter)) or 0
+    total_page = max(math.ceil(total / limit) if limit > 0 else 1, 1)
+    articles = db.session.scalars(
+        select(Article)
+        .where(base_filter)
+        .order_by(Article.create_time.desc())
+        .offset(offset)
+        .limit(limit)
+    ).all()
+    for art in articles:
+        art.brief = strip_html(art.content)
+    return articles, total_page, total
+
+
+def get_recent_articles(limit: int = 20):
+    """获取最近发布的文章（用于 RSS/Atom 订阅源）"""
+    return db.session.scalars(
+        select(Article)
+        .where(Article.status == "publish")
+        .order_by(Article.create_time.desc())
+        .limit(limit)
+    ).all()

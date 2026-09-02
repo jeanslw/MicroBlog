@@ -122,6 +122,7 @@ CREATE TABLE `banner` (
   `desc_text` varchar(200) DEFAULT '' COMMENT '轮播描述',
   `sort` int DEFAULT '0' COMMENT '排序数字，越大越靠前',
   `create_time` varchar(50) DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT '1' COMMENT '是否在首页展示：1展示 0已撤回（下架）',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

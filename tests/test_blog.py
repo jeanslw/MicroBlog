@@ -327,3 +327,109 @@ def test_recall_requires_login(client, article):
     rv = client.post(f"/article/recall/{article.id}", follow_redirects=False)
     assert rv.status_code == 302
     assert "/login" in rv.headers.get("Location", "")
+
+
+# ── 站内搜索 ────────────────────────────────────────────
+def test_search_matches_title(client, article):
+    """按标题关键词应命中文章"""
+    rv = client.get("/search", query_string={"q": "测试"})
+    assert rv.status_code == 200
+    assert article.title.encode("utf-8") in rv.data
+
+
+def test_search_matches_content(client, article):
+    """按正文关键词应命中文章"""
+    rv = client.get("/search", query_string={"q": "正文"})
+    assert rv.status_code == 200
+    assert article.title.encode("utf-8") in rv.data
+
+
+def test_search_no_result(client, article):
+    """无匹配关键词应显示空态而非 500"""
+    rv = client.get("/search", query_string={"q": "不存在的关键词xyz"})
+    assert rv.status_code == 200
+    assert article.title.encode("utf-8") not in rv.data
+    assert "未找到相关文章".encode() in rv.data
+
+
+def test_search_excludes_draft(client, draft):
+    """搜索不应命中草稿"""
+    rv = client.get("/search", query_string={"q": "草稿"})
+    assert rv.status_code == 200
+    assert draft.title.encode("utf-8") not in rv.data
+
+
+def test_search_empty_query(client):
+    """空关键词应返回 200 空态"""
+    rv = client.get("/search")
+    assert rv.status_code == 200
+    assert "未找到相关文章".encode() in rv.data
+
+
+def test_search_whitespace_query(client):
+    """纯空白关键词按空查询处理"""
+    rv = client.get("/search", query_string={"q": "   "})
+    assert rv.status_code == 200
+
+
+# ── 栏目重命名 ──────────────────────────────────────────
+def test_edit_category_rename(login_admin, db, category, article):
+    """重命名栏目后栏目名更新,其下文章自动跟随无需逐篇编辑"""
+    cid = category.id
+    rv = login_admin.post(
+        f"/category/edit/{cid}",
+        data={"cat_name": "改名后栏目", "tag_text": ""},
+        follow_redirects=False,
+    )
+    assert rv.status_code == 302
+    db.session.refresh(category)
+    assert category.cat_name == "改名后栏目"
+    db.session.refresh(article)
+    assert article.category_id == cid
+
+
+def test_edit_category_duplicate(login_admin, db, category):
+    """重命名为其他栏目已有名称应失败并提示重复"""
+    import json
+
+    db.session.add(Category(cat_name="已占用名称", tag_text="", create_time="2026-01-01 00:00:00"))
+    db.session.commit()
+    rv = login_admin.post(
+        f"/category/edit/{category.id}",
+        data={"cat_name": "已占用名称", "tag_text": ""},
+        follow_redirects=False,
+    )
+    assert rv.status_code == 302
+    db.session.refresh(category)
+    assert category.cat_name == "测试栏目"
+    rv2 = login_admin.get("/")
+    html = rv2.data.decode("utf-8")
+    start = html.find('id="flashData">') + len('id="flashData">')
+    end = html.find("</script>", start)
+    flash = json.loads(html[start:end])
+    assert any("栏目名称重复" in m[1] for m in flash)
+
+
+def test_edit_category_empty_name(login_admin, category, db):
+    """空白名称应提示不能为空且不改动原名称"""
+    rv = login_admin.post(
+        f"/category/edit/{category.id}",
+        data={"cat_name": "   ", "tag_text": ""},
+        follow_redirects=False,
+    )
+    assert rv.status_code == 302
+    db.session.refresh(category)
+    assert category.cat_name == "测试栏目"
+
+
+def test_edit_category_not_found(login_admin):
+    """重命名不存在的栏目应跳回首页"""
+    rv = login_admin.post("/category/edit/9999", follow_redirects=False)
+    assert rv.status_code == 302
+
+
+def test_edit_category_requires_login(client, category):
+    """未登录不能重命名栏目"""
+    rv = client.post(f"/category/edit/{category.id}", follow_redirects=False)
+    assert rv.status_code == 302
+    assert "/login" in rv.headers.get("Location", "")

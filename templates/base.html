@@ -8,7 +8,9 @@
     <link href="{{ url_for('static', filename='lib/bootstrap.min.css') }}" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='lib/bootstrap-icons.css') }}">
     <link href="{{ url_for('static', filename='lib/prism-tomorrow.min.css') }}" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/themes.css') }}?v=20260901h" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/themes.css') }}?v=20260902e" rel="stylesheet">
+    <link rel="alternate" type="application/rss+xml" title="{{ site_name }} - RSS" href="{{ url_for('blog.feed_rss') }}">
+    <link rel="alternate" type="application/atom+xml" title="{{ site_name }} - Atom" href="{{ url_for('blog.feed_atom') }}">
     <style>
         body { background:transparent; min-height:100vh; display:flex; flex-direction:column; margin:0; }
         main { flex:1; padding:8px 0; }
@@ -16,6 +18,8 @@
         .blog-card:hover { transform:translateY(-6px); box-shadow:0 8px 24px rgba(0,0,0,0.1); }
         .sidebar-box { border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,0.05); padding:20px; position:sticky; top:20px; min-height:240px; }
         footer { color:#fff; padding:12px 0; text-align:center; }
+        .rss-link { display:inline-flex; align-items:center; color:#fff; font-size:1.3rem; line-height:1; opacity:.85; transition:opacity .2s, color .2s; }
+        .rss-link:hover { color:#ff9800; opacity:1; }
         pre { background:#2d2d2d; color:#ccc; padding:12px 16px; border-radius:8px; overflow-x:auto; font-family:'Fira Code','Consolas','Courier New',monospace; font-size:14px; line-height:1.6; }
         :not(pre) > code { color:#e83e8c; background:#f8f9fa; padding:2px 6px; border-radius:4px; font-family:'Fira Code','Consolas',monospace; font-size:0.9em; }
         .breadcrumb-item + .breadcrumb-item::before { content:"-"; }
@@ -51,67 +55,15 @@
                 </li>
             </ul>
             <div class="d-flex gap-1 align-items-center">
-                {% if current_user.is_authenticated %}
-                    {# 文章管理下拉 #}
-                    <div class="dropdown">
-                        <button class="btn btn-sm btn-outline-light dropdown-toggle" type="button"
-                                data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="bi bi-pencil-square"></i> {{ _('文章管理') }}
-                        </button>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li>
-                                <a class="dropdown-item" href="{{ url_for('blog.drafts') }}">
-                                    <i class="bi bi-file-earmark-draft"></i> {{ _('草稿管理') }}
-                                </a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item" href="{{ url_for('blog.article_new') }}">
-                                    <i class="bi bi-plus-circle"></i> {{ _('新建文章') }}
-                                </a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item" href="{{ url_for('blog.article_manage') }}">
-                                    <i class="bi bi-arrow-counterclockwise"></i> {{ _('撤回文章') }}
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
-                    <a href="{{ url_for('admin.site_setting') }}" class="btn btn-sm btn-outline-info">{{ _('站点设置') }}</a>
-                    {# 轮播图管理下拉 #}
-                    <div class="dropdown">
-                        <button class="btn btn-sm btn-outline-primary dropdown-toggle" type="button"
-                                data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="bi bi-images"></i> {{ _('轮播图管理') }}
-                        </button>
-                        <ul class="dropdown-menu dropdown-menu-end">
-                            <li>
-                                <a class="dropdown-item" href="{{ url_for('banner.banner_list') }}">
-                                    <i class="bi bi-list-ul"></i> {{ _('轮播图列表') }}
-                                </a>
-                            </li>
-                            <li>
-                                <a class="dropdown-item" href="{{ url_for('banner.banner_list', action='add') }}">
-                                    <i class="bi bi-plus-circle"></i> {{ _('新增轮播图') }}
-                                </a>
-                            </li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li>
-                                <form method="POST" action="{{ url_for('banner.banner_withdraw_all') }}"
-                                      onsubmit="return confirm('{{ _('撤回将删除全部轮播图(含图片文件),确认继续?') }}')">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button type="submit" class="dropdown-item text-warning">
-                                        <i class="bi bi-arrow-counterclockwise"></i> {{ _('撤回所有轮播图') }}
-                                    </button>
-                                </form>
-                            </li>
-                        </ul>
-                    </div>
-                    <a href="{{ url_for('admin.change_pwd') }}" class="btn btn-sm btn-outline-warning">{{ _('改密码') }}</a>
-                    <form method="POST" action="{{ url_for('admin.logout') }}" class="d-inline">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="btn btn-sm btn-danger">{{ _('退出登录') }}</button>
-                    </form>
-                {% endif %}
+                <form class="d-flex me-1" method="GET" action="{{ url_for('blog.search') }}" role="search">
+                    <input class="form-control form-control-sm me-1" type="search" name="q"
+                           value="{{ request.args.get('q', '') }}" placeholder="{{ _('搜索文章') }}"
+                           aria-label="{{ _('搜索文章') }}">
+                    <button class="btn btn-sm btn-outline-light" type="submit" aria-label="{{ _('搜索文章') }}">
+                        <i class="bi bi-search"></i>
+                    </button>
+                </form>
+
                 <button type="button" class="lang-toggle ms-1" id="langToggleBtn"
                         data-next-lang="{% if current_lang == 'zh_CN' %}en{% else %}zh_CN{% endif %}"
                         data-url="{{ url_for('main.set_lang', lang='__LANG__', next=request.path) }}"
@@ -135,8 +87,16 @@
 </main>
 
 <footer>
-    <div class="container">
-        <p class="mb-0">© {{ now_year }} {{ site_name }} · <a href="http://github.com/jeanslw" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">jeanslw</a> · {{ _('All Rights Reserved') }}</p>
+    <div class="container footer-inner">
+        <p class="mb-0 footer-copyright">© {{ now_year }} {{ site_name }} · <a href="http://github.com/jeanslw" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">jeanslw</a> · {{ _('All Rights Reserved') }}</p>
+        <div class="footer-feed-icons">
+            <a href="{{ url_for('blog.feed_rss') }}" class="rss-link" title="{{ _('RSS 订阅') }}" aria-label="{{ _('RSS 订阅') }}">
+                <i class="bi bi-rss"></i>
+            </a>
+            <a href="{{ url_for('blog.feed_atom') }}" class="rss-link" title="{{ _('Atom 订阅') }}" aria-label="{{ _('Atom 订阅') }}">
+                <i class="bi bi-rss-fill"></i>
+            </a>
+        </div>
     </div>
 </footer>
 
@@ -171,7 +131,7 @@
 <script src="{{ url_for('static', filename='lib/bootstrap.bundle.min.js') }}"></script>
 <script src="{{ url_for('static', filename='lib/prism.min.js') }}"></script>
 <script src="{{ url_for('static', filename='lib/prism-autoloader.min.js') }}"></script>
-<script src="{{ url_for('static', filename='js/theme-switcher.js') }}"></script>
+<script src="{{ url_for('static', filename='js/theme-switcher.js') }}?v=20260902a"></script>
 <script type="application/json" id="flashData">{{ get_flashed_messages(with_categories=true) | tojson }}</script>
 <script src="{{ url_for('static', filename='js/flash-toast.js') }}"></script>
 <script src="{{ url_for('static', filename='js/lang-toggle.js') }}"></script>

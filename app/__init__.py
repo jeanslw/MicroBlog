@@ -18,7 +18,7 @@ import traceback
 from datetime import date, timedelta
 
 from flask import Flask, jsonify, render_template, request, session
-from flask_babel import Babel
+from flask_babel import Babel, _
 from werkzeug.exceptions import HTTPException
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -165,7 +165,7 @@ def create_app(config_name: str | None = None):
     def not_found(e):
         if request.is_json:
             return jsonify({"error": "Not Found"}), 404
-        return render_template("error.html", code=404, message="页面不存在"), 404
+        return render_template("error.html", code=404, message=_("页面不存在")), 404
 
     @app.errorhandler(Exception)
     def all_err_handler(e):
@@ -175,7 +175,7 @@ def create_app(config_name: str | None = None):
             return traceback.format_exc(), 500
         if request.is_json:
             return jsonify({"error": "服务器内部错误"}), 500
-        return render_template("error.html", code=500, message="服务器内部错误,请联系管理员"), 500
+        return render_template("error.html", code=500, message=_("服务器内部错误,请联系管理员")), 500
 
     # ── 注册蓝图 ────────────────────────────────────────
     from app.admin import admin_bp

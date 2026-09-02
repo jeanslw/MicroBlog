@@ -1,15 +1,15 @@
-{% extends "base.html" %}
+{% extends "admin/admin_base.html" %}
 {% block title %}{{ _('草稿箱') }} - {{ site_name }}{% endblock %}
 
 {% block breadcrumb %}
 <li class="breadcrumb-item active" aria-current="page">{{ _('草稿箱') }}</li>
 {% endblock %}
 
-{% block content %}
+{% block admin_content %}
 <div class="row g-4">
     {% for art in drafts %}
     <div class="col-md-6 col-lg-4">
-        <div class="card h-100 p-4">
+        <div class="card admin-panel-card h-100 p-4">
             <div class="card-body p-0">
                 <h5 class="card-title fw-bold">{{ art.title }}</h5>
                 <p class="text-muted small">
@@ -20,10 +20,9 @@
             </div>
             <div class="mt-3 d-grid gap-2">
                 <a href="{{ url_for('blog.article_edit', aid=art.id) }}" class="btn btn-primary">{{ _('编辑修改') }}</a>
-                <form method="POST" action="{{ url_for('blog.article_del', aid=art.id) }}"
-                      onsubmit="return confirm('确定删除该草稿？')">
+                <form method="POST" action="{{ url_for('blog.article_del', aid=art.id) }}">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <button type="submit" class="btn btn-outline-danger w-100">{{ _('删除') }}</button>
+                    <button type="button" class="btn btn-outline-danger w-100" data-confirm="{{ _('确定删除该草稿？') }}">{{ _('删除') }}</button>
                 </form>
             </div>
         </div>

@@ -675,3 +675,149 @@ msgstr "Classic"
 msgid "自定义"
 msgstr "Custom"
 
+msgid "搜索文章"
+msgstr "Search articles"
+
+msgid "搜索结果"
+msgstr "Search results"
+
+msgid "共 %(total)s 篇文章"
+msgstr "%(total)s articles"
+
+msgid "未找到相关文章"
+msgstr "No articles found"
+
+msgid "本站订阅"
+msgstr "Subscribe to updates"
+
+msgid "输入新栏目名称"
+msgstr "Enter new category name"
+
+msgid "重命名栏目"
+msgstr "Rename category"
+
+msgid "栏目重命名成功"
+msgstr "Category renamed successfully"
+
+msgid "栏目重命名失败"
+msgstr "Failed to rename category"
+
+msgid "栏目名称不能为空"
+msgstr "Category name cannot be empty"
+
+msgid "RSS / Atom 订阅"
+msgstr "RSS / Atom subscription"
+
+#: templates/base.html
+msgid "RSS 订阅"
+msgstr "RSS subscription"
+
+#: templates/base.html
+msgid "Atom 订阅"
+msgstr "Atom subscription"
+
+msgid "管理后台"
+msgstr "Admin Panel"
+
+msgid "站点管理"
+msgstr "Site Management"
+
+msgid "账户安全"
+msgstr "Account Security"
+
+msgid "新建轮播图"
+msgstr "New Banner"
+
+msgid "撤回轮播图"
+msgstr "Withdraw Banners"
+
+msgid "确认退出登录?"
+msgstr "Confirm logout?"
+
+msgid "欢迎进入管理后台。点击左侧菜单进入对应功能模块。"
+msgstr "Welcome to the admin panel. Click the left menu to enter the corresponding module."
+
+msgid "当前站点"
+msgstr "Current Site"
+
+msgid "管理员"
+msgstr "Administrator"
+
+msgid "草稿 / 新建 / 撤回"
+msgstr "Drafts / New / Withdraw"
+
+msgid "列表 / 新建 / 撤回"
+msgstr "List / New / Withdraw"
+
+msgid "轮播图列表"
+msgstr "Banner List"
+
+msgid "撤回"
+msgstr "Recall"
+
+msgid "确定删除？"
+msgstr "Are you sure you want to delete?"
+
+msgid "确定删除该草稿？"
+msgstr "Are you sure you want to delete this draft?"
+
+msgid "确定将该文章撤回至草稿箱？"
+msgstr "Are you sure you want to recall this article to drafts?"
+
+msgid "删除后将无法恢复，确定继续？"
+msgstr "Deletion cannot be undone, continue?"
+
+msgid "编辑轮播图"
+msgstr "Edit Banner"
+
+msgid "请确认"
+msgstr "Please Confirm"
+
+msgid "确认"
+msgstr "Confirm"
+
+msgid "页面不存在"
+msgstr "Page Not Found"
+
+msgid "服务器内部错误,请联系管理员"
+msgstr "Internal server error, please contact the administrator"
+
+#: banner withdrawal/enable feature
+msgid "状态"
+msgstr "Status"
+
+#: banner withdrawal/enable feature
+msgid "展示中"
+msgstr "Active"
+
+#: banner withdrawal/enable feature
+msgid "已撤回"
+msgstr "Withdrawn"
+
+#: banner withdrawal/enable feature
+msgid "确定撤回该轮播图？撤回后首页不再展示，可随时重新启用。"
+msgstr "Withdraw this banner? It will be hidden from the homepage and can be re-enabled anytime."
+
+#: banner withdrawal/enable feature
+msgid "确定重新启用该轮播图？"
+msgstr "Re-enable this banner?"
+
+#: banner withdrawal/enable feature
+msgid "启用"
+msgstr "Enable"
+
+#: banner withdrawal/enable feature
+msgid "该轮播图已撤回"
+msgstr "This banner is already withdrawn"
+
+#: banner withdrawal/enable feature
+msgid "该轮播图正在展示"
+msgstr "This banner is already active"
+
+#: banner withdrawal/enable feature
+msgid "已撤回，首页不再展示该轮播图"
+msgstr "Banner withdrawn, no longer shown on the homepage"
+
+#: banner withdrawal/enable feature
+msgid "已重新启用"
+msgstr "Banner re-enabled"

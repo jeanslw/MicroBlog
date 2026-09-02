@@ -197,23 +197,99 @@ def test_banner_add_requires_login(client):
     assert "/login" in rv.headers.get("Location", "")
 
 
-def test_banner_withdraw_all_success(login_admin, db):
-    b1 = Banner(img_path='/static/banner/a.jpg', title='a', create_time='2026-01-01 00:00:00')
-    b2 = Banner(img_path='/static/banner/b.jpg', title='b', create_time='2026-01-01 00:00:00')
-    db.session.add_all([b1, b2])
+def test_banner_withdraw_success(login_admin, db):
+    """撤回（下架）后记录保留,is_active=False"""
+    b = Banner(
+        img_path="/static/banner/a.jpg",
+        title="a",
+        create_time="2026-01-01 00:00:00",
+        is_active=True,
+    )
+    db.session.add(b)
     db.session.commit()
-    rv = login_admin.post('/banner/withdraw_all', follow_redirects=False)
-    assert rv.status_code == 302
-    from sqlalchemy import func as _f
-    from sqlalchemy import select as _s
-    assert db.session.scalar(_s(_f.count(Banner.id))) == 0
+    bid = b.id
 
-def test_banner_withdraw_all_empty(login_admin, db):
-    rv = login_admin.post('/banner/withdraw_all', follow_redirects=False)
+    rv = login_admin.post(f"/banner/withdraw/{bid}", follow_redirects=False)
+    assert rv.status_code == 302
+    db.session.refresh(b)
+    assert b.is_active is False
+    # 记录与图片保留,未删除
+    assert db.session.get(Banner, bid) is not None
+
+
+def test_banner_withdraw_twice(login_admin, db):
+    """已撤回的 banner 再次撤回应保持 False"""
+    b = Banner(
+        img_path="/static/banner/a.jpg",
+        title="a",
+        create_time="2026-01-01 00:00:00",
+        is_active=False,
+    )
+    db.session.add(b)
+    db.session.commit()
+
+    rv = login_admin.post(f"/banner/withdraw/{b.id}", follow_redirects=False)
+    assert rv.status_code == 302
+    db.session.refresh(b)
+    assert b.is_active is False
+
+
+def test_banner_withdraw_not_found(login_admin):
+    """撤回不存在的 banner 应重定向"""
+    rv = login_admin.post("/banner/withdraw/99999", follow_redirects=False)
     assert rv.status_code == 302
 
-def test_banner_withdraw_all_requires_login(client):
-    rv = client.post('/banner/withdraw_all', follow_redirects=False)
+
+def test_banner_withdraw_requires_login(client):
+    """未登录不能撤回 banner"""
+    rv = client.post("/banner/withdraw/1", follow_redirects=False)
     assert rv.status_code == 302
-    assert '/login' in rv.headers.get('Location', '')
+    assert "/login" in rv.headers.get("Location", "")
+
+
+def test_banner_activate_success(login_admin, db):
+    """启用（上架）后 is_active=True"""
+    b = Banner(
+        img_path="/static/banner/b.jpg",
+        title="b",
+        create_time="2026-01-01 00:00:00",
+        is_active=False,
+    )
+    db.session.add(b)
+    db.session.commit()
+
+    rv = login_admin.post(f"/banner/activate/{b.id}", follow_redirects=False)
+    assert rv.status_code == 302
+    db.session.refresh(b)
+    assert b.is_active is True
+
+
+def test_banner_activate_requires_login(client):
+    """未登录不能启用 banner"""
+    rv = client.post("/banner/activate/1", follow_redirects=False)
+    assert rv.status_code == 302
+    assert "/login" in rv.headers.get("Location", "")
+
+
+def test_homepage_hides_withdrawn_banner(client, db):
+    """首页轮播只展示启用中的 banner,已撤回的不出现"""
+    on = Banner(
+        img_path="/static/banner/on.jpg",
+        title="ONBANNER",
+        create_time="2026-01-01 00:00:00",
+        is_active=True,
+    )
+    off = Banner(
+        img_path="/static/banner/off.jpg",
+        title="OFFBANNER",
+        create_time="2026-01-02 00:00:00",
+        is_active=False,
+    )
+    db.session.add_all([on, off])
+    db.session.commit()
+
+    rv = client.get("/")
+    assert rv.status_code == 200
+    assert b"ONBANNER" in rv.data
+    assert b"OFFBANNER" not in rv.data
 

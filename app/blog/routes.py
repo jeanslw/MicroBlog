@@ -4,21 +4,27 @@
 - 使用 Flask-WTF 表单校验 + 自动 CSRF
 - 使用 Flask-SQLAlchemy ORM
 - 删除文章用事务,异常时显式 rollback
-- 文章保存时净化 HTML 防止存储型 XSS
+- 文章正文保存原文，读取展示时经 nh3 白名单净化防存储型 XSS
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from flask import current_app, flash, redirect, render_template, request, url_for
+from flask import Response, current_app, flash, redirect, render_template, request, url_for
 from flask_babel import _
 from flask_login import current_user
 from sqlalchemy import func, update
 
 from app.blog import blog_bp
-from app.blog.queries import get_article_detail, get_article_list
+from app.blog.queries import (
+    get_article_detail,
+    get_article_list,
+    get_recent_articles,
+    search_articles,
+)
 from app.extensions import admin_required, db, log
 from app.forms import ArticleForm, CategoryForm
-from app.models import Article, Category
+from app.models import Article, Category, SiteConfig
 from app.utils import collect_static_upload_urls, remove_static_upload, strip_html
 
 TITLE_MAX_LEN = 500
@@ -237,3 +243,109 @@ def del_category(cid):
         db.session.rollback()
         flash(_("栏目删除失败"), "danger")
     return redirect(url_for("blog.index"))
+
+
+@blog_bp.route("/category/edit/<int:cid>", methods=["POST"])
+@admin_required
+def edit_category(cid):
+    """重命名栏目：文章通过 category_id 关联，改名后自动跟随，无需逐篇重新归类。"""
+    cat = db.session.get(Category, cid)
+    if cat is None:
+        flash(_("栏目不存在"), "warning")
+        return redirect(url_for("blog.index"))
+    form = CategoryForm()
+    if form.validate_on_submit():
+        new_name = (form.cat_name.data or "").strip()
+        if not new_name:
+            flash(_("栏目名称不能为空"), "danger")
+            return redirect(url_for("blog.index"))
+        cat.cat_name = new_name
+        try:
+            db.session.commit()
+            flash(_("栏目重命名成功"), "success")
+        except Exception:
+            db.session.rollback()
+            flash(_("栏目名称重复"), "danger")
+    else:
+        for field, errors in form.errors.items():
+            for err in errors:
+                flash(f"{field}: {err}", "danger")
+    return redirect(url_for("blog.index"))
+
+
+# ── 站内搜索 ────────────────────────────────────────────
+@blog_bp.route("/search")
+def search():
+    """按关键词搜索已发布文章（标题/正文模糊匹配），支持分页"""
+    q = (request.args.get("q") or "").strip()
+    page = max(_safe_int(request.args.get("page", 1), 1), 1)
+    if not q:
+        return render_template("blog/search.html", articles=[], page=1, total_page=1, q="", total=0)
+    page_size = current_app.config.get("PAGE_SIZE", 6)
+    offset = (page - 1) * page_size
+    articles, total_page, total = search_articles(q, offset, page_size)
+    return render_template(
+        "blog/search.html", articles=articles, page=page, total_page=total_page, q=q, total=total
+    )
+
+
+# ── RSS/Atom 订阅源 ─────────────────────────────────────
+try:
+    _CN_TZ = ZoneInfo("Asia/Shanghai")
+except ZoneInfoNotFoundError:
+    # Windows / 精简容器镜像缺少 IANA 时区数据库时,退化为固定 UTC+8（与上海时区等价）
+    _CN_TZ = timezone(timedelta(hours=8))
+
+
+def _parse_feed_time(value: str) -> datetime | None:
+    """将 "YYYY-MM-DD HH:MM:SS" 转为带时区的 datetime，解析失败返回 None"""
+    try:
+        return datetime.strptime(value, "%Y-%m-%d %H:%M:%S").replace(tzinfo=_CN_TZ)
+    except (TypeError, ValueError):
+        return None
+
+
+def _build_feed():
+    """构建订阅源对象（Atom/RSS 共用同一份数据）。
+
+    feedgen 延迟导入：该依赖仅订阅源路由需要，避免影响其他功能启动。
+    """
+    from feedgen.feed import FeedGenerator
+
+    articles = get_recent_articles()
+    site_name = db.session.scalar(db.select(SiteConfig.site_name)) or "博客"
+    base_url = request.host_url.rstrip("/")
+    feed = FeedGenerator()
+    feed.id(base_url)
+    feed.title(site_name)
+    feed.author({"name": site_name})
+    feed.link(href=base_url, rel="alternate")
+    feed.link(href=f"{base_url}/feed", rel="self")
+    feed.language("zh-CN")
+    feed.description(_("本站订阅"))
+    feed.subtitle(_("本站订阅"))
+    for art in articles:
+        entry = feed.add_entry()
+        entry.id(f"{base_url}/article/{art.id}")
+        entry.title(art.title)
+        entry.link(href=f"{base_url}/article/{art.id}")
+        entry.summary(strip_html(art.content))
+        published = _parse_feed_time(art.create_time)
+        if published:
+            entry.published(published)
+        updated = _parse_feed_time(art.update_time)
+        if updated:
+            entry.updated(updated)
+    return feed
+
+
+@blog_bp.route("/feed")
+def feed_atom():
+    """Atom 订阅源"""
+    return Response(_build_feed().atom_str(pretty=True), mimetype="application/atom+xml")
+
+
+@blog_bp.route("/rss")
+def feed_rss():
+    """RSS 2.0 订阅源"""
+    return Response(_build_feed().rss_str(pretty=True), mimetype="application/rss+xml")

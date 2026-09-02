@@ -9,7 +9,7 @@ def test_login_page_get(client):
 
 
 def test_login_success(client, admin_user):
-    """正确账号密码应登录成功并重定向"""
+    """正确账号密码应登录成功并重定向到管理后台"""
     rv = client.post(
         "/admin/login",
         data={
@@ -19,6 +19,7 @@ def test_login_success(client, admin_user):
         follow_redirects=False,
     )
     assert rv.status_code == 302
+    assert rv.headers.get("Location", "").endswith("/admin/panel")
     # 应已登录
     with client.session_transaction() as s:
         assert "_user_id" in s
@@ -105,10 +106,25 @@ def test_logout_success(login_admin):
 
 def test_admin_routes_require_login(client):
     """需要登录的路由未登录时应跳转登录"""
-    for url in ["/admin/change_pwd", "/admin/site_setting", "/banner/"]:
+    for url in ["/admin/change_pwd", "/admin/site_setting", "/admin/panel", "/banner/"]:
         rv = client.get(url, follow_redirects=False)
         assert rv.status_code == 302, f"{url} 未重定向"
         assert "/login" in rv.headers.get("Location", ""), f"{url} 未重定向到登录页"
+
+
+def test_admin_panel_accessible(login_admin):
+    """登录后管理后台页可访问，且包含各管理功能入口链接"""
+    rv = login_admin.get("/admin/panel")
+    assert rv.status_code == 200
+    for url in [
+        "/drafts",          # 草稿管理
+        "/article/new",     # 新建文章
+        "/article/manage",  # 撤回文章
+        "/admin/site_setting",  # 站点设置
+        "/banner/",         # 轮播图列表
+        "/admin/change_pwd",    # 修改密码
+    ]:
+        assert url.encode() in rv.data, f"管理后台页缺少入口 {url}"
 
 
 def test_change_pwd_success(login_admin, db, admin_user):

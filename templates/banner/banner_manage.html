@@ -1,12 +1,12 @@
-{% extends "base.html" %}
+{% extends "admin/admin_base.html" %}
 {% block title %}{{ _('轮播广告管理') }} - {{ site_name }}{% endblock %}
 
 {% block breadcrumb %}
 <li class="breadcrumb-item active" aria-current="page">{{ _('轮播图管理') }}</li>
 {% endblock %}
 
-{% block content %}
-<div class="card blog-card p-4">
+{% block admin_content %}
+<div class="card admin-panel-card p-4">
     <table class="table table-hover">
         <thead>
             <tr>
@@ -14,6 +14,7 @@
                 <th>{{ _('标题') }}</th>
                 <th>{{ _('跳转链接') }}</th>
                 <th>{{ _('排序权重') }}</th>
+                <th>{{ _('状态') }}</th>
                 <th>{{ _('操作') }}</th>
             </tr>
         </thead>
@@ -25,16 +26,33 @@
                 <td>{{ item.link_url }}</td>
                 <td>{{ item.sort }}</td>
                 <td>
-                    <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#edit{{ item.id }}">{{ _('编辑') }}</button>
-                    <form method="POST" action="{{ url_for('banner.banner_del', bid=item.id) }}" class="d-inline"
-                          onsubmit="return confirm('确定删除？')">
+                    {% if item.is_active %}
+                    <span class="badge bg-success">{{ _('展示中') }}</span>
+                    {% else %}
+                    <span class="badge bg-secondary">{{ _('已撤回') }}</span>
+                    {% endif %}
+                </td>
+                <td class="d-flex gap-2 align-items-center">
+                    <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#edit{{ item.id }}">{{ _('编辑') }}</button>
+                    {% if item.is_active %}
+                    <form method="POST" action="{{ url_for('banner.banner_withdraw', bid=item.id) }}" class="d-inline-flex">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="btn btn-sm btn-danger">{{ _('删除') }}</button>
+                        <button type="button" class="btn btn-sm btn-warning" data-confirm="{{ _('确定撤回该轮播图？撤回后首页不再展示，可随时重新启用。') }}">{{ _('撤回') }}</button>
+                    </form>
+                    {% else %}
+                    <form method="POST" action="{{ url_for('banner.banner_activate', bid=item.id) }}" class="d-inline-flex">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="button" class="btn btn-sm btn-success" data-confirm="{{ _('确定重新启用该轮播图？') }}">{{ _('启用') }}</button>
+                    </form>
+                    {% endif %}
+                    <form method="POST" action="{{ url_for('banner.banner_del', bid=item.id) }}" class="d-inline-flex">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="button" class="btn btn-sm btn-danger" data-confirm="{{ _('确定删除？') }}">{{ _('删除') }}</button>
                     </form>
                 </td>
             </tr>
             {% else %}
-            <tr><td colspan="5" class="text-center text-muted">{{ _('暂无轮播广告') }}</td></tr>
+            <tr><td colspan="6" class="text-center text-muted">{{ _('暂无轮播广告') }}</td></tr>
             {% endfor %}
         </tbody>
     </table>
@@ -43,7 +61,7 @@
 <div class="modal fade" id="addModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <div class="modal-header"><h5>{{ _('新增Banner') }}</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-header"><h5 class="fw-bold">{{ _('新建轮播图') }}</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
             <form action="{{ url_for('banner.banner_add') }}" method="post" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="modal-body">
@@ -81,7 +99,7 @@
 <div class="modal fade" id="edit{{ item.id }}" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <div class="modal-header"><h5>{{ _('编辑Banner') }}</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-header"><h5 class="fw-bold">{{ _('编辑轮播图') }}</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
             <form action="{{ url_for('banner.banner_edit', bid=item.id) }}" method="post" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="modal-body">

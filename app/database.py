@@ -29,6 +29,25 @@ def init_db():
 
     db.create_all()
     _migrate_site_config()
+    _migrate_banner()
+
+
+def _migrate_banner():
+    """轻量迁移：为旧版 banner 表补齐 is_active（撤回/下架）列（幂等）。
+
+    新装环境表结构已包含该列,直接跳过；旧库通过 ALTER TABLE 追加,
+    避免老数据迁移 SQLite/MySQL 报错。
+    """
+    try:
+        inspector = db.inspect(db.engine)
+        if "banner" not in inspector.get_table_names():
+            return
+        cols = {c["name"] for c in inspector.get_columns("banner")}
+        if "is_active" not in cols:
+            with db.engine.begin() as conn:
+                conn.execute(db.text("ALTER TABLE banner ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT 1"))
+    except Exception as e:
+        log.warning("banner is_active 列迁移失败,可手动执行 ALTER TABLE: %s", e)
 
 
 def _migrate_site_config():

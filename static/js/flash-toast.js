@@ -56,7 +56,7 @@
         toast.appendChild(close);
 
         container.appendChild(toast);
-        var instance = new bootstrap.Toast(toast, { delay: 3500 });
+        var instance = new bootstrap.Toast(toast, { delay: 5000, autohide: true });
         instance.show();
     });
 })();

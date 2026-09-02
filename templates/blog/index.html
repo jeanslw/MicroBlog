@@ -77,7 +77,16 @@
                         {{ cat.cat_name }} <span class="text-muted">({{ cat.art_count }})</span>
                     </a>
                     {% if current_user.is_authenticated %}
-                    <form method="POST" action="{{ url_for('blog.del_category', cid=cat.id) }}" class="ms-2"
+                    <span class="d-inline-flex align-items-center gap-1 ms-3">
+                    <form method="POST" action="{{ url_for('blog.edit_category', cid=cat.id) }}"
+                          onsubmit="var n=prompt('{{ _('输入新栏目名称') }}', {{ cat.cat_name|tojson }}); if(n===null) return false; var i=document.createElement('input'); i.type='hidden'; i.name='cat_name'; i.value=n; this.appendChild(i);">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary p-0 px-1"
+                                title="{{ _('重命名栏目') }}" aria-label="{{ _('重命名栏目') }}">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                    </form>
+                    <form method="POST" action="{{ url_for('blog.del_category', cid=cat.id) }}"
                           onsubmit="return confirm('{{ _('确定删除该栏目及标签？该栏目下文章将变为未分类。') }}')">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         <button type="submit" class="btn btn-sm btn-outline-danger p-0 px-1"
@@ -85,6 +94,7 @@
                             <i class="bi bi-trash"></i>
                         </button>
                     </form>
+                    </span>
                     {% endif %}
                 </li>
                 {% endfor %}
