@@ -30,7 +30,7 @@ from app.extensions import (
     login_manager,
 )
 from app.utils import configure_pillow
-from config import get_config
+from config import APP_VERSION, get_config
 
 
 def _setup_logging(app: Flask):
@@ -139,6 +139,7 @@ def create_app(config_name: str | None = None):
             {
                 "now_year": date.today().year,
                 "current_lang": _select_locale(),
+                "app_version": APP_VERSION,
             }
         )
         return ctx

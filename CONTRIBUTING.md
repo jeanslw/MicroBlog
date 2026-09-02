@@ -74,7 +74,47 @@ Following the **Conventional Commits** specification is highly recommended:
     Adds a new route to list articles grouped by category,
     updates the sidebar query layer and adds related tests.
 
-### 5. Open a Pull Request (PR)
+### 5. Version Management
+
+MicroBlog follows [Semantic Versioning](https://semver.org/) (SemVer). Every release must be tagged with a unique Git tag.
+
+#### Version Format
+
+```
+v<major>.<minor>.<patch>[-<prerelease>]
+```
+
+- **major**: breaking changes
+- **minor**: new features (backward compatible)
+- **patch**: bug fixes (backward compatible)
+- **prerelease**: `-alpha`, `-beta`, `-rc`, `-dev`, `-preview`
+
+#### Increment Rules
+
+| Change Type | Increment | Example |
+|-------------|-----------|---------|
+| Bug fix | Patch | v2.7.0 -> v2.7.1 |
+| New feature | Minor | v2.7.0 -> v2.8.0 |
+| Breaking change | Major | v2.7.0 -> v3.0.0 |
+| Prerelease | Append suffix | v2.8.0 -> v2.8.0-alpha |
+
+#### Release Steps
+
+1. Update `APP_VERSION` in `config.py`.
+2. Add an entry at the top of `docs/CHANGELOG.md` (English) and `docs/更新日志.md` (Chinese), following the existing heading format:
+   ```
+   ## [X.X.X] - YYYY-MM-DD
+   - change description
+   ```
+3. Commit the changes.
+4. Create and push the tag:
+   ```
+   git tag vX.X.X
+   git push origin vX.X.X
+   ```
+5. GitHub Actions automatically creates the Release from `docs/CHANGELOG.md`.
+
+### 6. Open a Pull Request (PR)
 
 - Ensure your PR is based on the latest `main` branch (or a `release/x.y.z` branch).
 - In the PR description, clearly explain what problem it solves and link the related Issue (e.g., `Closes #123`).

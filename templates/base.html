@@ -88,7 +88,7 @@
 
 <footer>
     <div class="container footer-inner">
-        <p class="mb-0 footer-copyright">© {{ now_year }} {{ site_name }} · <a href="http://github.com/jeanslw" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">jeanslw</a> · {{ _('All Rights Reserved') }}</p>
+        <p class="mb-0 footer-copyright">© {{ now_year }} {{ site_name }} · <a href="http://github.com/jeanslw" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">jeanslw</a> · {{ _('All Rights Reserved') }} · <span class="footer-version">version: v{{ app_version }}</span></p>
         <div class="footer-feed-icons">
             <a href="{{ url_for('blog.feed_rss') }}" class="rss-link" title="{{ _('RSS 订阅') }}" aria-label="{{ _('RSS 订阅') }}">
                 <i class="bi bi-rss"></i>

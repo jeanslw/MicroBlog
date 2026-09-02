@@ -74,7 +74,47 @@
     新增按分类聚合文章的路由，
     更新侧边栏查询层并补充相关测试。
 
-### 5. 发起 Pull Request (PR)
+### 5. 版本管理
+
+MicroBlog 遵循[语义化版本规范（SemVer）](https://semver.org/lang/zh-CN/)。每个版本必须打上唯一的 Git Tag。
+
+#### 版本格式
+
+```
+v<主版本>.<次版本>.<补丁>[-<预发布标识>]
+```
+
+- **主版本**：破坏性变更
+- **次版本**：新功能（向后兼容）
+- **补丁**：Bug 修复（向后兼容）
+- **预发布**：`-alpha`、`-beta`、`-rc`、`-dev`、`-preview`
+
+#### 递增规则
+
+| 变更类型 | 递增 | 示例 |
+|---------|------|------|
+| Bug 修复 | 补丁 | v2.7.0 -> v2.7.1 |
+| 新功能 | 次版本 | v2.7.0 -> v2.8.0 |
+| 破坏性变更 | 主版本 | v2.7.0 -> v3.0.0 |
+| 预发布 | 追加后缀 | v2.8.0 -> v2.8.0-alpha |
+
+#### 发布步骤
+
+1. 更新 `config.py` 中的 `APP_VERSION`。
+2. 在 `docs/CHANGELOG.md`（英文）与 `docs/更新日志.md`（中文）顶部新增条目（沿用现有标题格式）：
+   ```
+   ## [X.X.X] - YYYY-MM-DD
+   - 变更描述
+   ```
+3. 提交变更。
+4. 创建并推送 Tag：
+   ```
+   git tag vX.X.X
+   git push origin vX.X.X
+   ```
+5. GitHub Actions 自动从 `docs/CHANGELOG.md` 创建 Release。
+
+### 6. 发起 Pull Request (PR)
 
 - 确保你的 PR 基于最新的 `main` 分支（或 `release/x.y.z` 分支）。
 - 在 PR 描述中，清晰说明解决了什么问题，并关联相关的 Issue（如 `Closes #123`）。

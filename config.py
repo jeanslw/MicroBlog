@@ -26,6 +26,9 @@ def _env_bool(name: str, default: str = "false") -> bool:
 
 
 # ── 业务常量（不随环境变化，直接定义供模块导入） ───────────
+# 应用版本（SemVer）。发布新版本时更新，须与 Git Tag 保持一致。
+APP_VERSION = "1.3.0"
+
 PAGE_SIZE = int(os.environ.get("BLOG_PAGE_SIZE", "6"))
 
 # 文章/评论/上传校验
@@ -155,6 +158,7 @@ def get_config():
 
 
 # 模块级常量：供旧代码向后兼容（不应直接依赖）
+Config.APP_VERSION = APP_VERSION
 Config.PAGE_SIZE = PAGE_SIZE
 Config.UPLOAD_ALLOWED_EXT = UPLOAD_ALLOWED_EXT
 Config.UPLOAD_ALLOWED_MIME = UPLOAD_ALLOWED_MIME
