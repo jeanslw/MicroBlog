@@ -24,6 +24,11 @@ venv
 data/
 static/banner/
 static/uploads/
+MyBlog_ZH-CN.png
+MyBlog.png
+MyBlog_Admin_Panel.png
+MyBlog_Admin_Panel_ZH-CN.png
+
 
 # 测试与 CI（构建运行时不需要）
 tests/

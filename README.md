@@ -16,15 +16,19 @@ Built on Flask 3.1.0 Features include: article publishing & management, Markdown
 
 ![Overview](MyBlog.png)
 
+![Overview](MyBlog_Admin_Panel.png)
+
 ---
 
 ## 1. Features
 
 | Module | Features |
 |--------|----------|
-| Article Management | Markdown editor (EasyMDE), code highlighting (Prism), image upload with auto-compress, draft/publish status |
-| Comments & Likes | Article comments, replies, IP-based like protection |
-| Category Navigation | Article categories, sidebar category filter |
+| Article Management | Markdown editor / Markdown article upload, code highlighting (Prism), draft/publish status management |
+| Comment Interaction | Article comments, replies, IP spam-like prevention |
+| Category Navigation | Article category classification, sidebar category filtering |
+| RSS Subscription | RSS 2.0 / Atom subscription |
+| Search Function | Full-site article search functionality |
 | Banner Carousel | Backend banner management, image upload & sorting |
 | Internationalization | Chinese/English auto-switching, follows browser language, dropdown manual switch |
 | UI Theme | Glassmorphism transparent UI, 12 built-in 1920x1080 HD background images, one-click switch via floating palette; custom background can be uploaded or set by URL in the admin panel; choice remembered in localStorage |
