@@ -29,28 +29,34 @@ jobs:
       - name: Extract current version changelog
         id: extract_changelog
         run: |
-          if [ ! -f docs/CHANGELOG.md ]; then
-            echo "changelog=⚠️ CHANGELOG.md not found" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
           VERSION="${{ github.ref_name }}"
-          CHANGELOG=$(awk -v ver="$VERSION" '
-            BEGIN { found=0; output="" }
-            /^## \[?v[0-9]+\.[0-9]+\.[0-9]+\]?/ {
-              if (found) exit
-              if ($0 ~ "^## \\[?" ver "\\]?([[:space:]]|-|$)") { found=1; next }
-            }
-            found { output = output $0 "\n" }
-            END {
-              if (output == "") output = "No changelog entry found for " ver
-              print output
-            }
-          ' docs/CHANGELOG.md)
+          python3 - "$VERSION" "$GITHUB_OUTPUT" <<'PY'
+          import re
+          import sys
+          from pathlib import Path
 
-          echo "changelog<<EOF" >> $GITHUB_OUTPUT
-          echo "$CHANGELOG" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          ver, out_path = sys.argv[1], sys.argv[2]
+          changelog = Path("docs/CHANGELOG.md")
+          if not changelog.exists():
+              body = "⚠️ CHANGELOG.md not found"
+          else:
+              out, found = [], False
+              heading = re.compile(r"^##\s+\[?v?\d+\.\d+\.\d+\]?")
+              for line in changelog.read_text(encoding="utf-8").splitlines():
+                  if heading.match(line):
+                      if found:
+                          break
+                      m = re.search(r"v?\d+\.\d+\.\d+", line)
+                      if m and m.group(0) == ver:
+                          found = True
+                          continue
+                  if found:
+                      out.append(line)
+              body = "\n".join(out) if out else f"No changelog entry found for {ver}"
+
+          with open(out_path, "a", encoding="utf-8") as fh:
+              fh.write(f"changelog<<EOF\n{body}\nEOF\n")
+          PY
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
