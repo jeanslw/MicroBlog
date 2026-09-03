@@ -1,0 +1,25 @@
+# 默认忽略的文件
+
+/.venv/*
+/.idea/*
+/.vscode/*
+/__pycache__/*
+/app/__pycache__/*
+copilot-instructions.md
+
+# 环境变量与本地数据，禁止入库
+.env
+.env.docker
+/data/*.db
+/data/*.db-journal
+/data/*.db-wal
+/data/*.db-shm
+/static/banner/*
+/static/uploads/*
+test_output.txt
+test_upload.txt
+# 保留目录占位
+.codebuddy/
+!/static/banner/.gitkeep
+!/static/uploads/.gitkeep
+
