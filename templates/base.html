@@ -8,7 +8,7 @@
     <link href="{{ url_for('static', filename='lib/bootstrap.min.css') }}" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='lib/bootstrap-icons.css') }}">
     <link href="{{ url_for('static', filename='lib/prism-tomorrow.min.css') }}" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/themes.css') }}?v=20260902e" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/themes.css') }}?v=20260906a" rel="stylesheet">
     <link rel="alternate" type="application/rss+xml" title="{{ site_name }} - RSS" href="{{ url_for('blog.feed_rss') }}">
     <link rel="alternate" type="application/atom+xml" title="{{ site_name }} - Atom" href="{{ url_for('blog.feed_atom') }}">
     <style>
@@ -53,6 +53,19 @@
                         {% endfor %}
                     </ul>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('blog.about') }}">{{ _('关于我') }}</a>
+                </li>
+                {% if current_user.is_authenticated %}
+                <li class="nav-item ms-lg-2">
+                    <form method="POST" action="{{ url_for('admin.logout') }}" class="d-flex h-100 align-items-center">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-sm btn-outline-light">
+                            <i class="bi bi-box-arrow-right"></i> {{ _('退出登录') }}
+                        </button>
+                    </form>
+                </li>
+                {% endif %}
             </ul>
             <div class="d-flex gap-1 align-items-center">
                 <form class="d-flex me-1" method="GET" action="{{ url_for('blog.search') }}" role="search">
@@ -133,7 +146,7 @@
 <script src="{{ url_for('static', filename='lib/prism-autoloader.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/theme-switcher.js') }}?v=20260902a"></script>
 <script type="application/json" id="flashData">{{ get_flashed_messages(with_categories=true) | tojson }}</script>
-<script src="{{ url_for('static', filename='js/flash-toast.js') }}"></script>
+<script src="{{ url_for('static', filename='js/flash-toast.js') }}?v=20260906a"></script>
 <script src="{{ url_for('static', filename='js/lang-toggle.js') }}"></script>
 <script src="{{ url_for('static', filename='js/cursor-effect.js') }}"></script>
 {% block extra_js %}{% endblock %}

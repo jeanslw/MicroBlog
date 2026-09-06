@@ -303,7 +303,9 @@ footer {
 .lang-toggle::after { display: none; }
 
 /* ---------- Flash Toast（牛皮癣式提示，悬浮右上角不占布局） ----------
- * 所有类别统一外观：深色半透明玻璃 + 统一浅色图标，仅以图标形状区分语义。 */
+ * 默认外观：深色半透明玻璃 + 白色关闭键。
+ * 注意：.flash-toast-close 必须用白色滤镜，不要用 brightness()——那会覆盖
+ * bootstrap .btn-close-white 的 invert 滤镜，让黑 X 落在深色底上看不见。 */
 .flash-toast {
     background: rgba(15, 18, 28, 0.55);
     backdrop-filter: blur(12px) saturate(1.4);
@@ -316,7 +318,13 @@ footer {
 }
 .flash-toast .toast-body { padding: 8px 12px; }
 .flash-toast-icon { font-size: 1rem; color: #c8d3e0; }
-.flash-toast-close { filter: brightness(0.95); }
+.flash-toast-close { filter: invert(1) grayscale(100%) brightness(200%); }
+/* 成功类（登录成功/点赞成功等）：绿色玻璃底，白字白 X 对比更清晰 */
+.flash-toast.flash-toast-success {
+    background: linear-gradient(135deg, rgba(25, 135, 84, 0.9), rgba(46, 158, 105, 0.82));
+    border-color: rgba(255, 255, 255, 0.35);
+}
+.flash-toast.flash-toast-success .flash-toast-icon { color: #e6fff1; }
 
 /* ---------- 导航栏 Logo（显示尺寸受限，不超出导航高度） ---------- */
 .navbar-logo {

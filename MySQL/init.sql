@@ -138,6 +138,11 @@ CREATE TABLE `site_config` (
   `logo_path` varchar(200) DEFAULT '' COMMENT '网站 Logo 图片 URL（导航栏显示，上传时过大自动缩放）',
   `bg_style` varchar(50) DEFAULT 'bg1' COMMENT '背景风格：bg1~bg10/vdysjx/bg13 内置图库或 custom 自定义',
   `bg_custom` varchar(500) DEFAULT '' COMMENT '自定义背景图片 URL（bg_style=custom 时生效）',
+  `about_avatar` varchar(500) DEFAULT '' COMMENT '「关于我」头像 URL（/static 上传或 http(s) 外链）',
+  `about_bio` text COMMENT '「关于我」个人简介（纯文本，保留换行）',
+  `about_email` varchar(200) DEFAULT '' COMMENT '「关于我」联系邮箱',
+  `about_github` varchar(200) DEFAULT '' COMMENT '「关于我」GitHub 链接',
+  `about_homepage` varchar(200) DEFAULT '' COMMENT '「关于我」个人主页链接',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -175,8 +180,8 @@ CREATE TABLE `login_attempt` (
 -- 初始化数据
 -- --------------------------------------------------------
 -- 站点配置（仅一条）
-INSERT INTO `site_config` (`id`, `site_name`, `favicon_path`, `logo_path`, `bg_style`, `bg_custom`)
-VALUES (1, '我的博客', 'static/favicon.ico', '', 'bg1', '');
+INSERT INTO `site_config` (`id`, `site_name`, `favicon_path`, `logo_path`, `bg_style`, `bg_custom`, `about_avatar`, `about_bio`, `about_email`, `about_github`, `about_homepage`)
+VALUES (1, '我的博客', 'static/favicon.ico', '', 'bg1', '', '', NULL, '', '', '');
 
 -- ⚠️ 不在此插入初始管理员账号（避免明文密码）
 -- 请用以下任一方式创建管理员：

@@ -273,6 +273,36 @@ def edit_category(cid):
     return redirect(url_for("blog.index"))
 
 
+# ── 关于我 ──────────────────────────────────────────────
+@blog_bp.route("/about")
+def about():
+    """「关于我」公开页面：展示后台站点设置里填写的头像/简介/邮箱/GitHub/个人主页"""
+    site = db.session.get(SiteConfig, 1)
+    avatar = (site.about_avatar or "") if site else ""
+    bio = (site.about_bio or "").strip() if site else ""
+    email = (site.about_email or "").strip() if site else ""
+    github = (site.about_github or "").strip() if site else ""
+    homepage = (site.about_homepage or "").strip() if site else ""
+    github_href = github if github.startswith(("http://", "https://")) else f"https://{github}"
+    github_display = github.split("://", 1)[-1].rstrip("/") if github else ""
+    homepage_href = homepage if homepage.startswith(("http://", "https://")) else f"https://{homepage}"
+    homepage_display = homepage.split("://", 1)[-1].rstrip("/") if homepage else ""
+    return render_template(
+        "blog/about.html",
+        about={
+            "avatar": avatar,
+            "bio": bio,
+            "email": email,
+            "github": github,
+            "github_href": github_href if github else "",
+            "github_display": github_display,
+            "homepage": homepage,
+            "homepage_href": homepage_href if homepage else "",
+            "homepage_display": homepage_display,
+        },
+    )
+
+
 # ── 站内搜索 ────────────────────────────────────────────
 @blog_bp.route("/search")
 def search():

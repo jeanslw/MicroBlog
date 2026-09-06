@@ -780,3 +780,61 @@ msgstr "已撤回，首页不再展示该轮播图"
 #: banner withdrawal/enable feature
 msgid "已重新启用"
 msgstr "已重新启用"
+
+msgid "关于我"
+msgstr "关于我"
+
+msgid "关于我信息"
+msgstr "关于我信息"
+
+msgid "头像"
+msgstr "头像"
+
+msgid "清除当前头像"
+msgstr "清除当前头像"
+
+msgid "或填写头像图片 URL（http(s)）"
+msgstr "或填写头像图片 URL（http(s)）"
+
+msgid "邮箱"
+msgstr "邮箱"
+
+msgid "GitHub 链接"
+msgstr "GitHub 链接"
+
+msgid "个人简介"
+msgstr "个人简介"
+
+msgid "联系方式"
+msgstr "联系方式"
+
+msgid "暂无内容"
+msgstr "暂无内容"
+
+msgid "支持多行文本，换行会保留"
+msgstr "支持多行文本，换行会保留"
+
+msgid "仅支持 jpg/jpeg/png/webp，最大 2MB；过长边自动缩放为 512px"
+msgstr "仅支持 jpg/jpeg/png/webp，最大 2MB；过长边自动缩放为 512px"
+
+msgid "查看前台效果"
+msgstr "查看前台效果"
+
+msgid "内容展示在博客前台「关于我」页面，将作为博主个人信息向访客公开。"
+msgstr "内容展示在博客前台「关于我」页面，将作为博主个人信息向访客公开。"
+
+msgid "头像上传失败，请重试"
+msgstr "头像上传失败，请重试"
+
+msgid "关于我信息保存完成"
+msgstr "关于我信息保存完成"
+
+msgid "站点设置保存完成"
+msgstr "站点设置保存完成"
+
+msgid "个人主页"
+msgstr "个人主页"
+
+#: templates/blog/index.html:162
+msgid "全部评论"
+msgstr "全部评论"

@@ -5,11 +5,13 @@
 - 评论内容长度限制 + 模板自动转义（不存原始 HTML 也不需要 sanitize）
 - 点赞需校验文章存在且已发布
 - 防刷：IP + 文章 ID 去重（接受 NAT 局限,生产可换 Redis）
+- 点赞后支持回到来源页（列表/栏目等），仅放行站内相对路径防开放重定向
 """
 
 from datetime import datetime
+from urllib.parse import urlsplit
 
-from flask import flash, redirect, url_for
+from flask import flash, redirect, request, url_for
 from flask_babel import _
 from sqlalchemy.exc import IntegrityError
 
@@ -30,19 +32,35 @@ def _normalize_username(raw: str) -> str:
     return (raw.strip() or "游客")[:USERNAME_MAX_LEN]
 
 
+def _vote_return_to(aid: int) -> str:
+    """点赞后的跳转目标：next 合法（站内相对路径）则返回 next,否则回文章详情页"""
+    nxt = (request.form.get("next") or "").strip()
+    if nxt:
+        parts = urlsplit(nxt)
+        if (
+            not parts.scheme
+            and not parts.netloc
+            and parts.path.startswith("/")
+            and not parts.path.startswith("//")
+            and "\\" not in nxt
+        ):
+            return nxt
+    return url_for("blog.article_detail", aid=aid)
+
+
 @comment_bp.route("/vote/<int:aid>", methods=["POST"])
 def vote(aid):
     """点赞文章：校验文章存在且已发布,IP+文章去重防刷"""
     article = db.session.get(Article, aid)
     if not article or article.status != "publish":
         flash(_("文章不存在或未发布"), "warning")
-        return redirect(url_for("blog.article_detail", aid=aid))
+        return redirect(_vote_return_to(aid))
 
     ip = get_client_ip()
     existing = db.session.scalar(db.select(VoteLog).where(VoteLog.article_id == aid, VoteLog.ip == ip))
     if existing:
         flash(_("您已经点过赞了"), "info")
-        return redirect(url_for("blog.article_detail", aid=aid))
+        return redirect(_vote_return_to(aid))
 
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     try:
@@ -57,9 +75,9 @@ def vote(aid):
         # 并发请求同时插入,触发 UNIQUE(article_id, ip) 冲突
         db.session.rollback()
         flash(_("您已经点过赞了"), "info")
-        return redirect(url_for("blog.article_detail", aid=aid))
+        return redirect(_vote_return_to(aid))
     flash(_("点赞成功"), "success")
-    return redirect(url_for("blog.article_detail", aid=aid))
+    return redirect(_vote_return_to(aid))
 
 
 @comment_bp.route("/comment/add/<int:aid>", methods=["POST"])

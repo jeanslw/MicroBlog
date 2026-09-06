@@ -32,6 +32,9 @@
 
         var toast = document.createElement('div');
         toast.className = 'toast flash-toast';
+        if (cat === 'success') {
+            toast.classList.add('flash-toast-success');
+        }
         toast.setAttribute('role', 'status');
         toast.setAttribute('aria-live', 'polite');
 

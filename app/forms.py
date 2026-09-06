@@ -7,6 +7,7 @@
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileAllowed, FileField, FileSize
 from wtforms import (
+    BooleanField,
     IntegerField,
     PasswordField,
     SelectField,
@@ -16,6 +17,7 @@ from wtforms import (
 )
 from wtforms.validators import (
     DataRequired,
+    Email,
     Length,
     NumberRange,
     Optional,
@@ -81,6 +83,26 @@ class SiteSettingForm(FlaskForm):
             FileSize(max_size=2 * 1024 * 1024),
         ],
     )
+    submit = SubmitField("保存")
+
+
+class AboutForm(FlaskForm):
+    """「关于我」表单：头像/邮箱/GitHub/个人主页/简介，数据存 site_config 的 about_* 字段"""
+
+    avatar_upload = FileField(
+        "上传头像",
+        validators=[
+            Optional(),
+            FileAllowed(["jpg", "jpeg", "png", "webp"], "仅支持 jpg/jpeg/png/webp"),
+            FileSize(max_size=2 * 1024 * 1024),
+        ],
+    )
+    avatar_url = StringField("头像图片 URL", validators=[Optional(), Length(max=500)])
+    avatar_clear = BooleanField("清除当前头像")
+    about_email = StringField("邮箱", validators=[Optional(), Email(), Length(max=200)])
+    about_github = StringField("GitHub 链接", validators=[Optional(), Length(max=200)])
+    about_homepage = StringField("个人主页", validators=[Optional(), Length(max=200)])
+    about_bio = TextAreaField("个人简介", validators=[Optional(), Length(max=2000)])
     submit = SubmitField("保存")
 
 

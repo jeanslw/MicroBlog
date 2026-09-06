@@ -821,3 +821,61 @@ msgstr "Banner withdrawn, no longer shown on the homepage"
 #: banner withdrawal/enable feature
 msgid "已重新启用"
 msgstr "Banner re-enabled"
+
+msgid "关于我"
+msgstr "About Me"
+
+msgid "关于我信息"
+msgstr "About Me Info"
+
+msgid "头像"
+msgstr "Avatar"
+
+msgid "清除当前头像"
+msgstr "Remove Current Avatar"
+
+msgid "或填写头像图片 URL（http(s)）"
+msgstr "Or enter an avatar image URL (http(s))"
+
+msgid "邮箱"
+msgstr "Email"
+
+msgid "GitHub 链接"
+msgstr "GitHub Link"
+
+msgid "个人简介"
+msgstr "Bio"
+
+msgid "联系方式"
+msgstr "Contact"
+
+msgid "暂无内容"
+msgstr "No content yet"
+
+msgid "支持多行文本，换行会保留"
+msgstr "Multi-line text is supported; line breaks are preserved"
+
+msgid "仅支持 jpg/jpeg/png/webp，最大 2MB；过长边自动缩放为 512px"
+msgstr "Only jpg/jpeg/png/webp, max 2MB; resized to 512px on the longer edge"
+
+msgid "查看前台效果"
+msgstr "Preview on site"
+
+msgid "内容展示在博客前台「关于我」页面，将作为博主个人信息向访客公开。"
+msgstr "Displayed on the \"About Me\" page in the blog frontend as the blogger's public profile."
+
+msgid "头像上传失败，请重试"
+msgstr "Avatar upload failed, please try again"
+
+msgid "关于我信息保存完成"
+msgstr "About Me settings saved"
+
+msgid "站点设置保存完成"
+msgstr "Site settings saved"
+
+msgid "个人主页"
+msgstr "Homepage"
+
+#: templates/blog/index.html:162
+msgid "全部评论"
+msgstr "All Comments"

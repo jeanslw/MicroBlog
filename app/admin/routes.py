@@ -25,7 +25,7 @@ from app.extensions import (
     log,
     record_login_fail,
 )
-from app.forms import ChangePwdForm, LoginForm, SiteSettingForm, UploadImageForm
+from app.forms import AboutForm, ChangePwdForm, LoginForm, SiteSettingForm, UploadImageForm
 from app.models import Admin, SiteConfig
 from app.utils import (
     build_safe_filename,
@@ -112,6 +112,55 @@ def change_pwd():
 @admin_required
 def site_setting():
     return _site_setting_view("admin/site_setting.html")
+
+
+@admin_bp.route("/about_setting", methods=["GET", "POST"])
+@admin_required
+def about_setting():
+    """「关于我」编辑页：头像/邮箱/GitHub/个人主页/简介,数据存 site_config.about_*"""
+    site = db.session.get(SiteConfig, 1)
+    if not site:
+        site = SiteConfig(id=1, site_name="我的博客", favicon_path="static/favicon.ico")
+        db.session.add(site)
+        db.session.commit()
+    form = AboutForm()
+    # 头像输入框预填外链地址（本地上传的内部 URL 不回填,避免误改）
+    if request.method == "GET" and site.about_avatar and site.about_avatar.startswith(("http://", "https://")):
+        form.avatar_url.data = site.about_avatar
+    if form.validate_on_submit():
+        old_avatar = site.about_avatar
+        # 头像：上传优先 > 外链 URL > 清除 > 保持不变
+        avatar_file = form.avatar_upload.data
+        if avatar_file and avatar_file.filename:
+            avatar_file.stream.seek(0)
+            try:
+                ext = avatar_file.filename.rsplit(".", 1)[1].lower()
+                final_name = build_safe_filename(
+                    avatar_file.filename,
+                    base_name_max_len=current_app.config.get("UPLOAD_BASE_NAME_LEN", 50),
+                )
+                save_path = os.path.join(upload_dir("uploads/avatar"), final_name)
+                process_and_resize_logo(avatar_file.stream, save_path, ext, max_edge=512)
+                site.about_avatar = url_for("static", filename=f"uploads/avatar/{final_name}")
+            except Exception:
+                log.error("头像上传失败", exc_info=True)
+                flash(_("头像上传失败，请重试"), "danger")
+                return render_template("admin/about_setting.html", form=form, site=site)
+        elif form.avatar_url.data and form.avatar_url.data.strip():
+            site.about_avatar = form.avatar_url.data.strip()
+        elif form.avatar_clear.data:
+            site.about_avatar = ""
+        site.about_bio = (form.about_bio.data or "").strip()
+        site.about_email = (form.about_email.data or "").strip().lower()
+        site.about_github = (form.about_github.data or "").strip()
+        site.about_homepage = (form.about_homepage.data or "").strip()
+        db.session.commit()
+        # 清理被替换的旧头像文件,避免磁盘堆积
+        if old_avatar and old_avatar != site.about_avatar:
+            remove_static_upload(old_avatar)
+        flash(_("关于我信息保存完成"), "success")
+        return redirect(url_for("admin.about_setting"))
+    return render_template("admin/about_setting.html", form=form, site=site)
 
 
 def _site_setting_view(template):

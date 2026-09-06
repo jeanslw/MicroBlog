@@ -232,3 +232,19 @@ def test_login_next_internal_path_ok(client, admin_user):
     )
     assert rv.status_code == 302
     assert rv.headers.get("Location", "").endswith("/banner/")
+
+
+def test_home_nav_shows_logout_when_logged_in(login_admin):
+    """登录后在首页导航应能看到「退出登录」入口"""
+    rv = login_admin.get("/")
+    assert rv.status_code == 200
+    body = rv.data.decode("utf-8")
+    assert 'action="/admin/logout"' in body
+    assert "退出登录" in body or "Log Out" in body
+
+
+def test_home_nav_hides_logout_when_anonymous(client, admin_user):
+    """未登录时首页导航不应出现「退出登录」"""
+    rv = client.get("/")
+    assert rv.status_code == 200
+    assert 'action="/admin/logout"' not in rv.data.decode("utf-8")

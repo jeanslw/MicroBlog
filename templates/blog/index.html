@@ -134,9 +134,13 @@
                     </div>
                     <div class="mt-3 d-flex flex-wrap gap-2 align-items-center">
                         <a href="{{ url_for('blog.article_detail', aid=art.id) }}" class="btn btn-primary btn-sm">{{ _('阅读全文') }}</a>
-                        <span class="badge bg-primary">
-                            <i class="bi bi-hand-thumbs-up"></i> {{ _('点赞：%(num)s', num=art.vote_num if art.vote_num else 0) }}
-                        </span>
+                        <form method="POST" action="{{ url_for('comment.vote', aid=art.id) }}" class="d-inline">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <input type="hidden" name="next" value="{{ request.full_path }}">
+                            <button type="submit" class="btn btn-outline-primary btn-sm">
+                                <i class="bi bi-hand-thumbs-up"></i> {{ _('点赞') }} {{ art.vote_num if art.vote_num else 0 }}
+                            </button>
+                        </form>
                         <!-- 评论折叠按钮 -->
                         <button class="badge bg-info border-0" type="button"
                                 data-bs-toggle="collapse" data-bs-target="#comment_box_{{ art.id }}">
@@ -155,7 +159,8 @@
                     <div class="collapse mt-3 border-top pt-3" id="comment_box_{{ art.id }}">
                         <p class="text-muted">
                             {{ _('共 %(num)s 条评论', num=art.comment_num if art.comment_num else 0) }} —
-                            <a href="{{ url_for('blog.article_detail', aid=art.id) }}#comment_box">{{ _('查看全部评论') }}</a>
+                            <a href="{{ url_for('blog.article_detail', aid=art.id) }}#comment_box"
+                               class="text-decoration-none fw-semibold text-reset">{{ _('全部评论') }}</a>
                         </p>
                     </div>
                 </div>

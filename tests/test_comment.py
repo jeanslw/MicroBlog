@@ -39,6 +39,42 @@ def test_vote_nonexistent_article(client):
     assert rv.status_code == 302
 
 
+def test_vote_from_article_list_returns_to_source(client, article, db):
+    """列表页点赞后应回到来源页（而非跳文章详情）"""
+    rv = client.post(
+        f"/vote/{article.id}",
+        data={"next": "/?page=2"},
+        follow_redirects=False,
+    )
+    assert rv.status_code == 302
+    location = rv.headers["Location"]
+    assert "?page=2" in location
+    assert f"/article/{article.id}" not in location
+    db.session.refresh(article)
+    assert article.vote_num == 1
+
+
+def test_vote_ignores_external_next(client, article):
+    """next 指向站外时忽略并回详情页（防开放重定向）"""
+    rv = client.post(
+        f"/vote/{article.id}",
+        data={"next": "https://evil.example.com/steal"},
+        follow_redirects=False,
+    )
+    assert rv.status_code == 302
+    assert f"/article/{article.id}" in rv.headers["Location"]
+
+
+def test_article_list_has_clickable_like_button(client, article):
+    """首页文章列表的点赞应是可以提交的表单按钮"""
+    rv = client.get("/")
+    assert rv.status_code == 200
+    body = rv.data.decode("utf-8")
+    assert f'action="/vote/{article.id}"' in body
+    assert 'name="next"' in body
+    assert "csrf_token" in body
+
+
 def test_add_comment_success(client, article, db):
     """发表评论应成功"""
     rv = client.post(

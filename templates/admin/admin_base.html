@@ -96,6 +96,10 @@
                            href="{{ url_for('admin.site_setting') }}">
                             <i class="bi bi-sliders"></i> {{ _('站点设置') }}
                         </a>
+                        <a class="list-group-item list-group-item-action {% if request.endpoint == 'admin.about_setting' %}active{% endif %}"
+                           href="{{ url_for('admin.about_setting') }}">
+                            <i class="bi bi-person-badge"></i> {{ _('关于我') }}
+                        </a>
                     </div>
                 </div>
 

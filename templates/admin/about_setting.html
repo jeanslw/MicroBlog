@@ -1,0 +1,99 @@
+{% extends "admin/admin_base.html" %}
+{% block title %}{{ _('关于我') }} - {{ site_name }}{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{{ url_for('admin.site_setting') }}">{{ _('站点设置') }}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{{ _('关于我') }}</li>
+{% endblock %}
+
+{% block admin_content %}
+<style>
+    .avatar-preview { width: 96px; height: 96px; border-radius: 50%; object-fit: cover;
+        border: 2px solid rgba(0,0,0,.08); flex-shrink: 0; }
+    .avatar-empty { display: flex; align-items: center; justify-content: center;
+        background: rgba(255,255,255,.6); color: #888; font-size: 2rem; }
+    .about-bio-preview { white-space: pre-line; color: #555; font-size: 14.5px; line-height: 1.8; }
+</style>
+
+<div class="row justify-content-center">
+    <div class="col-xl-9 col-xxl-8">
+        <div class="card admin-panel-card p-4">
+            <h4 class="mb-1 fw-bold"><i class="bi bi-person-badge"></i> {{ _('关于我') }}</h4>
+            <p class="text-muted small mb-4">
+                {{ _('内容展示在博客前台「关于我」页面，将作为博主个人信息向访客公开。') }}
+            </p>
+
+            {% if form.errors %}
+            <div class="alert alert-danger py-2">
+                {% for field, errs in form.errors.items() %}
+                {% for err in errs %}
+                <div class="small">{{ err }}</div>
+                {% endfor %}
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <form method="POST" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                <div class="mb-3">
+                    <label class="form-label">{{ _('头像') }}</label>
+                    <div class="d-flex align-items-start gap-3">
+                        {% if site.about_avatar %}
+                        <img src="{{ site.about_avatar }}" class="avatar-preview" alt="avatar">
+                        {% else %}
+                        <div class="avatar-preview avatar-empty"><i class="bi bi-person"></i></div>
+                        {% endif %}
+                        <div class="flex-grow-1">
+                            <input type="file" name="avatar_upload" class="form-control"
+                                   accept=".jpg,.jpeg,.png,.webp">
+                            <div class="form-check mt-2">
+                                <input class="form-check-input" type="checkbox" name="avatar_clear" id="avatarClear">
+                                <label class="form-check-label" for="avatarClear">{{ _('清除当前头像') }}</label>
+                            </div>
+                            <div class="form-text">{{ _('仅支持 jpg/jpeg/png/webp，最大 2MB；过长边自动缩放为 512px') }}</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">{{ _('或填写头像图片 URL（http(s)）') }}</label>
+                    <input type="text" name="avatar_url" class="form-control"
+                           placeholder="https://example.com/avatar.png" value="{{ form.avatar_url.data or '' }}">
+                </div>
+
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <label class="form-label">{{ _('邮箱') }}</label>
+                        <input type="text" name="about_email" class="form-control"
+                               placeholder="you@example.com" value="{{ site.about_email }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">{{ _('GitHub 链接') }}</label>
+                        <input type="text" name="about_github" class="form-control"
+                               placeholder="https://github.com/username" value="{{ site.about_github }}">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">{{ _('个人主页') }}</label>
+                        <input type="text" name="about_homepage" class="form-control"
+                               placeholder="https://example.com" value="{{ site.about_homepage }}">
+                    </div>
+                </div>
+
+                <div class="mb-3 mt-3">
+                    <label class="form-label">{{ _('个人简介') }}</label>
+                    <textarea name="about_bio" class="form-control" rows="5">{{ site.about_bio }}</textarea>
+                    <div class="form-text">{{ _('支持多行文本，换行会保留') }}</div>
+                </div>
+
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary px-4">{{ _('保存设置') }}</button>
+                    <a class="btn btn-outline-secondary" href="{{ url_for('blog.about') }}" target="_blank" rel="noopener">
+                        <i class="bi bi-eye"></i> {{ _('查看前台效果') }}
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

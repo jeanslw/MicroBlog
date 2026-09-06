@@ -68,6 +68,17 @@ def _migrate_site_config():
                 conn.execute(db.text("ALTER TABLE site_config ADD COLUMN bg_custom VARCHAR(500) NOT NULL DEFAULT ''"))
             if "logo_path" not in cols:
                 conn.execute(db.text("ALTER TABLE site_config ADD COLUMN logo_path VARCHAR(200) NOT NULL DEFAULT ''"))
+            # 「关于我」字段（v1.4.0 新增）
+            if "about_avatar" not in cols:
+                conn.execute(db.text("ALTER TABLE site_config ADD COLUMN about_avatar VARCHAR(500) DEFAULT ''"))
+            if "about_bio" not in cols:
+                conn.execute(db.text("ALTER TABLE site_config ADD COLUMN about_bio TEXT"))
+            if "about_email" not in cols:
+                conn.execute(db.text("ALTER TABLE site_config ADD COLUMN about_email VARCHAR(200) DEFAULT ''"))
+            if "about_github" not in cols:
+                conn.execute(db.text("ALTER TABLE site_config ADD COLUMN about_github VARCHAR(200) DEFAULT ''"))
+            if "about_homepage" not in cols:
+                conn.execute(db.text("ALTER TABLE site_config ADD COLUMN about_homepage VARCHAR(200) DEFAULT ''"))
     except Exception as e:
         log.warning("site_config 背景列迁移失败,可手动执行 ALTER TABLE: %s", e)
 

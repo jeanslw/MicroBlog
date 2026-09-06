@@ -114,6 +114,12 @@ class SiteConfig(db.Model):
     bg_style = Column(String(50), default="bg1")
     # 自定义背景图片 URL（bg_style=custom 时生效）
     bg_custom = Column(String(500), default="")
+    # 「关于我」内容：头像 URL（/static 上传或 http(s) 外链）/ 简介（纯文本,保留换行）/ 邮箱 / GitHub / 个人主页
+    about_avatar = Column(String(500), default="")
+    about_bio = Column(Text, default="")
+    about_email = Column(String(200), default="")
+    about_github = Column(String(200), default="")
+    about_homepage = Column(String(200), default="")
 
 
 class VoteLog(db.Model):

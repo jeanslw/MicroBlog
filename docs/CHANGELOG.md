@@ -1,5 +1,28 @@
 # MicroBlog Changelog
 
+## [v1.3.1] - 2026-09-06
+
+About Me page, clickable list like, public-site logout and toast contrast fixes on top of v1.3.0.
+
+### Added
+
+- Public “About Me” entry in the top navigation linking to a new standalone page (`/about`), managed from a dedicated backend page `/admin/about_setting` under *Site settings*: avatar (upload / URL / clear), bio, email, GitHub and personal-homepage links (protocol auto-prefixed with `https://`).
+- Navbar “Log Out” button while logged in, so the session can be ended right from the public pages.
+- `SiteConfig` columns for the About page content, with an idempotent `ALTER TABLE` migration for existing databases and matching MySQL `init.sql` updates.
+
+### Changed & Fixed
+
+- Article like on list pages (home / category) is now clickable: the vote is cast in place and returns to the same list page; the `next` parameter is validated against open redirects.
+- List “View all comments” link restyled into plain “All comments” text (no default blue underline look).
+- Success toasts (login success etc.) now use a green glass background with a clearly visible white close (X) button (removed the CSS filter that overrode Bootstrap’s `btn-close-white`).
+- Chinese/English i18n catalogs updated with the new entries and recompiled.
+
+### Testing, Docs & i18n
+
+- New `test_about.py`, plus list-vote and nav-logout cases (**210 test functions**); READMEs and changelogs bumped to v1.3.1.
+
+---
+
 ## [v1.3.0] - 2026-09-02
 
 Admin panel redesign, full-site search, and RSS/Atom feeds.
