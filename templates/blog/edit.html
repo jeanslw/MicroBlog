@@ -123,6 +123,23 @@
         </div>
     </div>
 </div>
+<div id="edit-i18n" class="d-none"
+    data-md-placeholder='{{ _('使用 Markdown 书写…') | e }}'
+    data-md-hint='{{ _('**加粗** *斜体* [链接](url) ![图片](url)') | e }}'
+    data-img-type-error='{{ _('仅支持 jpg/jpeg/png/gif 格式的图片') | e }}'
+    data-img-size-error='{{ _('图片大小不能超过 10MB') | e }}'
+    data-uploading='{{ _('上传中...') | e }}'
+    data-upload-failed='{{ _('上传失败：') | e }}'
+    data-unknown-error='{{ _('未知错误') | e }}'
+    data-server-error='{{ _('上传失败：服务器返回异常') | e }}'
+    data-network-error='{{ _('上传失败：网络错误') | e }}'
+    data-md-type-error='{{ _('仅支持 .md / .markdown 格式的 Markdown 文件') | e }}'
+    data-md-size-error='{{ _('Markdown 文件大小不能超过 2MB') | e }}'
+    data-md-overwrite='{{ _('导入 Markdown 文件将覆盖当前正文，是否继续？') | e }}'
+    data-md-read-error='{{ _('读取 Markdown 文件失败，请检查文件编码（建议 UTF-8）') | e }}'
+    data-loading='{{ _('加载中…') | e }}'
+    data-image-alt='{{ _('图片') | e }}'
+></div>
 {% endblock %}
 
 {% block extra_js %}
@@ -189,12 +206,13 @@ marked.setOptions({
 // 初始化 EasyMDE
 var editorContent = document.getElementById('rich_content').value;
 var initialValue = htmlToMarkdown(editorContent);
+var i18n = document.getElementById('edit-i18n').dataset;
 
 var easyMDE = new EasyMDE({
     element: document.getElementById('rich_content'),
     initialValue: initialValue,
     spellChecker: false,
-    placeholder: '使用 Markdown 书写…\n\n```python\nprint("hello world")\n```\n\n**加粗** *斜体* [链接](url) ![图片](url)',
+    placeholder: [i18n.mdPlaceholder, '', '```python', 'print("hello world")', '```', '', i18n.mdHint].join('\n'),
     tabSize: 4,
     autosave: { enabled: false },
     toolbar: [
@@ -214,7 +232,7 @@ var easyMDE = new EasyMDE({
             // 高亮预览中的代码块
             Prism.highlightAllUnder(preview);
         }, 1);
-        return '加载中…';
+        return i18n.loading;
     },
     status: ['lines', 'words', 'cursor'],
     styleSelectedText: false,
@@ -227,6 +245,7 @@ var easyMDE = new EasyMDE({
     var fileInput = document.getElementById('image_upload_input');
     var csrfTokenEl = document.querySelector('#article_form input[name="csrf_token"]');
     var csrfToken = csrfTokenEl ? csrfTokenEl.value : '';
+    var originalImageText = uploadBtn.textContent.trim();
 
     uploadBtn.addEventListener('click', function() {
         fileInput.click();
@@ -239,18 +258,18 @@ var easyMDE = new EasyMDE({
         // 校验文件类型
         var allowedTypes = ['image/jpeg', 'image/png', 'image/gif'];
         if (allowedTypes.indexOf(file.type) === -1) {
-            alert('仅支持 jpg/jpeg/png/gif 格式的图片');
+            alert(i18n.imgTypeError);
             return;
         }
 
         // 校验文件大小 (10MB)
         if (file.size > 10 * 1024 * 1024) {
-            alert('图片大小不能超过 10MB');
+            alert(i18n.imgSizeError);
             return;
         }
 
         // 显示上传中状态
-        uploadBtn.textContent = '上传中...';
+        uploadBtn.textContent = i18n.uploading;
         uploadBtn.disabled = true;
 
         var formData = new FormData();
@@ -261,7 +280,7 @@ var easyMDE = new EasyMDE({
         xhr.setRequestHeader('X-CSRF-Token', csrfToken);
 
         xhr.onload = function() {
-            uploadBtn.textContent = '📷 上传图片';
+            uploadBtn.textContent = originalImageText;
             uploadBtn.disabled = false;
             fileInput.value = '';
 
@@ -271,22 +290,22 @@ var easyMDE = new EasyMDE({
                     // 将图片 Markdown 插入到光标位置
                     var cm = easyMDE.codemirror;
                     var cursor = cm.getCursor();
-                    var imageMarkdown = '![' + (file.name || '图片') + '](' + resp.url + ')';
+                    var imageMarkdown = '![' + (file.name || i18n.imageAlt) + '](' + resp.url + ')';
                     cm.replaceSelection(imageMarkdown);
                     cm.setCursor({ line: cursor.line, ch: cursor.ch + imageMarkdown.length });
                 } else {
-                    alert('上传失败：' + (resp.error || '未知错误'));
+                    alert(i18n.uploadFailed + (resp.error || i18n.unknownError));
                 }
             } catch (e) {
-                alert('上传失败：服务器返回异常');
+                alert(i18n.serverError);
             }
         };
 
         xhr.onerror = function() {
-            uploadBtn.textContent = '📷 上传图片';
+            uploadBtn.textContent = originalImageText;
             uploadBtn.disabled = false;
             fileInput.value = '';
-            alert('上传失败：网络错误');
+            alert(i18n.networkError);
         };
 
         xhr.send(formData);
@@ -311,21 +330,21 @@ var easyMDE = new EasyMDE({
         var name = (file.name || '').toLowerCase();
         var isMd = /\.(md|markdown)$/.test(name) || file.type === 'text/markdown' || file.type === 'text/x-markdown';
         if (!isMd) {
-            alert('仅支持 .md / .markdown 格式的 Markdown 文件');
+            alert(i18n.mdTypeError);
             mdInput.value = '';
             return;
         }
 
         // 校验文件大小 (2MB)
         if (file.size > 2 * 1024 * 1024) {
-            alert('Markdown 文件大小不能超过 2MB');
+            alert(i18n.mdSizeError);
             mdInput.value = '';
             return;
         }
 
         // 编辑器已有内容时确认是否覆盖
         if (easyMDE.value().trim().length > 0) {
-            if (!confirm('导入 Markdown 文件将覆盖当前正文，是否继续？')) {
+            if (!confirm(i18n.mdOverwrite)) {
                 mdInput.value = '';
                 return;
             }
@@ -340,7 +359,7 @@ var easyMDE = new EasyMDE({
             easyMDE.codemirror.clearHistory();
         };
         reader.onerror = function() {
-            alert('读取 Markdown 文件失败，请检查文件编码（建议 UTF-8）');
+            alert(i18n.mdReadError);
         };
         reader.readAsText(file, 'utf-8');
     });

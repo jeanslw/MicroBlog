@@ -895,3 +895,63 @@ msgstr "Custom Background Image"
 #: templates/admin/_site_setting_form.html
 msgid "可填图片 URL，或直接上传一张本地图片（自动缩放到 1920 宽）"
 msgstr "Enter an image URL or upload a local image (auto-resized to 1920 px width)"
+
+#: templates/blog/edit.html
+msgid "使用 Markdown 书写…"
+msgstr "Write with Markdown…"
+
+#: templates/blog/edit.html
+msgid "**加粗** *斜体* [链接](url) ![图片](url)"
+msgstr "**Bold** *Italic* [Link](url) ![Image](url)"
+
+#: templates/blog/edit.html
+msgid "仅支持 jpg/jpeg/png/gif 格式的图片"
+msgstr "Only jpg/jpeg/png/gif images are supported"
+
+#: templates/blog/edit.html
+msgid "图片大小不能超过 10MB"
+msgstr "Image size cannot exceed 10MB"
+
+#: templates/blog/edit.html
+msgid "上传中..."
+msgstr "Uploading..."
+
+#: templates/blog/edit.html
+msgid "上传失败："
+msgstr "Upload failed: "
+
+#: templates/blog/edit.html
+msgid "未知错误"
+msgstr "Unknown error"
+
+#: templates/blog/edit.html
+msgid "上传失败：服务器返回异常"
+msgstr "Upload failed: server returned an invalid response"
+
+#: templates/blog/edit.html
+msgid "上传失败：网络错误"
+msgstr "Upload failed: network error"
+
+#: templates/blog/edit.html
+msgid "仅支持 .md / .markdown 格式的 Markdown 文件"
+msgstr "Only .md / .markdown files are supported"
+
+#: templates/blog/edit.html
+msgid "Markdown 文件大小不能超过 2MB"
+msgstr "Markdown file size cannot exceed 2MB"
+
+#: templates/blog/edit.html
+msgid "导入 Markdown 文件将覆盖当前正文，是否继续？"
+msgstr "Importing the Markdown file will overwrite the current content. Continue?"
+
+#: templates/blog/edit.html
+msgid "读取 Markdown 文件失败，请检查文件编码（建议 UTF-8）"
+msgstr "Failed to read the Markdown file, please check the encoding (UTF-8 recommended)"
+
+#: templates/blog/edit.html
+msgid "加载中…"
+msgstr "Loading…"
+
+#: templates/blog/edit.html
+msgid "图片"
+msgstr "Image"

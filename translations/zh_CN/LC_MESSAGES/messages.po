@@ -854,3 +854,63 @@ msgstr "个人主页"
 #: templates/blog/index.html:162
 msgid "全部评论"
 msgstr "全部评论"
+
+#: templates/blog/edit.html
+msgid "使用 Markdown 书写…"
+msgstr "使用 Markdown 书写…"
+
+#: templates/blog/edit.html
+msgid "**加粗** *斜体* [链接](url) ![图片](url)"
+msgstr "**加粗** *斜体* [链接](url) ![图片](url)"
+
+#: templates/blog/edit.html
+msgid "仅支持 jpg/jpeg/png/gif 格式的图片"
+msgstr "仅支持 jpg/jpeg/png/gif 格式的图片"
+
+#: templates/blog/edit.html
+msgid "图片大小不能超过 10MB"
+msgstr "图片大小不能超过 10MB"
+
+#: templates/blog/edit.html
+msgid "上传中..."
+msgstr "上传中..."
+
+#: templates/blog/edit.html
+msgid "上传失败："
+msgstr "上传失败："
+
+#: templates/blog/edit.html
+msgid "未知错误"
+msgstr "未知错误"
+
+#: templates/blog/edit.html
+msgid "上传失败：服务器返回异常"
+msgstr "上传失败：服务器返回异常"
+
+#: templates/blog/edit.html
+msgid "上传失败：网络错误"
+msgstr "上传失败：网络错误"
+
+#: templates/blog/edit.html
+msgid "仅支持 .md / .markdown 格式的 Markdown 文件"
+msgstr "仅支持 .md / .markdown 格式的 Markdown 文件"
+
+#: templates/blog/edit.html
+msgid "Markdown 文件大小不能超过 2MB"
+msgstr "Markdown 文件大小不能超过 2MB"
+
+#: templates/blog/edit.html
+msgid "导入 Markdown 文件将覆盖当前正文，是否继续？"
+msgstr "导入 Markdown 文件将覆盖当前正文，是否继续？"
+
+#: templates/blog/edit.html
+msgid "读取 Markdown 文件失败，请检查文件编码（建议 UTF-8）"
+msgstr "读取 Markdown 文件失败，请检查文件编码（建议 UTF-8）"
+
+#: templates/blog/edit.html
+msgid "加载中…"
+msgstr "加载中…"
+
+#: templates/blog/edit.html
+msgid "图片"
+msgstr "图片"
