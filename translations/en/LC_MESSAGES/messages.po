@@ -879,3 +879,19 @@ msgstr "Homepage"
 #: templates/blog/index.html:162
 msgid "全部评论"
 msgstr "All Comments"
+
+#: templates/admin/_site_setting_form.html
+msgid "内置背景图库"
+msgstr "Built-in Background Gallery"
+
+#: templates/admin/_site_setting_form.html
+msgid "自定义图片"
+msgstr "Custom Image"
+
+#: templates/admin/_site_setting_form.html
+msgid "自定义背景图片"
+msgstr "Custom Background Image"
+
+#: templates/admin/_site_setting_form.html
+msgid "可填图片 URL，或直接上传一张本地图片（自动缩放到 1920 宽）"
+msgstr "Enter an image URL or upload a local image (auto-resized to 1920 px width)"

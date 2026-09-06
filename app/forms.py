@@ -4,6 +4,7 @@
 字段名尽量保持与原有 HTML form 字段一致,减少模板改动。
 """
 
+from flask_babel import lazy_gettext as _l
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileAllowed, FileField, FileSize
 from wtforms import (
@@ -43,19 +44,19 @@ class ChangePwdForm(FlaskForm):
 
 # 内置背景图库（与 static/backgrounds/ 及 themes.css 选择器一一对应）
 BG_STYLE_CHOICES = [
-    ("bg1", "背景 1"),
-    ("bg2", "背景 2"),
-    ("bg3", "背景 3"),
-    ("bg4", "背景 4"),
-    ("bg5", "背景 5"),
-    ("bg6", "背景 6"),
-    ("bg7", "背景 7"),
-    ("bg8", "背景 8"),
-    ("bg9", "背景 9"),
-    ("bg10", "背景 10"),
-    ("vdysjx", "水墨云山"),
-    ("bg13", "湖光山色"),
-    ("custom", "自定义图片"),
+    ("bg1", _l("背景 1")),
+    ("bg2", _l("背景 2")),
+    ("bg3", _l("背景 3")),
+    ("bg4", _l("背景 4")),
+    ("bg5", _l("背景 5")),
+    ("bg6", _l("背景 6")),
+    ("bg7", _l("背景 7")),
+    ("bg8", _l("背景 8")),
+    ("bg9", _l("背景 9")),
+    ("bg10", _l("背景 10")),
+    ("vdysjx", _l("水墨云山")),
+    ("bg13", _l("湖光山色")),
+    ("custom", _l("自定义图片")),
 ]
 
 

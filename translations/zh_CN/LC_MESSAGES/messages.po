@@ -596,52 +596,68 @@ msgid "已撤回至草稿箱"
 msgstr "已撤回至草稿箱"
 
 msgid "背景风格"
-msgstr ""
+msgstr "背景风格"
 
 msgid "切换背景风格"
-msgstr ""
+msgstr "切换背景风格"
 
 msgid "背景 1"
-msgstr ""
+msgstr "背景 1"
 
 msgid "背景 2"
-msgstr ""
+msgstr "背景 2"
 
 msgid "背景 3"
-msgstr ""
+msgstr "背景 3"
 
 msgid "背景 4"
-msgstr ""
+msgstr "背景 4"
 
 msgid "背景 5"
-msgstr ""
+msgstr "背景 5"
 
 msgid "背景 6"
-msgstr ""
+msgstr "背景 6"
 
 msgid "背景 7"
-msgstr ""
+msgstr "背景 7"
 
 msgid "背景 8"
-msgstr ""
+msgstr "背景 8"
 
 msgid "背景 9"
-msgstr ""
+msgstr "背景 9"
 
 msgid "背景 10"
-msgstr ""
+msgstr "背景 10"
 
 msgid "水墨云山"
-msgstr ""
+msgstr "水墨云山"
 
 msgid "湖光山色"
-msgstr ""
+msgstr "湖光山色"
 
 msgid "经典"
-msgstr ""
+msgstr "经典"
 
 msgid "自定义"
-msgstr ""
+msgstr "自定义"
+
+#: templates/admin/_site_setting_form.html
+msgid "内置背景图库"
+msgstr "内置背景图库"
+
+#: templates/admin/_site_setting_form.html
+msgid "自定义图片"
+msgstr "自定义图片"
+
+#: templates/admin/_site_setting_form.html
+msgid "自定义背景图片"
+msgstr "自定义背景图片"
+
+#: templates/admin/_site_setting_form.html
+msgid "可填图片 URL，或直接上传一张本地图片（自动缩放到 1920 宽）"
+msgstr "可填图片 URL，或直接上传一张本地图片（自动缩放到 1920 宽）"
 
 msgid "搜索文章"
 msgstr "搜索文章"
