@@ -18,7 +18,7 @@ env:
   REGISTRY_GHCR: ghcr.io
   REGISTRY_DOCKER: docker.io
   # 直接使用仓库变量 DOCKER_IMAGE_NAME 作为镜像名
-  IMAGE_NAME: ${{ vars.DOCKER_IMAGE_NAME }}
+  IMAGE_NAME: ${{ github.repository_owner }}/${{ vars.DOCKER_IMAGE_NAME }}
 
 jobs:
   build-and-push:
