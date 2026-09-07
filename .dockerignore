@@ -6,9 +6,13 @@
 # IDE / 编辑器
 .idea
 .vscode
+.codebuddy/
 
 # Python 缓存
 __pycache__
+__pycache__/
+.pytest_cache/
+.ruff_cache/
 *.pyc
 *.pyo
 *.pyd
@@ -46,6 +50,7 @@ docker-compose.yml
 .dockerignore
 
 # 文档与示例
+docs/
 *.md
 LICENSE
 MySQL/
