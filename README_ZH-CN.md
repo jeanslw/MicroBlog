@@ -12,6 +12,7 @@
   <a href="https://www.python.org"><img src="https://img.shields.io/badge/Python-3.10+-777BB4?logo=python&logoColor=white" alt="Language"></a>
   <a href="https://flask.palletsprojects.com"><img src="https://img.shields.io/badge/Flask-3.1.0+-777BB4?logo=Flask&logoColor=white" alt="framework"></a>
   <a href="https://gitee.com/jeanslw/MicroBlog/blob/main/LICENSE"><img src="https://img.shields.io/github/license/jeanslw/MicroBlog?style=flat-square" alt="License"></a>
+  <a href="https://hub.docker.com/r/jeanslw/microblog/tags"><img src="https://img.shields.io/docker/v/jeanslw/microblog/latest?label=version&logo=docker" alt="docker"></a>
 </p>
 
 > **[英文版](README.md)**
