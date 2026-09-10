@@ -1,6 +1,6 @@
 # Blog System Deployment Documentation
 
-Version: v1.3.1
+Version: v1.3.2
 
 Built with Flask 3.1, it features article publishing and management, Markdown uploads, code highlighting, image uploads, comments and likes, article categories, a banner carousel, and bilingual support (Chinese/English). 
 The UI rocks a glassmorphism transparent style with awesome dynamic backgrounds (aurora / starry sky / flowing light / bubbles / classic). There's a floating color palette button at the bottom right to switch styles with one click, and your choice is saved in localStorage. 
