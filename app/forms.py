@@ -42,6 +42,54 @@ class ChangePwdForm(FlaskForm):
             raise ValidationError("两次输入的新密码不一致")
 
 
+class SetupForm(FlaskForm):
+    """首次安装引导：创建管理员账号 + 邮箱 + 密码"""
+
+    username = StringField("账号", validators=[DataRequired(), Length(max=50)])
+    email = StringField("邮箱", validators=[Optional(), Email(), Length(max=200)])
+    password = PasswordField("密码", validators=[DataRequired(), Length(min=6, max=128)])
+    confirm_password = PasswordField("确认密码", validators=[DataRequired()])
+    submit = SubmitField("完成安装")
+
+    def validate_confirm_password(self, field):
+        if field.data != self.password.data:
+            raise ValidationError("两次输入的密码不一致")
+
+
+class ForgotForm(FlaskForm):
+    username = StringField("账号", validators=[DataRequired(), Length(max=50)])
+    email = StringField("邮箱", validators=[DataRequired(), Email(), Length(max=200)])
+    submit = SubmitField("发送找回邮件")
+
+
+class ResetForm(FlaskForm):
+    new_pwd = PasswordField("新密码", validators=[DataRequired(), Length(min=6, max=128)])
+    confirm_pwd = PasswordField("确认新密码", validators=[DataRequired()])
+    submit = SubmitField("重置密码")
+
+    def validate_confirm_pwd(self, field):
+        if field.data != self.new_pwd.data:
+            raise ValidationError("两次输入的新密码不一致")
+
+
+class AccountForm(FlaskForm):
+    email = StringField("邮箱", validators=[Optional(), Email(), Length(max=200)])
+    submit = SubmitField("保存")
+
+
+class MailSettingForm(FlaskForm):
+    """SMTP 邮件设置：数据存 site_config，保存后优先于 .env 的 BLOG_MAIL_* 生效。"""
+
+    mail_host = StringField("SMTP 服务器", validators=[Optional(), Length(max=200)])
+    mail_port = IntegerField("端口", validators=[Optional(), NumberRange(min=1, max=65535)], default=587)
+    mail_user = StringField("用户名", validators=[Optional(), Length(max=200)])
+    mail_password = PasswordField("密码/授权码", validators=[Optional(), Length(max=200)])
+    mail_from = StringField("发件人邮箱", validators=[Optional(), Email(), Length(max=200)])
+    mail_use_ssl = BooleanField("使用 SSL（465 端口）")
+    mail_use_tls = BooleanField("使用 STARTTLS（587 端口）")
+    submit = SubmitField("保存")
+
+
 # 内置背景图库（与 static/backgrounds/ 及 themes.css 选择器一一对应）
 BG_STYLE_CHOICES = [
     ("bg1", _l("背景 1")),
@@ -84,6 +132,7 @@ class SiteSettingForm(FlaskForm):
             FileSize(max_size=2 * 1024 * 1024),
         ],
     )
+    comments_enabled = BooleanField("开启评论")
     submit = SubmitField("保存")
 
 
@@ -100,6 +149,7 @@ class AboutForm(FlaskForm):
     )
     avatar_url = StringField("头像图片 URL", validators=[Optional(), Length(max=500)])
     avatar_clear = BooleanField("清除当前头像")
+    about_nickname = StringField("昵称", validators=[Optional(), Length(max=100)])
     about_email = StringField("邮箱", validators=[Optional(), Email(), Length(max=200)])
     about_github = StringField("GitHub 链接", validators=[Optional(), Length(max=200)])
     about_homepage = StringField("个人主页", validators=[Optional(), Length(max=200)])
@@ -118,6 +168,8 @@ class ArticleForm(FlaskForm):
     content = TextAreaField("正文", validators=[DataRequired()])
     status = SelectField("状态", choices=[("draft", "草稿"), ("publish", "发布")], default="draft")
     category_id = SelectField("栏目", coerce=int, validators=[Optional()])
+    seo_description = StringField("SEO 描述", validators=[Optional(), Length(max=300)])
+    seo_keywords = StringField("SEO 关键词", validators=[Optional(), Length(max=300)])
     submit = SubmitField("保存")
 
 

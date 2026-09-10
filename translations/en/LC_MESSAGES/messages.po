@@ -246,7 +246,9 @@ msgstr "Upload Logo Image"
 
 #: templates/admin/site_setting.html
 msgid "仅支持 jpg/jpeg/png/webp，最大 2MB；过大时自动缩放，最长边不超过 400px"
-msgstr "Only jpg/jpeg/png/webp, max 2MB; oversized images are auto-scaled to a 400px max edge"
+msgstr ""
+"Only jpg/jpeg/png/webp, max 2MB; oversized images are auto-scaled to a "
+"400px max edge"
 
 #: app/admin/routes.py
 msgid "Logo 上传失败，请重试"
@@ -399,6 +401,43 @@ msgstr "Published: %(time)s"
 #: templates/blog/detail.html
 msgid "评论"
 msgstr "Comment"
+
+msgid "插入媒体"
+msgstr "Insert Media"
+
+msgid "媒体类型"
+msgstr "Media Type"
+
+msgid "音频"
+msgstr "Audio"
+
+msgid "视频"
+msgstr "Video"
+
+msgid "媒体链接"
+msgstr "Media URL"
+
+msgid "确认插入"
+msgstr "Insert"
+
+msgid "浅色"
+msgstr "Light"
+
+msgid "深色"
+msgstr "Dark"
+
+msgid "置顶"
+msgstr "Pin"
+
+msgid "取消置顶"
+msgstr "Unpin"
+
+msgid "字"
+msgstr "chars"
+
+#, python-format
+msgid "约 %(minutes)s 分钟阅读"
+msgstr "About %(minutes)s min read"
 
 #: templates/blog/detail.html:113
 msgid "发表评论"
@@ -606,8 +645,12 @@ msgstr "No published articles"
 msgid "Recall"
 msgstr "Recall"
 
-msgid "Click recall to move a published article back to drafts (it will no longer appear on the home page); no content is deleted."
-msgstr "Click recall to move a published article back to drafts (it will no longer appear on the home page); no content is deleted."
+msgid ""
+"Click recall to move a published article back to drafts (it will no "
+"longer appear on the home page); no content is deleted."
+msgstr ""
+"Click recall to move a published article back to drafts (it will no "
+"longer appear on the home page); no content is deleted."
 
 msgid "Confirm to recall this article to drafts?"
 msgstr "Confirm to recall this article to drafts?"
@@ -681,6 +724,7 @@ msgstr "Search articles"
 msgid "搜索结果"
 msgstr "Search results"
 
+#, python-format
 msgid "共 %(total)s 篇文章"
 msgstr "%(total)s articles"
 
@@ -735,7 +779,9 @@ msgid "确认退出登录?"
 msgstr "Confirm logout?"
 
 msgid "欢迎进入管理后台。点击左侧菜单进入对应功能模块。"
-msgstr "Welcome to the admin panel. Click the left menu to enter the corresponding module."
+msgstr ""
+"Welcome to the admin panel. Click the left menu to enter the "
+"corresponding module."
 
 msgid "当前站点"
 msgstr "Current Site"
@@ -782,43 +828,45 @@ msgstr "Page Not Found"
 msgid "服务器内部错误,请联系管理员"
 msgstr "Internal server error, please contact the administrator"
 
-#: banner withdrawal/enable feature
+#: banner feature withdrawal/enable
 msgid "状态"
 msgstr "Status"
 
-#: banner withdrawal/enable feature
+#: banner feature withdrawal/enable
 msgid "展示中"
 msgstr "Active"
 
-#: banner withdrawal/enable feature
+#: banner feature withdrawal/enable
 msgid "已撤回"
 msgstr "Withdrawn"
 
-#: banner withdrawal/enable feature
+#: banner feature withdrawal/enable
 msgid "确定撤回该轮播图？撤回后首页不再展示，可随时重新启用。"
-msgstr "Withdraw this banner? It will be hidden from the homepage and can be re-enabled anytime."
+msgstr ""
+"Withdraw this banner? It will be hidden from the homepage and can be re-"
+"enabled anytime."
 
-#: banner withdrawal/enable feature
+#: banner feature withdrawal/enable
 msgid "确定重新启用该轮播图？"
 msgstr "Re-enable this banner?"
 
-#: banner withdrawal/enable feature
+#: banner feature withdrawal/enable
 msgid "启用"
 msgstr "Enable"
 
-#: banner withdrawal/enable feature
+#: banner feature withdrawal/enable
 msgid "该轮播图已撤回"
 msgstr "This banner is already withdrawn"
 
-#: banner withdrawal/enable feature
+#: banner feature withdrawal/enable
 msgid "该轮播图正在展示"
 msgstr "This banner is already active"
 
-#: banner withdrawal/enable feature
+#: banner feature withdrawal/enable
 msgid "已撤回，首页不再展示该轮播图"
 msgstr "Banner withdrawn, no longer shown on the homepage"
 
-#: banner withdrawal/enable feature
+#: banner feature withdrawal/enable
 msgid "已重新启用"
 msgstr "Banner re-enabled"
 
@@ -862,7 +910,9 @@ msgid "查看前台效果"
 msgstr "Preview on site"
 
 msgid "内容展示在博客前台「关于我」页面，将作为博主个人信息向访客公开。"
-msgstr "Displayed on the \"About Me\" page in the blog frontend as the blogger's public profile."
+msgstr ""
+"Displayed on the \"About Me\" page in the blog frontend as the blogger's "
+"public profile."
 
 msgid "头像上传失败，请重试"
 msgstr "Avatar upload failed, please try again"
@@ -946,7 +996,9 @@ msgstr "Importing the Markdown file will overwrite the current content. Continue
 
 #: templates/blog/edit.html
 msgid "读取 Markdown 文件失败，请检查文件编码（建议 UTF-8）"
-msgstr "Failed to read the Markdown file, please check the encoding (UTF-8 recommended)"
+msgstr ""
+"Failed to read the Markdown file, please check the encoding (UTF-8 "
+"recommended)"
 
 #: templates/blog/edit.html
 msgid "加载中…"
@@ -955,3 +1007,282 @@ msgstr "Loading…"
 #: templates/blog/edit.html
 msgid "图片"
 msgstr "Image"
+
+msgid "SEO 关键词（留空自动生成）"
+msgstr "SEO Keywords (auto-generated if empty)"
+
+msgid "SEO 描述（留空自动生成）"
+msgstr "SEO Description (auto-generated if empty)"
+
+msgid "SMTP 服务器"
+msgstr "SMTP Server"
+
+msgid "SMTP 邮件设置"
+msgstr "SMTP Mail Settings"
+
+msgid "下载"
+msgstr "Download"
+
+msgid "使用 SSL（465 端口）"
+msgstr "Use SSL (port 465)"
+
+msgid "使用 STARTTLS（587 端口）"
+msgstr "Use STARTTLS (port 587)"
+
+msgid "关闭"
+msgstr "Close"
+
+msgid "切换语言"
+msgstr "Switch Language"
+
+msgid "创建管理员账号，完成站点初始化"
+msgstr "Create an admin account to finish site setup"
+
+msgid "删除失败"
+msgstr "Deletion failed"
+
+msgid "博主昵称，将显示在文章详情页与「关于我」页面"
+msgstr "Author nickname, shown on the article detail page and the About Me page"
+
+msgid "发件人邮箱"
+msgstr "Sender Email"
+
+msgid "发送找回邮件"
+msgstr "Send recovery email"
+
+#, python-format
+msgid "备份失败：%(err)s"
+msgstr "Backup failed: %(err)s"
+
+msgid "备份已删除"
+msgstr "Backup deleted"
+
+#, python-format
+msgid "备份成功：%(name)s"
+msgstr "Backup succeeded: %(name)s"
+
+msgid "备份文件"
+msgstr "Backup File"
+
+msgid "备份文件不存在"
+msgstr "Backup file does not exist"
+
+msgid "大小"
+msgstr "Size"
+
+msgid "安装完成，欢迎使用"
+msgstr "Setup complete, welcome"
+
+msgid "完成安装"
+msgstr "Complete Setup"
+
+msgid "密码 / 授权码"
+msgstr "Password / Auth Code"
+
+msgid "密码已重置，请用新密码登录"
+msgstr "Password has been reset, please log in with the new password"
+
+msgid "已撤回至草稿箱"
+msgstr "Recalled to drafts"
+
+msgid "建议 160 字以内"
+msgstr "Recommended within 160 characters"
+
+msgid "当前数据库类型"
+msgstr "Current Database Type"
+
+msgid "忘记密码？"
+msgstr "Forgot password?"
+
+msgid "恢复"
+msgstr "Restore"
+
+#, python-format
+msgid "恢复失败：%(err)s"
+msgstr "Restore failed: %(err)s"
+
+msgid "恢复成功"
+msgstr "Restore succeeded"
+
+msgid "恢复草稿"
+msgstr "Restore Draft"
+
+msgid "找回密码"
+msgstr "Recover Password"
+
+msgid "撤回失败,请稍后重试"
+msgstr "Recall failed, please try again later"
+
+msgid "操作失败,请稍后重试"
+msgstr "Operation failed, please try again later"
+
+msgid "数据库备份"
+msgstr "Database Backup"
+
+msgid "文章置顶状态已更新"
+msgstr "Article pin status updated"
+
+msgid "时间"
+msgstr "Time"
+
+msgid "暂无备份，点击「立即备份」创建。"
+msgstr "No backups yet, click \"Backup Now\" to create one."
+
+msgid "暂无已发布文章"
+msgstr "No published articles"
+
+msgid "更新时间"
+msgstr "Updated At"
+
+msgid "未分类"
+msgstr "Uncategorized"
+
+msgid "栏目"
+msgstr "Category"
+
+msgid "检测到未保存草稿，是否恢复？"
+msgstr "An unsaved draft was detected, restore it?"
+
+#, python-format
+msgid ""
+"点击以下链接重置密码（30 分钟内有效）：\n"
+"\n"
+"%(url)s"
+msgstr ""
+"Click the link below to reset your password (valid for 30 minutes):\n"
+"\n"
+"%(url)s"
+
+msgid "用于密码找回等邮件发送，保存后优先于环境变量生效。"
+msgstr ""
+"Used for password recovery and other emails; once saved, takes precedence"
+" over environment variables."
+
+msgid "用于密码找回，可稍后在后台补充"
+msgstr "Used for password recovery; can be filled in later in the admin panel"
+
+msgid "用于搜索引擎摘要，留空则自动从正文生成"
+msgstr ""
+"Used as the search engine summary; auto-generated from the content if "
+"empty"
+
+msgid "用户名"
+msgstr "Username"
+
+msgid "留空则保持原密码不变"
+msgstr "Leave empty to keep the current password"
+
+msgid "确认从该备份恢复？恢复前会自动备份当前数据。"
+msgstr "Restore from this backup? The current data will be backed up first."
+
+msgid "确认删除该备份？"
+msgstr "Delete this backup?"
+
+msgid "确认密码"
+msgstr "Confirm Password"
+
+msgid "立即备份"
+msgstr "Backup Now"
+
+msgid "端口"
+msgstr "Port"
+
+msgid "背景图上传失败，请重试"
+msgstr "Background image upload failed, please retry"
+
+msgid "自动保存草稿中..."
+msgstr "Auto-saving draft..."
+
+msgid "自动保存草稿已保存"
+msgstr "Draft auto-saved"
+
+msgid "自动保存草稿已启用"
+msgstr "Auto-save draft enabled"
+
+msgid "若账号存在且已绑定邮箱，找回邮件已发送"
+msgstr ""
+"If the account exists and an email is bound, a recovery email has been "
+"sent"
+
+msgid "草稿已恢复"
+msgstr "Draft restored"
+
+msgid "该账号已存在"
+msgstr "This account already exists"
+
+msgid "账户邮箱"
+msgstr "Account Email"
+
+msgid "运维安全"
+msgstr "Operations & Security"
+
+msgid "返回登录"
+msgstr "Back to Login"
+
+msgid "逗号分隔，留空则从栏目/标题自动生成"
+msgstr "Comma-separated; auto-generated from category/title if empty"
+
+msgid "邮件服务未配置，请联系管理员"
+msgstr "Mail service is not configured, please contact the administrator"
+
+msgid "邮件设置"
+msgstr "Mail Settings"
+
+msgid "邮件设置已保存"
+msgstr "Mail settings saved"
+
+msgid "邮箱已保存"
+msgstr "Email saved"
+
+msgid "邮箱用于忘记密码时找回，请确保可正常收信。"
+msgstr ""
+"The email is used to recover your password; please make sure it can "
+"receive mail."
+
+msgid "重置密码"
+msgstr "Reset Password"
+
+msgid "重置链接无效或已过期"
+msgstr "Reset link is invalid or expired"
+
+msgid "首次安装"
+msgstr "First-Time Setup"
+
+msgid "首次安装引导"
+msgstr "First-Time Setup Wizard"
+
+msgid "（备份依赖服务器已安装 mysqldump）"
+msgstr "(Backup requires mysqldump installed on the server)"
+
+msgid "管理"
+msgstr "Admin"
+
+msgid "恢复风险提示"
+msgstr "Restore Risk Warning"
+
+msgid "恢复数据库将用备份文件覆盖当前全部数据，且不可撤销。操作前请务必先「立即备份」当前数据，并确认所选备份文件无误；恢复期间请勿访问后台或写入数据。"
+msgstr "Restoring the database will overwrite all current data with the backup file and cannot be undone. Before proceeding, back up the current data first, confirm the selected backup file is correct, and avoid accessing the admin panel or writing data during the restore."
+
+msgid "文章档案"
+msgstr "Archive"
+
+msgid "展开/收起"
+msgstr "Expand/Collapse"
+
+#, python-format
+msgid "%(year)s年"
+msgstr "%(year)s"
+
+#, python-format
+msgid "%(month)s月"
+msgstr "%(month)s"
+
+msgid "评论设置"
+msgstr "Comment Settings"
+
+msgid "开启评论（关闭后全站禁止新评论与回复）"
+msgstr "Enable comments (when disabled, new comments and replies are blocked site-wide)"
+
+msgid "评论已关闭"
+msgstr "Comments are disabled"
+

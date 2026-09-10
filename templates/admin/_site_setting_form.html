@@ -67,6 +67,14 @@
                     <div class="form-text">{{ _('仅支持 jpg/jpeg/png/webp，最大 2MB；过大时自动缩放，最长边不超过 400px') }}</div>
                 </div>
 
+                <hr>
+                <h6 class="fw-bold mb-3"><i class="bi bi-chat-dots"></i> {{ _('评论设置') }}</h6>
+                <div class="form-check form-switch mb-3">
+                    <input class="form-check-input" type="checkbox" name="comments_enabled" id="comments_enabled"
+                           {% if site.comments_enabled %}checked{% endif %}>
+                    <label class="form-check-label" for="comments_enabled">{{ _('开启评论（关闭后全站禁止新评论与回复）') }}</label>
+                </div>
+
                 <button class="btn btn-primary w-100 py-2">{{ _('保存设置') }}</button>
             </form>
         </div>

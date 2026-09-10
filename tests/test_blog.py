@@ -24,6 +24,37 @@ def test_article_detail(client, article):
     assert article.title.encode("utf-8") in rv.data
 
 
+def test_article_detail_has_reading_metadata(client, article):
+    """文章详情页应展示阅读进度、字数与时长信息"""
+    article.content = "<p>" + "这是正文内容。" * 120 + "</p>"
+    from app.extensions import db
+
+    db.session.commit()
+    rv = client.get(f"/article/{article.id}")
+    assert rv.status_code == 200
+    assert b'reading-progress-bar' in rv.data
+    assert b'article-toc' in rv.data
+    assert b'\xe9\x98\x85' in rv.data or b'\xe9\x98\x85\xe8\xaf\xbb' in rv.data
+    assert b'\xe5\x88\x86\x9b' in rv.data or b'\xe9\x98\x85\xe8\xaf\xbb' in rv.data
+
+
+def test_article_reading_stats_use_full_content(client, article):
+    """字数统计应基于完整正文，而不是摘要截断后的前 220 字。"""
+    article.content = "<p>" + ("这是中文正文内容。" * 80) + "</p>"
+    from app.extensions import db
+
+    db.session.commit()
+    from app.blog.routes import _estimate_reading_stats
+
+    stats = _estimate_reading_stats(article.content)
+    assert stats["word_count"] > 200
+    assert stats["reading_minutes"] >= 1
+
+    rv = client.get(f"/article/{article.id}")
+    assert rv.status_code == 200
+    assert b"\xe5\xad\x97" in rv.data
+
+
 def test_article_detail_not_found(client, db):
     """不存在的文章应重定向首页并 flash 提示"""
     rv = client.get("/article/99999", follow_redirects=False)
@@ -69,6 +100,7 @@ def test_article_new_form(login_admin, category):
     assert rv.status_code == 200
     assert "新建文章".encode() in rv.data
     assert b"upload_md_btn" in rv.data
+    assert b'auto-save' in rv.data.lower()
     assert b'accept=".md,.markdown,text/markdown,text/x-markdown,text/plain"' in rv.data
 
 
@@ -153,6 +185,19 @@ def test_article_edit_not_found(login_admin):
     """编辑不存在的文章应重定向"""
     rv = login_admin.get("/article/edit/99999", follow_redirects=False)
     assert rv.status_code == 302
+
+
+def test_article_pin_toggle(login_admin, article, db):
+    """管理员可切换文章置顶状态"""
+    rv = login_admin.post(f"/article/pin/{article.id}", follow_redirects=False)
+    assert rv.status_code == 302
+    db.session.refresh(article)
+    assert article.is_pinned is True
+
+    rv = login_admin.post(f"/article/pin/{article.id}", follow_redirects=False)
+    assert rv.status_code == 302
+    db.session.refresh(article)
+    assert article.is_pinned is False
 
 
 def test_article_edit_save(login_admin, article, category, db):

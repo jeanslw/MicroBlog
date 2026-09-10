@@ -20,6 +20,8 @@ class Admin(db.Model, UserMixin):
     id = Column(Integer, primary_key=True, autoincrement=True)
     username = Column(String(50), nullable=False, unique=True)
     password = Column(String(255), nullable=False)
+    # 邮箱（用于找回密码，可空）
+    email = Column(String(200), nullable=False, default="")
 
     def __repr__(self):
         return f"<Admin {self.username}>"
@@ -54,7 +56,11 @@ class Article(db.Model):
     create_time = Column(String(50))
     update_time = Column(String(50))
     vote_num = Column(Integer, default=0)
+    is_pinned = Column(Boolean, default=False, nullable=False)
     category_id = Column(Integer, ForeignKey("category.id"))
+    # SEO 元数据：描述/关键词（留空时发布自动生成）
+    seo_description = Column(String(300), default="")
+    seo_keywords = Column(String(300), default="")
 
     category = relationship("Category", back_populates="articles")
     comments = relationship("Comment", back_populates="article", cascade="all, delete-orphan")
@@ -120,6 +126,18 @@ class SiteConfig(db.Model):
     about_email = Column(String(200), default="")
     about_github = Column(String(200), default="")
     about_homepage = Column(String(200), default="")
+    # 「关于我」昵称：作为作者署名显示在文章详情页与「关于我」页面
+    about_nickname = Column(String(100), default="")
+    # SMTP 邮件设置（后台可配置，优先于 .env 的 BLOG_MAIL_*；用于密码找回等邮件发送）
+    mail_host = Column(String(200), default="")
+    mail_port = Column(Integer, default=587)
+    mail_user = Column(String(200), default="")
+    mail_password = Column(String(200), default="")
+    mail_from = Column(String(200), default="")
+    mail_use_ssl = Column(Boolean, default=False, nullable=False)
+    mail_use_tls = Column(Boolean, default=True, nullable=False)
+    # 评论总开关：关闭后全站禁止新评论/回复（已有评论仍可查看）
+    comments_enabled = Column(Boolean, default=True, nullable=False)
 
 
 class VoteLog(db.Model):

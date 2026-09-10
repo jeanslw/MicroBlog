@@ -665,6 +665,7 @@ msgstr "搜索文章"
 msgid "搜索结果"
 msgstr "搜索结果"
 
+#, python-format
 msgid "共 %(total)s 篇文章"
 msgstr "共 %(total)s 篇文章"
 
@@ -757,43 +758,43 @@ msgstr "页面不存在"
 msgid "服务器内部错误,请联系管理员"
 msgstr "服务器内部错误,请联系管理员"
 
-#: banner withdrawal/enable feature
+#: banner feature withdrawal/enable
 msgid "状态"
 msgstr "状态"
 
-#: banner withdrawal/enable feature
+#: banner feature withdrawal/enable
 msgid "展示中"
 msgstr "展示中"
 
-#: banner withdrawal/enable feature
+#: banner feature withdrawal/enable
 msgid "已撤回"
 msgstr "已撤回"
 
-#: banner withdrawal/enable feature
+#: banner feature withdrawal/enable
 msgid "确定撤回该轮播图？撤回后首页不再展示，可随时重新启用。"
 msgstr "确定撤回该轮播图？撤回后首页不再展示，可随时重新启用。"
 
-#: banner withdrawal/enable feature
+#: banner feature withdrawal/enable
 msgid "确定重新启用该轮播图？"
 msgstr "确定重新启用该轮播图？"
 
-#: banner withdrawal/enable feature
+#: banner feature withdrawal/enable
 msgid "启用"
 msgstr "启用"
 
-#: banner withdrawal/enable feature
+#: banner feature withdrawal/enable
 msgid "该轮播图已撤回"
 msgstr "该轮播图已撤回"
 
-#: banner withdrawal/enable feature
+#: banner feature withdrawal/enable
 msgid "该轮播图正在展示"
 msgstr "该轮播图正在展示"
 
-#: banner withdrawal/enable feature
+#: banner feature withdrawal/enable
 msgid "已撤回，首页不再展示该轮播图"
 msgstr "已撤回，首页不再展示该轮播图"
 
-#: banner withdrawal/enable feature
+#: banner feature withdrawal/enable
 msgid "已重新启用"
 msgstr "已重新启用"
 
@@ -914,3 +915,317 @@ msgstr "加载中…"
 #: templates/blog/edit.html
 msgid "图片"
 msgstr "图片"
+
+msgid "Logo 上传失败，请重试"
+msgstr "Logo 上传失败，请重试"
+
+msgid "SEO 关键词（留空自动生成）"
+msgstr "SEO 关键词（留空自动生成）"
+
+msgid "SEO 描述（留空自动生成）"
+msgstr "SEO 描述（留空自动生成）"
+
+msgid "SMTP 服务器"
+msgstr "SMTP 服务器"
+
+msgid "SMTP 邮件设置"
+msgstr "SMTP 邮件设置"
+
+msgid "上传 Logo 图片"
+msgstr "上传 Logo 图片"
+
+msgid "下载"
+msgstr "下载"
+
+msgid "仅支持 jpg/jpeg/png/webp，最大 2MB；过大时自动缩放，最长边不超过 400px"
+msgstr "仅支持 jpg/jpeg/png/webp，最大 2MB；过大时自动缩放，最长边不超过 400px"
+
+msgid "使用 SSL（465 端口）"
+msgstr "使用 SSL（465 端口）"
+
+msgid "使用 STARTTLS（587 端口）"
+msgstr "使用 STARTTLS（587 端口）"
+
+msgid "关闭"
+msgstr "关闭"
+
+msgid "切换语言"
+msgstr "切换语言"
+
+msgid "创建管理员账号，完成站点初始化"
+msgstr "创建管理员账号，完成站点初始化"
+
+msgid "删除失败"
+msgstr "删除失败"
+
+msgid "博主昵称，将显示在文章详情页与「关于我」页面"
+msgstr "博主昵称，将显示在文章详情页与「关于我」页面"
+
+msgid "发件人邮箱"
+msgstr "发件人邮箱"
+
+msgid "发送找回邮件"
+msgstr "发送找回邮件"
+
+msgid "取消置顶"
+msgstr "取消置顶"
+
+#, python-format
+msgid "备份失败：%(err)s"
+msgstr "备份失败：%(err)s"
+
+msgid "备份已删除"
+msgstr "备份已删除"
+
+#, python-format
+msgid "备份成功：%(name)s"
+msgstr "备份成功：%(name)s"
+
+msgid "备份文件"
+msgstr "备份文件"
+
+msgid "备份文件不存在"
+msgstr "备份文件不存在"
+
+msgid "大小"
+msgstr "大小"
+
+msgid "媒体类型"
+msgstr "媒体类型"
+
+msgid "媒体链接"
+msgstr "媒体链接"
+
+msgid "字"
+msgstr "字"
+
+msgid "安装完成，欢迎使用"
+msgstr "安装完成，欢迎使用"
+
+msgid "完成安装"
+msgstr "完成安装"
+
+msgid "密码 / 授权码"
+msgstr "密码 / 授权码"
+
+msgid "密码已重置，请用新密码登录"
+msgstr "密码已重置，请用新密码登录"
+
+msgid "建议 160 字以内"
+msgstr "建议 160 字以内"
+
+msgid "当前数据库类型"
+msgstr "当前数据库类型"
+
+msgid "忘记密码？"
+msgstr "忘记密码？"
+
+msgid "恢复"
+msgstr "恢复"
+
+#, python-format
+msgid "恢复失败：%(err)s"
+msgstr "恢复失败：%(err)s"
+
+msgid "恢复成功"
+msgstr "恢复成功"
+
+msgid "恢复草稿"
+msgstr "恢复草稿"
+
+msgid "找回密码"
+msgstr "找回密码"
+
+msgid "插入媒体"
+msgstr "插入媒体"
+
+msgid "操作失败,请稍后重试"
+msgstr "操作失败,请稍后重试"
+
+msgid "数据库备份"
+msgstr "数据库备份"
+
+msgid "文章置顶状态已更新"
+msgstr "文章置顶状态已更新"
+
+msgid "时间"
+msgstr "时间"
+
+msgid "暂无备份，点击「立即备份」创建。"
+msgstr "暂无备份，点击「立即备份」创建。"
+
+msgid "更新时间"
+msgstr "更新时间"
+
+msgid "未分类"
+msgstr "未分类"
+
+msgid "栏目"
+msgstr "栏目"
+
+msgid "检测到未保存草稿，是否恢复？"
+msgstr "检测到未保存草稿，是否恢复？"
+
+msgid "浅色"
+msgstr "浅色"
+
+msgid "深色"
+msgstr "深色"
+
+#, python-format
+msgid ""
+"点击以下链接重置密码（30 分钟内有效）：\n"
+"\n"
+"%(url)s"
+msgstr ""
+"点击以下链接重置密码（30 分钟内有效）：\n"
+"\n"
+"%(url)s"
+
+msgid "用于密码找回等邮件发送，保存后优先于环境变量生效。"
+msgstr "用于密码找回等邮件发送，保存后优先于环境变量生效。"
+
+msgid "用于密码找回，可稍后在后台补充"
+msgstr "用于密码找回，可稍后在后台补充"
+
+msgid "用于搜索引擎摘要，留空则自动从正文生成"
+msgstr "用于搜索引擎摘要，留空则自动从正文生成"
+
+msgid "用户名"
+msgstr "用户名"
+
+msgid "留空则保持原密码不变"
+msgstr "留空则保持原密码不变"
+
+msgid "确认从该备份恢复？恢复前会自动备份当前数据。"
+msgstr "确认从该备份恢复？恢复前会自动备份当前数据。"
+
+msgid "确认删除该备份？"
+msgstr "确认删除该备份？"
+
+msgid "确认密码"
+msgstr "确认密码"
+
+msgid "确认插入"
+msgstr "确认插入"
+
+msgid "立即备份"
+msgstr "立即备份"
+
+msgid "端口"
+msgstr "端口"
+
+#, python-format
+msgid "约 %(minutes)s 分钟阅读"
+msgstr "约 %(minutes)s 分钟阅读"
+
+msgid "网站 Logo"
+msgstr "网站 Logo"
+
+msgid "置顶"
+msgstr "置顶"
+
+msgid "背景图上传失败，请重试"
+msgstr "背景图上传失败，请重试"
+
+msgid "自动保存草稿中..."
+msgstr "自动保存草稿中..."
+
+msgid "自动保存草稿已保存"
+msgstr "自动保存草稿已保存"
+
+msgid "自动保存草稿已启用"
+msgstr "自动保存草稿已启用"
+
+msgid "若账号存在且已绑定邮箱，找回邮件已发送"
+msgstr "若账号存在且已绑定邮箱，找回邮件已发送"
+
+msgid "草稿已恢复"
+msgstr "草稿已恢复"
+
+msgid "视频"
+msgstr "视频"
+
+msgid "评论"
+msgstr "评论"
+
+msgid "该账号已存在"
+msgstr "该账号已存在"
+
+msgid "账户邮箱"
+msgstr "账户邮箱"
+
+msgid "运维安全"
+msgstr "运维安全"
+
+msgid "返回登录"
+msgstr "返回登录"
+
+msgid "逗号分隔，留空则从栏目/标题自动生成"
+msgstr "逗号分隔，留空则从栏目/标题自动生成"
+
+msgid "邮件服务未配置，请联系管理员"
+msgstr "邮件服务未配置，请联系管理员"
+
+msgid "邮件设置"
+msgstr "邮件设置"
+
+msgid "邮件设置已保存"
+msgstr "邮件设置已保存"
+
+msgid "邮箱已保存"
+msgstr "邮箱已保存"
+
+msgid "邮箱用于忘记密码时找回，请确保可正常收信。"
+msgstr "邮箱用于忘记密码时找回，请确保可正常收信。"
+
+msgid "重置密码"
+msgstr "重置密码"
+
+msgid "重置链接无效或已过期"
+msgstr "重置链接无效或已过期"
+
+msgid "音频"
+msgstr "音频"
+
+msgid "首次安装"
+msgstr "首次安装"
+
+msgid "首次安装引导"
+msgstr "首次安装引导"
+
+msgid "（备份依赖服务器已安装 mysqldump）"
+msgstr "（备份依赖服务器已安装 mysqldump）"
+
+msgid "管理"
+msgstr "管理"
+
+msgid "恢复风险提示"
+msgstr "恢复风险提示"
+
+msgid "恢复数据库将用备份文件覆盖当前全部数据，且不可撤销。操作前请务必先「立即备份」当前数据，并确认所选备份文件无误；恢复期间请勿访问后台或写入数据。"
+msgstr "恢复数据库将用备份文件覆盖当前全部数据，且不可撤销。操作前请务必先「立即备份」当前数据，并确认所选备份文件无误；恢复期间请勿访问后台或写入数据。"
+
+msgid "文章档案"
+msgstr "文章档案"
+
+msgid "展开/收起"
+msgstr "展开/收起"
+
+#, python-format
+msgid "%(year)s年"
+msgstr "%(year)s年"
+
+#, python-format
+msgid "%(month)s月"
+msgstr "%(month)s月"
+
+msgid "评论设置"
+msgstr "评论设置"
+
+msgid "开启评论（关闭后全站禁止新评论与回复）"
+msgstr "开启评论（关闭后全站禁止新评论与回复）"
+
+msgid "评论已关闭"
+msgstr "评论已关闭"
+

@@ -54,7 +54,7 @@ def get_article_list(offset: int, limit: int, cid: int | None = None):
     rows = db.session.execute(
         select(Article, comment_count)
         .where(base_filter)
-        .order_by(Article.create_time.desc())
+        .order_by(Article.is_pinned.desc(), Article.create_time.desc())
         .offset(offset)
         .limit(limit)
     ).all()
@@ -135,3 +135,49 @@ def get_recent_articles(limit: int = 20):
         .order_by(Article.create_time.desc())
         .limit(limit)
     ).all()
+
+
+def _split_year_month(value):
+    """从 "YYYY-MM-DD HH:MM:SS" 解析 (year, month)，异常返回 (None, None)。"""
+    try:
+        return int(value[:4]), int(value[5:7])
+    except (TypeError, ValueError, IndexError):
+        return None, None
+
+
+def get_sidebar_tree():
+    """构建侧边栏「栏目树 + 文章档案」数据。
+
+    一次查询全部已发布文章的 (id, title, category_id, create_time)，内存聚合避免 N+1。
+
+    返回 (category_map, archive)：
+      category_map: {category_id: [(article_id, title), ...]}
+      archive: [{"year": int, "count": int,
+                 "months": [{"month": int, "count": int, "articles": [(id, title), ...]}, ...]}, ...]
+    """
+    rows = db.session.execute(
+        select(Article.id, Article.title, Article.category_id, Article.create_time)
+        .where(Article.status == "publish")
+        .order_by(Article.create_time.desc())
+    ).all()
+
+    category_map = {}
+    archive_map = {}
+    for aid, title, cid, ctime in rows:
+        if cid is not None:
+            category_map.setdefault(cid, []).append((aid, title))
+        year, month = _split_year_month(ctime)
+        if year is None:
+            continue
+        archive_map.setdefault(year, {}).setdefault(month, []).append((aid, title))
+
+    archive = []
+    for year in sorted(archive_map, reverse=True):
+        months_map = archive_map[year]
+        months = [
+            {"month": m, "count": len(items), "articles": items}
+            for m, items in sorted(months_map.items(), reverse=True)
+        ]
+        archive.append({"year": year, "count": sum(x["count"] for x in months), "months": months})
+
+    return category_map, archive

@@ -145,12 +145,31 @@
                            href="{{ url_for('admin.change_pwd') }}">
                             <i class="bi bi-key"></i> {{ _('修改密码') }}
                         </a>
+                        <a class="list-group-item list-group-item-action {% if request.endpoint == 'admin.account' %}active{% endif %}"
+                           href="{{ url_for('admin.account') }}">
+                            <i class="bi bi-envelope"></i> {{ _('账户邮箱') }}
+                        </a>
                         <form method="POST" action="{{ url_for('admin.logout') }}">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="button" class="btn-logout" data-confirm="{{ _('确认退出登录?') }}">
                                 <i class="bi bi-box-arrow-right"></i> {{ _('退出登录') }}
                             </button>
                         </form>
+                    </div>
+                </div>
+
+                <!-- 运维安全 -->
+                <div class="admin-menu-group">
+                    <div class="admin-menu-title">{{ _('运维安全') }}</div>
+                    <div class="list-group list-group-flush admin-menu-list">
+                        <a class="list-group-item list-group-item-action {% if request.endpoint == 'admin.mail_setting' %}active{% endif %}"
+                           href="{{ url_for('admin.mail_setting') }}">
+                            <i class="bi bi-envelope-gear"></i> {{ _('邮件设置') }}
+                        </a>
+                        <a class="list-group-item list-group-item-action {% if request.endpoint == 'admin.backup' %}active{% endif %}"
+                           href="{{ url_for('admin.backup') }}">
+                            <i class="bi bi-database"></i> {{ _('数据库备份') }}
+                        </a>
                     </div>
                 </div>
 

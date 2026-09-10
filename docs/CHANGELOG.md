@@ -1,5 +1,32 @@
 # MicroBlog Changelog
 
+## [v1.3.2] - 2026-09-11
+
+First-install setup wizard, email password recovery, database backup/restore, article SEO + sitemap, and security hardening.
+
+### Added
+
+- First-install wizard (`/admin/setup`): when no admin account exists, every admin route redirects there to create the initial account (username / email / password) and sign in automatically.
+- Email password recovery: `Admin` gains an `email` column (idempotent migration) plus an account-email management page; `/admin/forgot` + `/admin/reset` use signed single-use tokens (30-min expiry, bound to the current password hash).
+- Database backup & restore: SQLite file copy and MySQL `mysqldump`/`mysql`, with list / download / delete / restore; a pre-restore snapshot is taken automatically for rollback.
+- Article SEO metadata: optional per-article description & keywords (auto-filled from content/category when left blank), rendered as `<meta>` and Open Graph tags.
+- `sitemap.xml` (and a `Sitemap:` declaration in `robots.txt`).
+- Article table of contents (h1–h3) with anchor jumps and scroll-spy highlighting.
+
+### Security
+
+- `site_config.mail_password` encrypted at rest with Fernet (key derived from `SECRET_KEY`); it is never echoed back in the admin form.
+- Backup/restore filenames validated with `werkzeug.safe_join` against path traversal (CodeQL path-injection).
+- Forgot-password responds with a generic message regardless of match, preventing account enumeration.
+
+### Config & Docs
+
+- `.env.example` now documents every configuration item (mail, reverse proxy, reset-token TTL), commented out by default so each is opt-in.
+- The database-restore page now shows a prominent risk warning.
+- Chinese/English changelogs updated; i18n catalogs recompiled.
+
+---
+
 ## [v1.3.1] - 2026-09-06
 
 About Me page, clickable list like, public-site logout and toast contrast fixes on top of v1.3.0.

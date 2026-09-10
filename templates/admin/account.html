@@ -1,0 +1,32 @@
+{% extends "admin/admin_base.html" %}
+{% block title %}{{ _('账户邮箱') }} - {{ site_name }}{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{{ url_for('admin.site_setting') }}">{{ _('站点设置') }}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{{ _('账户邮箱') }}</li>
+{% endblock %}
+
+{% block admin_content %}
+<div class="row justify-content-center">
+    <div class="col-xl-6 col-xxl-5">
+        <div class="card admin-panel-card p-4">
+            <h4 class="mb-1 fw-bold"><i class="bi bi-envelope"></i> {{ _('账户邮箱') }}</h4>
+            <p class="text-muted small mb-4">{{ _('邮箱用于忘记密码时找回，请确保可正常收信。') }}</p>
+
+            <form method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="mb-3">
+                    <label class="form-label">{{ _('账号') }}</label>
+                    <input type="text" class="form-control" value="{{ current_user.username }}" disabled>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">{{ _('邮箱') }}</label>
+                    <input type="email" name="email" class="form-control" placeholder="you@example.com"
+                           value="{{ form.email.data or '' }}">
+                </div>
+                <button class="btn btn-primary px-4">{{ _('保存') }}</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -40,6 +40,17 @@ def test_sanitize_html_removes_onclick():
     assert "onclick" not in out
 
 
+def test_sanitize_html_keeps_media_tags():
+    """音视频标签应保留（文章插入媒体功能），但事件属性仍被剥离"""
+    raw = '<video controls src="https://example.com/a.mp4"></video><audio controls src="https://example.com/a.mp3"></audio>'
+    out = sanitize_html(raw)
+    assert "<video" in out and "src" in out
+    assert "<audio" in out
+    out2 = sanitize_html('<video controls src="https://example.com/a.mp4" onerror="alert(1)"></video>')
+    assert "<video" in out2
+    assert "onerror" not in out2
+
+
 def test_strip_html_extracts_text():
     """strip_html 应提取纯文本"""
     raw = "<p>Hello <b>world</b></p>"

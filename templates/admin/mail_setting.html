@@ -1,0 +1,57 @@
+{% extends "admin/admin_base.html" %}
+{% block title %}{{ _('邮件设置') }} - {{ site_name }}{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{{ url_for('admin.site_setting') }}">{{ _('站点设置') }}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{{ _('邮件设置') }}</li>
+{% endblock %}
+
+{% block admin_content %}
+<div class="row justify-content-center">
+    <div class="col-xl-6 col-xxl-5">
+        <div class="card admin-panel-card p-4">
+            <h4 class="mb-1 fw-bold"><i class="bi bi-envelope-gear"></i> {{ _('SMTP 邮件设置') }}</h4>
+            <p class="text-muted small mb-4">{{ _('用于密码找回等邮件发送，保存后优先于环境变量生效。') }}</p>
+
+            <form method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="mb-3">
+                    <label class="form-label">{{ _('SMTP 服务器') }}</label>
+                    <input type="text" name="mail_host" class="form-control" placeholder="smtp.example.com"
+                           value="{{ form.mail_host.data or '' }}">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">{{ _('端口') }}</label>
+                    <input type="number" name="mail_port" class="form-control" min="1" max="65535"
+                           value="{{ form.mail_port.data if form.mail_port.data else 587 }}">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">{{ _('用户名') }}</label>
+                    <input type="text" name="mail_user" class="form-control" value="{{ form.mail_user.data or '' }}">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">{{ _('密码 / 授权码') }}</label>
+                    <input type="password" name="mail_password" class="form-control" autocomplete="new-password"
+                           placeholder="{{ _('留空则保持原密码不变') }}">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">{{ _('发件人邮箱') }}</label>
+                    <input type="email" name="mail_from" class="form-control" placeholder="you@example.com"
+                           value="{{ form.mail_from.data or '' }}">
+                </div>
+                <div class="form-check form-switch mb-2">
+                    <input class="form-check-input" type="checkbox" name="mail_use_tls" id="mail_use_tls"
+                           {% if form.mail_use_tls.data %}checked{% endif %}>
+                    <label class="form-check-label" for="mail_use_tls">{{ _('使用 STARTTLS（587 端口）') }}</label>
+                </div>
+                <div class="form-check form-switch mb-4">
+                    <input class="form-check-input" type="checkbox" name="mail_use_ssl" id="mail_use_ssl"
+                           {% if form.mail_use_ssl.data %}checked{% endif %}>
+                    <label class="form-check-label" for="mail_use_ssl">{{ _('使用 SSL（465 端口）') }}</label>
+                </div>
+                <button class="btn btn-primary px-4">{{ _('保存') }}</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

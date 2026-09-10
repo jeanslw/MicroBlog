@@ -38,6 +38,45 @@ def set_lang(lang: str):
 
 @main_bp.route("/robots.txt")
 def robots():
-    """简单的 robots.txt（默认允许）"""
-    body = "User-agent: *\nAllow: /\n"
+    """简单的 robots.txt（默认允许）+ 站点地图声明"""
+    sitemap_url = url_for("main.sitemap", _external=True)
+    body = "User-agent: *\nAllow: /\nSitemap: " + sitemap_url + "\n"
     return Response(body, mimetype="text/plain")
+
+
+@main_bp.route("/sitemap.xml")
+def sitemap():
+    """站点地图：首页/关于我/各栏目/各已发布文章。"""
+    from app.extensions import db
+    from app.models import Article, Category
+
+    pages = [
+        {"loc": url_for("blog.index", _external=True), "lastmod": "", "priority": "1.0"},
+        {"loc": url_for("blog.about", _external=True), "lastmod": "", "priority": "0.6"},
+    ]
+    for cat in db.session.scalars(db.select(Category).order_by(Category.id)).all():
+        pages.append(
+            {"loc": url_for("blog.category", cid=cat.id, _external=True), "lastmod": "", "priority": "0.5"}
+        )
+    for art in db.session.scalars(
+        db.select(Article).where(Article.status == "publish").order_by(Article.create_time.desc())
+    ).all():
+        pages.append(
+            {
+                "loc": url_for("blog.article_detail", aid=art.id, _external=True),
+                "lastmod": (art.update_time or art.create_time or "")[:10],
+                "priority": "0.8",
+            }
+        )
+
+    lines = ['<?xml version="1.0" encoding="UTF-8"?>']
+    lines.append('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">')
+    for p in pages:
+        lines.append("  <url>")
+        lines.append(f"    <loc>{p['loc']}</loc>")
+        if p["lastmod"]:
+            lines.append(f"    <lastmod>{p['lastmod']}</lastmod>")
+        lines.append(f"    <priority>{p['priority']}</priority>")
+        lines.append("  </url>")
+    lines.append("</urlset>")
+    return Response("\n".join(lines), mimetype="application/xml")

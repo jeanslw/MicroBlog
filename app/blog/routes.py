@@ -7,6 +7,7 @@
 - 文章正文保存原文，读取展示时经 nh3 白名单净化防存储型 XSS
 """
 
+import re
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -20,11 +21,12 @@ from app.blog.queries import (
     get_article_detail,
     get_article_list,
     get_recent_articles,
+    get_sidebar_tree,
     search_articles,
 )
 from app.extensions import admin_required, db, log
 from app.forms import ArticleForm, CategoryForm
-from app.models import Article, Category, SiteConfig
+from app.models import Admin, Article, Category, SiteConfig
 from app.utils import collect_static_upload_urls, remove_static_upload, strip_html
 
 TITLE_MAX_LEN = 500
@@ -37,13 +39,105 @@ def _safe_int(value, default=1):
         return default
 
 
+def _estimate_reading_stats(content: str):
+    """计算字数和预计阅读时长，避免对存储字段做额外数据库迁移。
+
+    统计规则：
+    - 中文字符按 1 字计数
+    - 英文/数字按单词计数
+    - 过滤空白和标点
+    - 采用全文文本，不使用摘要截断值，避免 220 字截断导致统计错误
+    """
+    text = strip_html(content or "", max_len=None)
+    if not text:
+        return {"word_count": 0, "reading_minutes": 1}
+
+    words = re.findall(r"[A-Za-z0-9]+(?:'[A-Za-z0-9]+)?|[\u4e00-\u9fff]", text)
+    word_count = len(words)
+    reading_minutes = max(1, (word_count + 299) // 300)
+    return {"word_count": word_count, "reading_minutes": reading_minutes}
+
+
+def _extract_toc(content: str):
+    """从正文提取 h1-h3 标题生成目录，并给标题注入 id 锚点用于跳读。
+
+    返回 (content, items)：content 为注入 id 后的正文 HTML，items 为目录条目。
+    """
+    items = []
+    seen = set()
+    counter = 0
+
+    def _inject(match):
+        nonlocal counter
+        level = int(match.group(1))
+        attrs = match.group(2) or ""
+        inner = match.group(3)
+        title = re.sub(r"\s+", " ", strip_html(inner)).strip()
+        if not title:
+            return match.group(0)
+        existing = re.search(r'id\s*=\s*"([^"]+)"', attrs, flags=re.IGNORECASE)
+        if existing:
+            slug = existing.group(1)
+        else:
+            slug = re.sub(r"[^\w\- ]+", "", title.lower())
+            slug = re.sub(r"\s+", "-", slug).strip("-")
+            if not slug:
+                counter += 1
+                slug = f"section-{counter}"
+            if slug in seen:
+                counter += 1
+                slug = f"{slug}-{counter}"
+            attrs = attrs + ' id="' + slug + '"'
+        seen.add(slug)
+        items.append({"id": slug, "title": title, "level": level})
+        return "<h" + str(level) + attrs + ">" + inner + "</h" + str(level) + ">"
+
+    new_content = re.sub(
+        r"<h([1-3])([^>]*)>(.*?)</h[1-3]>",
+        _inject,
+        content or "",
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    return new_content, items
+
+
+def _auto_seo(content, title, category):
+    """生成 SEO 描述与关键词（编辑页留空时自动填充）。
+
+    - 描述：正文纯文本截断 160 字
+    - 关键词：优先栏目标签 tag_text，否则标题去标点分词；与标题拼接、逗号分隔、截断 300
+    """
+    description = strip_html(content or "").strip()
+    if len(description) > 160:
+        description = description[:160]
+
+    parts = []
+    if category and getattr(category, "tag_text", ""):
+        parts.append(category.tag_text.strip())
+    if title:
+        tokens = [t for t in re.split(r"[\s,，、;；/|｜·]+", title.strip()) if t]
+        parts.extend(tokens)
+    keywords = ", ".join(dict.fromkeys(parts))
+    if len(keywords) > 300:
+        keywords = keywords[:300]
+    return description, keywords
+
+
 @blog_bp.route("/")
 def index():
     page_size = current_app.config.get("PAGE_SIZE", 6)
     page = max(_safe_int(request.args.get("page", 1), 1), 1)
     offset = (page - 1) * page_size
     articles, total_page = get_article_list(offset, page_size)
-    return render_template("blog/index.html", articles=articles, page=page, total_page=total_page)
+    category_map, archive = get_sidebar_tree()
+    return render_template(
+        "blog/index.html",
+        articles=articles,
+        page=page,
+        total_page=total_page,
+        category_map=category_map,
+        archive=archive,
+    )
 
 
 @blog_bp.route("/category/<int:cid>")
@@ -52,7 +146,15 @@ def category(cid):
     page = max(_safe_int(request.args.get("page", 1), 1), 1)
     offset = (page - 1) * page_size
     articles, total_page = get_article_list(offset, page_size, cid)
-    return render_template("blog/index.html", articles=articles, page=page, total_page=total_page)
+    category_map, archive = get_sidebar_tree()
+    return render_template(
+        "blog/index.html",
+        articles=articles,
+        page=page,
+        total_page=total_page,
+        category_map=category_map,
+        archive=archive,
+    )
 
 
 @blog_bp.route("/article/<int:aid>")
@@ -65,7 +167,28 @@ def article_detail(aid):
     if article.status != "publish" and not current_user.is_authenticated:
         flash(_("文章不存在"), "warning")
         return redirect(url_for("blog.index"))
-    return render_template("blog/detail.html", article=article, comments=comments)
+    reading_stats = _estimate_reading_stats(article.content)
+    article.word_count = reading_stats["word_count"]
+    article.reading_time = reading_stats["reading_minutes"]
+    article.content, article.toc = _extract_toc(article.content)
+    # 正文首图，供 Open Graph og:image 使用
+    article.og_image = ""
+    m = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', article.content or "")
+    if m:
+        article.og_image = m.group(1)
+    # 作者署名：昵称未设置时回退为管理员用户名
+    author_name = db.session.scalar(db.select(SiteConfig.about_nickname)) or ""
+    if not author_name:
+        author_name = db.session.scalar(db.select(Admin.username).order_by(Admin.id).limit(1)) or ""
+    category_map, archive = get_sidebar_tree()
+    return render_template(
+        "blog/detail.html",
+        article=article,
+        comments=comments,
+        author_name=author_name,
+        category_map=category_map,
+        archive=archive,
+    )
 
 
 @blog_bp.route("/article/new", methods=["GET", "POST"])
@@ -81,11 +204,20 @@ def article_new():
         cid = form.category_id.data or None
         if cid == 0:
             cid = None
+        category = db.session.get(Category, cid) if cid else None
+        seo_desc = (form.seo_description.data or "").strip()
+        seo_kw = (form.seo_keywords.data or "").strip()
+        if not seo_desc or not seo_kw:
+            auto_desc, auto_kw = _auto_seo(form.content.data, form.title.data, category)
+            seo_desc = seo_desc or auto_desc
+            seo_kw = seo_kw or auto_kw
         article = Article(
             title=form.title.data.strip(),
             content=form.content.data,  # 保存原文,展示时净化
             status=form.status.data,
             category_id=cid,
+            seo_description=seo_desc,
+            seo_keywords=seo_kw,
             create_time=now,
             update_time=now,
         )
@@ -112,15 +244,43 @@ def article_edit(aid):
         cid = form.category_id.data or None
         if cid == 0:
             cid = None
+        category = db.session.get(Category, cid) if cid else None
+        seo_desc = (form.seo_description.data or "").strip()
+        seo_kw = (form.seo_keywords.data or "").strip()
+        if not seo_desc or not seo_kw:
+            auto_desc, auto_kw = _auto_seo(form.content.data, form.title.data, category)
+            seo_desc = seo_desc or auto_desc
+            seo_kw = seo_kw or auto_kw
         article.title = form.title.data.strip()
         article.content = form.content.data
         article.status = form.status.data
         article.category_id = cid
+        article.seo_description = seo_desc
+        article.seo_keywords = seo_kw
         article.update_time = now
         db.session.commit()
         flash(_("修改成功"), "success")
         return redirect(url_for("blog.article_detail", aid=aid))
     return render_template("blog/edit.html", form=form, article=article)
+
+
+@blog_bp.route("/article/pin/<int:aid>", methods=["POST"])
+@admin_required
+def article_pin(aid):
+    article = db.session.get(Article, aid)
+    if not article:
+        flash(_("文章不存在"), "warning")
+        return redirect(url_for("blog.index"))
+    article.is_pinned = not article.is_pinned
+    article.update_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        db.session.commit()
+        flash(_("文章置顶状态已更新"), "success")
+    except Exception:
+        db.session.rollback()
+        log.error("切换文章置顶失败 aid=%s", aid, exc_info=True)
+        flash(_("操作失败,请稍后重试"), "danger")
+    return redirect(url_for("blog.article_detail", aid=aid))
 
 
 @blog_bp.route("/article/del/<int:aid>", methods=["POST"])

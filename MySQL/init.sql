@@ -39,6 +39,7 @@ CREATE TABLE `admin` (
   `username` varchar(50) NOT NULL,
   -- Werkzeug 3.x pbkdf2:sha256:600000 哈希约 102 字符；预留 256 兼容未来 scrypt/argon2
   `password` varchar(255) NOT NULL,
+  `email` varchar(200) NOT NULL DEFAULT '' COMMENT '邮箱，用于找回密码',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_username` (`username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -57,6 +58,8 @@ CREATE TABLE `article` (
   `update_time` varchar(50) DEFAULT NULL,
   `vote_num` int DEFAULT '0',
   `category_id` int DEFAULT NULL COMMENT '所属栏目',
+  `seo_description` varchar(300) NOT NULL DEFAULT '' COMMENT 'SEO 描述（留空自动生成）',
+  `seo_keywords` varchar(300) NOT NULL DEFAULT '' COMMENT 'SEO 关键词（留空自动生成）',
   PRIMARY KEY (`id`),
   KEY `idx_status` (`status`),
   KEY `idx_category_id` (`category_id`),
@@ -143,6 +146,15 @@ CREATE TABLE `site_config` (
   `about_email` varchar(200) DEFAULT '' COMMENT '「关于我」联系邮箱',
   `about_github` varchar(200) DEFAULT '' COMMENT '「关于我」GitHub 链接',
   `about_homepage` varchar(200) DEFAULT '' COMMENT '「关于我」个人主页链接',
+  `about_nickname` varchar(100) DEFAULT '' COMMENT '「关于我」昵称（文章详情页署名）',
+  `mail_host` varchar(200) DEFAULT '' COMMENT 'SMTP 服务器（后台配置优先于 .env）',
+  `mail_port` int DEFAULT 587 COMMENT 'SMTP 端口',
+  `mail_user` varchar(200) DEFAULT '' COMMENT 'SMTP 用户名',
+  `mail_password` varchar(200) DEFAULT '' COMMENT 'SMTP 密码/授权码',
+  `mail_from` varchar(200) DEFAULT '' COMMENT '发件人邮箱',
+  `mail_use_ssl` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否使用 SSL（465）',
+  `mail_use_tls` tinyint(1) NOT NULL DEFAULT '1' COMMENT '是否使用 STARTTLS（587）',
+  `comments_enabled` tinyint(1) NOT NULL DEFAULT '1' COMMENT '评论总开关（0=关闭，全站禁止新评论/回复）',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -180,8 +192,8 @@ CREATE TABLE `login_attempt` (
 -- 初始化数据
 -- --------------------------------------------------------
 -- 站点配置（仅一条）
-INSERT INTO `site_config` (`id`, `site_name`, `favicon_path`, `logo_path`, `bg_style`, `bg_custom`, `about_avatar`, `about_bio`, `about_email`, `about_github`, `about_homepage`)
-VALUES (1, '我的博客', 'static/favicon.ico', '', 'bg1', '', '', NULL, '', '', '');
+INSERT INTO `site_config` (`id`, `site_name`, `favicon_path`, `logo_path`, `bg_style`, `bg_custom`, `about_avatar`, `about_bio`, `about_email`, `about_github`, `about_homepage`, `about_nickname`)
+VALUES (1, '我的博客', 'static/favicon.ico', '', 'bg1', '', '', NULL, '', '', '', '');
 
 -- ⚠️ 不在此插入初始管理员账号（避免明文密码）
 -- 请用以下任一方式创建管理员：

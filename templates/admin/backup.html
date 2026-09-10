@@ -1,0 +1,71 @@
+{% extends "admin/admin_base.html" %}
+{% block title %}{{ _('数据库备份') }} - {{ site_name }}{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item"><a href="{{ url_for('admin.site_setting') }}">{{ _('站点设置') }}</a></li>
+<li class="breadcrumb-item active" aria-current="page">{{ _('数据库备份') }}</li>
+{% endblock %}
+
+{% block admin_content %}
+<div class="card admin-panel-card p-4">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h4 class="mb-0 fw-bold"><i class="bi bi-database"></i> {{ _('数据库备份') }}</h4>
+        <form method="POST" action="{{ url_for('admin.backup') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button class="btn btn-primary">{{ _('立即备份') }}</button>
+        </form>
+    </div>
+    <p class="text-muted small mb-3">
+        {{ _('当前数据库类型') }}：<span class="badge bg-secondary">{{ db_type }}</span>
+        {% if db_type == 'mysql' %}{{ _('（备份依赖服务器已安装 mysqldump）') }}{% endif %}
+    </p>
+
+    <div class="alert alert-warning border border-warning-subtle mb-3" role="alert">
+        <h5 class="alert-heading fw-bold"><i class="bi bi-exclamation-triangle-fill"></i> {{ _('恢复风险提示') }}</h5>
+        <p class="mb-0">{{ _('恢复数据库将用备份文件覆盖当前全部数据，且不可撤销。操作前请务必先「立即备份」当前数据，并确认所选备份文件无误；恢复期间请勿访问后台或写入数据。') }}</p>
+    </div>
+
+    {% if backups %}
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead>
+                <tr>
+                    <th>{{ _('备份文件') }}</th>
+                    <th>{{ _('大小') }}</th>
+                    <th>{{ _('时间') }}</th>
+                    <th class="text-end">{{ _('操作') }}</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for b in backups %}
+                <tr>
+                    <td class="text-break">{{ b.name }}</td>
+                    <td>{{ (b.size / 1024) | round(1) }} KB</td>
+                    <td>{{ b.mtime_str }}</td>
+                    <td class="text-end">
+                        <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('admin.backup_download', name=b.name) }}">
+                            <i class="bi bi-download"></i> {{ _('下载') }}
+                        </a>
+                        <form class="d-inline" method="POST" action="{{ url_for('admin.backup_restore', name=b.name) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="button" class="btn btn-sm btn-outline-warning" data-confirm="{{ _('确认从该备份恢复？恢复前会自动备份当前数据。') }}">
+                                <i class="bi bi-arrow-counterclockwise"></i> {{ _('恢复') }}
+                            </button>
+                        </form>
+                        <form class="d-inline" method="POST" action="{{ url_for('admin.backup_delete', name=b.name) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="button" class="btn btn-sm btn-outline-danger" data-confirm="{{ _('确认删除该备份？') }}">
+                                <i class="bi bi-trash"></i> {{ _('删除') }}
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="alert alert-light text-center py-4">{{ _('暂无备份，点击「立即备份」创建。') }}</div>
+    {% endif %}
+</div>
+{% endblock %}

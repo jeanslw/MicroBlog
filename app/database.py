@@ -28,8 +28,42 @@ def init_db():
     from app import models  # noqa: F401
 
     db.create_all()
+    _migrate_admin()
+    _migrate_article()
     _migrate_site_config()
     _migrate_banner()
+
+
+def _migrate_admin():
+    """轻量迁移：为旧版 admin 表补齐 email 列（幂等）。"""
+    try:
+        inspector = db.inspect(db.engine)
+        if "admin" not in inspector.get_table_names():
+            return
+        cols = {c["name"] for c in inspector.get_columns("admin")}
+        if "email" not in cols:
+            with db.engine.begin() as conn:
+                conn.execute(db.text("ALTER TABLE admin ADD COLUMN email VARCHAR(200) NOT NULL DEFAULT ''"))
+    except Exception as e:
+        log.warning("admin email 列迁移失败,可手动执行 ALTER TABLE: %s", e)
+
+
+def _migrate_article():
+    """兼容旧表：为 article 补齐 is_pinned / SEO 描述 / 关键词列，避免老库首页 500。"""
+    try:
+        inspector = db.inspect(db.engine)
+        if "article" not in inspector.get_table_names():
+            return
+        cols = {c["name"] for c in inspector.get_columns("article")}
+        with db.engine.begin() as conn:
+            if "is_pinned" not in cols:
+                conn.execute(db.text("ALTER TABLE article ADD COLUMN is_pinned BOOLEAN NOT NULL DEFAULT 0"))
+            if "seo_description" not in cols:
+                conn.execute(db.text("ALTER TABLE article ADD COLUMN seo_description VARCHAR(300) NOT NULL DEFAULT ''"))
+            if "seo_keywords" not in cols:
+                conn.execute(db.text("ALTER TABLE article ADD COLUMN seo_keywords VARCHAR(300) NOT NULL DEFAULT ''"))
+    except Exception as e:
+        log.warning("article 列迁移失败,可手动执行 ALTER TABLE: %s", e)
 
 
 def _migrate_banner():
@@ -79,6 +113,26 @@ def _migrate_site_config():
                 conn.execute(db.text("ALTER TABLE site_config ADD COLUMN about_github VARCHAR(200) DEFAULT ''"))
             if "about_homepage" not in cols:
                 conn.execute(db.text("ALTER TABLE site_config ADD COLUMN about_homepage VARCHAR(200) DEFAULT ''"))
+            if "about_nickname" not in cols:
+                conn.execute(db.text("ALTER TABLE site_config ADD COLUMN about_nickname VARCHAR(100) DEFAULT ''"))
+            # SMTP 邮件设置（后台配置优先于 .env）
+            if "mail_host" not in cols:
+                conn.execute(db.text("ALTER TABLE site_config ADD COLUMN mail_host VARCHAR(200) DEFAULT ''"))
+            if "mail_port" not in cols:
+                conn.execute(db.text("ALTER TABLE site_config ADD COLUMN mail_port INTEGER DEFAULT 587"))
+            if "mail_user" not in cols:
+                conn.execute(db.text("ALTER TABLE site_config ADD COLUMN mail_user VARCHAR(200) DEFAULT ''"))
+            if "mail_password" not in cols:
+                conn.execute(db.text("ALTER TABLE site_config ADD COLUMN mail_password VARCHAR(200) DEFAULT ''"))
+            if "mail_from" not in cols:
+                conn.execute(db.text("ALTER TABLE site_config ADD COLUMN mail_from VARCHAR(200) DEFAULT ''"))
+            if "mail_use_ssl" not in cols:
+                conn.execute(db.text("ALTER TABLE site_config ADD COLUMN mail_use_ssl BOOLEAN NOT NULL DEFAULT 0"))
+            if "mail_use_tls" not in cols:
+                conn.execute(db.text("ALTER TABLE site_config ADD COLUMN mail_use_tls BOOLEAN NOT NULL DEFAULT 1"))
+            # 评论总开关（关闭后全站禁止新评论/回复）
+            if "comments_enabled" not in cols:
+                conn.execute(db.text("ALTER TABLE site_config ADD COLUMN comments_enabled BOOLEAN NOT NULL DEFAULT 1"))
     except Exception as e:
         log.warning("site_config 背景列迁移失败,可手动执行 ALTER TABLE: %s", e)
 

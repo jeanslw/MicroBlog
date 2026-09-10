@@ -165,22 +165,29 @@ def fetch_global_context():
         # favicon_path 存相对路径（如 static/favicon.ico）,转成可访问的 URL
         if site_favicon and not site_favicon.startswith(("http://", "https://")):
             site_favicon = "/" + site_favicon.lstrip("/")
+        about_nickname = db.session.scalar(db.select(SiteConfig.about_nickname)) or ""
         bg_row = db.session.execute(db.select(SiteConfig.bg_style, SiteConfig.bg_custom)).first()
         site_bg_style = (bg_row[0] or "bg1") if bg_row else "bg1"
         site_bg_custom = bg_row[1] if bg_row else ""
+        comments_enabled = db.session.scalar(db.select(SiteConfig.comments_enabled))
+        comments_enabled = True if comments_enabled is None else bool(comments_enabled)
     except Exception:
         log.error("全局模板上下文数据库报错", exc_info=True)
         cats, total_art, banner_list, site_name = [], 0, [], "博客"
         site_logo, site_favicon, site_bg_style, site_bg_custom = "", "", "bg1", ""
+        about_nickname = ""
+        comments_enabled = True
     return {
         "categories": cats,
         "all_article_count": total_art,
         "site_name": site_name,
         "site_logo": site_logo,
         "site_favicon": site_favicon,
+        "about_nickname": about_nickname,
         "banner_list": banner_list,
         "site_bg_style": site_bg_style,
         "site_bg_custom": site_bg_custom,
+        "comments_enabled": comments_enabled,
     }
 
 

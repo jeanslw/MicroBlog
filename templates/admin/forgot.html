@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}{{ _('找回密码') }} - {{ site_name }}{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active" aria-current="page">{{ _('找回密码') }}</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .login-box { border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,.15); margin-top: 40px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-4">
+        <div class="card login-box p-4">
+            <h4 class="text-center mb-3 fw-bold">
+                <i class="bi bi-envelope text-primary"></i> {{ _('找回密码') }}
+            </h4>
+            <form method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="mb-3">
+                    <label class="form-label">{{ _('账号') }}</label>
+                    <input type="text" name="username" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">{{ _('邮箱') }}</label>
+                    <input type="email" name="email" class="form-control" required>
+                </div>
+                <button class="btn btn-dark w-100 py-1">{{ _('发送找回邮件') }}</button>
+            </form>
+            <div class="text-center mt-3">
+                <a href="{{ url_for('admin.login') }}" class="text-secondary text-decoration-none">
+                    <i class="bi bi-arrow-left"></i> {{ _('返回登录') }}
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

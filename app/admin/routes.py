@@ -9,13 +9,30 @@
 """
 
 import os
+import subprocess
+import zipfile
+from datetime import datetime
 
-from flask import current_app, flash, jsonify, redirect, render_template, request, session, url_for
+from flask import (
+    abort,
+    current_app,
+    flash,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    send_from_directory,
+    session,
+    url_for,
+)
 from flask_babel import _
 from flask_login import current_user, login_required, login_user, logout_user
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from werkzeug.security import check_password_hash, generate_password_hash
+from werkzeug.utils import safe_join
 
 from app.admin import admin_bp
+from app.crypto import encrypt_secret
 from app.extensions import (
     admin_required,
     check_login_lock,
@@ -25,15 +42,41 @@ from app.extensions import (
     log,
     record_login_fail,
 )
-from app.forms import AboutForm, ChangePwdForm, LoginForm, SiteSettingForm, UploadImageForm
+from app.forms import (
+    AboutForm,
+    AccountForm,
+    ChangePwdForm,
+    ForgotForm,
+    LoginForm,
+    MailSettingForm,
+    ResetForm,
+    SetupForm,
+    SiteSettingForm,
+    UploadImageForm,
+)
+from app.mail import MailError, send_mail
 from app.models import Admin, SiteConfig
 from app.utils import (
     build_safe_filename,
     process_and_resize_logo,
     process_and_save_image,
+    project_root,
     remove_static_upload,
     upload_dir,
 )
+
+
+@admin_bp.before_request
+def _require_setup():
+    """无管理员时，除引导页/静态资源外全部跳转到首次安装引导。"""
+    if request.endpoint in ("admin.setup", "admin.static"):
+        return None
+    try:
+        count = db.session.scalar(db.select(db.func.count(Admin.id)))
+    except Exception:
+        return None  # DB 未就绪时放行，避免启动早期异常
+    if not count:
+        return redirect(url_for("admin.setup"))
 
 
 @admin_bp.route("/login", methods=["GET", "POST"])
@@ -154,6 +197,7 @@ def about_setting():
         site.about_email = (form.about_email.data or "").strip().lower()
         site.about_github = (form.about_github.data or "").strip()
         site.about_homepage = (form.about_homepage.data or "").strip()
+        site.about_nickname = (form.about_nickname.data or "").strip()
         db.session.commit()
         # 清理被替换的旧头像文件,避免磁盘堆积
         if old_avatar and old_avatar != site.about_avatar:
@@ -228,6 +272,8 @@ def _site_setting_view(template):
                 log.error("Logo 上传失败", exc_info=True)
                 flash(_("Logo 上传失败，请重试"), "danger")
                 return render_template(template, form=form, site=site)
+        # 评论总开关
+        site.comments_enabled = bool(form.comments_enabled.data)
         db.session.commit()
         # 清理被替换的旧背景/旧 Logo 文件,避免磁盘堆积
         if old_bg_custom and old_bg_custom != site.bg_custom:
@@ -277,3 +323,306 @@ def upload_image():
         return jsonify({"error": _("图片处理失败,请重试")}), 500
 
     return jsonify({"url": f"/static/uploads/{final_name}"}), 200
+
+
+# ── 首次安装引导 ─────────────────────────────────────────
+@admin_bp.route("/setup", methods=["GET", "POST"])
+def setup():
+    """首次安装引导：仅在 admin 表为空时可用，创建首个管理员账号。"""
+    count = db.session.scalar(db.select(db.func.count(Admin.id))) or 0
+    if count > 0:
+        return redirect(url_for("admin.login"))
+    form = SetupForm()
+    if form.validate_on_submit():
+        username = form.username.data.strip()
+        if db.session.scalar(db.select(Admin).filter_by(username=username)):
+            flash(_("该账号已存在"), "danger")
+            return render_template("admin/setup.html", form=form)
+        admin = Admin(
+            username=username,
+            password=generate_password_hash(form.password.data),
+            email=(form.email.data or "").strip().lower(),
+        )
+        db.session.add(admin)
+        db.session.commit()
+        login_user(admin, remember=False)
+        session.permanent = True
+        flash(_("安装完成，欢迎使用"), "success")
+        return redirect(url_for("admin.panel"))
+    return render_template("admin/setup.html", form=form)
+
+
+# ── 邮件找回密码 ─────────────────────────────────────────
+def _reset_serializer():
+    return URLSafeTimedSerializer(current_app.config["SECRET_KEY"], salt="password-reset")
+
+
+def _make_reset_token(admin):
+    # payload 带当前密码哈希：重置后密码改变 → 旧 token 自动失效（单次有效）
+    return _reset_serializer().dumps({"uid": admin.id, "pwh": admin.password})
+
+
+@admin_bp.route("/forgot", methods=["GET", "POST"])
+def forgot():
+    if current_user.is_authenticated:
+        return redirect(url_for("admin.panel"))
+    form = ForgotForm()
+    if form.validate_on_submit():
+        username = form.username.data.strip()
+        email = (form.email.data or "").strip().lower()
+        admin = db.session.scalar(db.select(Admin).filter_by(username=username))
+        if admin and admin.email and admin.email == email:
+            try:
+                token = _make_reset_token(admin)
+                reset_url = url_for("admin.reset", token=token, _external=True)
+                send_mail(
+                    admin.email,
+                    _("重置密码"),
+                    _("点击以下链接重置密码（30 分钟内有效）：\n\n%(url)s", url=reset_url),
+                )
+            except MailError as e:
+                # 发送失败也返回同一句，避免泄露账号是否存在（防账号枚举）
+                log.warning("找回密码邮件发送失败: %s", e)
+        # 无论是否命中都返回同一句，防止账号枚举
+        flash(_("若账号存在且已绑定邮箱，找回邮件已发送"), "info")
+        return redirect(url_for("admin.login"))
+    return render_template("admin/forgot.html", form=form)
+
+
+@admin_bp.route("/reset/<token>", methods=["GET", "POST"])
+def reset(token):
+    if current_user.is_authenticated:
+        return redirect(url_for("admin.panel"))
+    try:
+        data = _reset_serializer().loads(
+            token, max_age=current_app.config.get("RESET_TOKEN_MAX_AGE", 1800)
+        )
+    except (SignatureExpired, BadSignature):
+        flash(_("重置链接无效或已过期"), "danger")
+        return redirect(url_for("admin.forgot"))
+    admin = db.session.get(Admin, data.get("uid"))
+    if not admin or admin.password != data.get("pwh"):
+        flash(_("重置链接无效或已过期"), "danger")
+        return redirect(url_for("admin.forgot"))
+    form = ResetForm()
+    if form.validate_on_submit():
+        admin.password = generate_password_hash(form.new_pwd.data)
+        db.session.commit()
+        flash(_("密码已重置，请用新密码登录"), "success")
+        return redirect(url_for("admin.login"))
+    return render_template("admin/reset.html", form=form)
+
+
+# ── 账户邮箱 ─────────────────────────────────────────────
+@admin_bp.route("/account", methods=["GET", "POST"])
+@admin_required
+def account():
+    form = AccountForm()
+    if form.validate_on_submit():
+        current_user.email = (form.email.data or "").strip().lower()
+        db.session.commit()
+        flash(_("邮箱已保存"), "success")
+        return redirect(url_for("admin.account"))
+    if request.method == "GET":
+        form.email.data = current_user.email
+    return render_template("admin/account.html", form=form)
+
+
+# ── SMTP 邮件设置 ─────────────────────────────────────────
+@admin_bp.route("/mail_setting", methods=["GET", "POST"])
+@admin_required
+def mail_setting():
+    """SMTP 邮件配置：存 site_config，保存后优先于 .env 的 BLOG_MAIL_* 生效。"""
+    site = db.session.get(SiteConfig, 1)
+    if not site:
+        site = SiteConfig(id=1, site_name="我的博客", favicon_path="static/favicon.ico")
+        db.session.add(site)
+        db.session.commit()
+    form = MailSettingForm(obj=site)
+    if request.method == "GET":
+        form.mail_password.data = ""  # 密码不回显，留空表示保持原值
+    if form.validate_on_submit():
+        site.mail_host = (form.mail_host.data or "").strip()
+        site.mail_port = form.mail_port.data or 587
+        site.mail_user = (form.mail_user.data or "").strip()
+        if form.mail_password.data:
+            site.mail_password = encrypt_secret(form.mail_password.data.strip())
+        site.mail_from = (form.mail_from.data or "").strip().lower()
+        site.mail_use_ssl = bool(form.mail_use_ssl.data)
+        site.mail_use_tls = bool(form.mail_use_tls.data)
+        db.session.commit()
+        flash(_("邮件设置已保存"), "success")
+        return redirect(url_for("admin.mail_setting"))
+    return render_template("admin/mail_setting.html", form=form, site=site)
+
+
+# ── 数据库备份与恢复 ─────────────────────────────────────
+def _backup_dir():
+    path = os.path.join(project_root(), "backups")
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def _db_type():
+    return (os.environ.get("BLOG_DB_TYPE") or "sqlite").strip().lower()
+
+
+def _sqlite_db_path():
+    uri = current_app.config.get("SQLALCHEMY_DATABASE_URI", "")
+    if uri.startswith("sqlite:///"):
+        return uri[len("sqlite:///"):]
+    return os.path.join(project_root(), "data", "blog.db")
+
+
+def _mysql_creds():
+    return {
+        "host": os.environ.get("BLOG_MYSQL_HOST") or "localhost",
+        "user": os.environ.get("BLOG_MYSQL_USER") or "root",
+        "pwd": os.environ.get("BLOG_MYSQL_PWD") or "",
+        "db": os.environ.get("BLOG_MYSQL_DB") or "flask_blog",
+    }
+
+
+def _safe_backup_name(name):
+    """防路径穿越：仅允许 backup_*.zip / backup_*.db / backup_*.sql 纯文件名。"""
+    if not name or name != os.path.basename(name) or name.startswith("."):
+        return False
+    return name.startswith("backup_") and name.endswith((".zip", ".db", ".sql"))
+
+
+def _resolved_backup_path(name):
+    """把备份文件名安全解析为 backups 目录内的绝对路径；非法名称返回 None。
+
+    双重防护：先 _safe_backup_name 白名单校验，再 safe_join 确保结果仍落在
+    backups 目录内（safe_join 会阻断 ../ 等路径穿越），CodeQL 亦能识别该净化点。
+    """
+    if not _safe_backup_name(name):
+        return None
+    return safe_join(_backup_dir(), name)
+
+
+def _list_backups(backup_dir):
+    files = []
+    for name in os.listdir(backup_dir):
+        if not _safe_backup_name(name):
+            continue
+        p = os.path.join(backup_dir, name)
+        if os.path.isfile(p):
+            st = os.stat(p)
+            files.append(
+                {
+                    "name": name,
+                    "size": st.st_size,
+                    "mtime_str": datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d %H:%M:%S"),
+                }
+            )
+    files.sort(key=lambda x: x["name"], reverse=True)
+    return files
+
+
+def _create_backup(backup_dir):
+    """备份打包为 zip：内含 .db（SQLite）或 .sql（MySQL）单个文件。"""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    zip_name = f"backup_{timestamp}.zip"
+    zip_path = os.path.join(backup_dir, zip_name)
+    if _db_type() == "mysql":
+        c = _mysql_creds()
+        env = os.environ.copy()
+        env["MYSQL_PWD"] = c["pwd"]
+        cmd = ["mysqldump", "-h", c["host"], "-u", c["user"], c["db"]]
+        inner_name = f"backup_{timestamp}.sql"
+        result = subprocess.run(cmd, capture_output=True, check=True, env=env)
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr(inner_name, result.stdout)
+        return zip_name
+    inner_name = f"backup_{timestamp}.db"
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.write(_sqlite_db_path(), arcname=inner_name)
+    return zip_name
+
+
+def _backup_payload(path):
+    """读取备份内容为 (bytes, kind)，kind ∈ {"db", "sql"}。兼容 .zip 与旧版 .db/.sql。
+
+    path 必须为 _resolved_backup_path() 解析出的安全绝对路径。
+    """
+    if path.endswith(".zip"):
+        with zipfile.ZipFile(path) as zf:
+            for n in zf.namelist():
+                if n.endswith(".db"):
+                    return zf.read(n), "db"
+                if n.endswith(".sql"):
+                    return zf.read(n), "sql"
+        raise ValueError("zip 内未找到数据库文件")
+    if path.endswith(".db"):
+        with open(path, "rb") as f:
+            return f.read(), "db"
+    with open(path, "rb") as f:
+        return f.read(), "sql"
+
+
+@admin_bp.route("/backup", methods=["GET", "POST"])
+@admin_required
+def backup():
+    backup_dir = _backup_dir()
+    if request.method == "POST":
+        try:
+            filename = _create_backup(backup_dir)
+            flash(_("备份成功：%(name)s", name=filename), "success")
+        except Exception as e:
+            log.error("备份失败: %s", e, exc_info=True)
+            flash(_("备份失败：%(err)s", err=e), "danger")
+        return redirect(url_for("admin.backup"))
+    return render_template("admin/backup.html", backups=_list_backups(backup_dir), db_type=_db_type())
+
+
+@admin_bp.route("/backup/download/<name>")
+@admin_required
+def backup_download(name):
+    if not _safe_backup_name(name):
+        abort(404)
+    return send_from_directory(_backup_dir(), name, as_attachment=True)
+
+
+@admin_bp.route("/backup/delete/<name>", methods=["POST"])
+@admin_required
+def backup_delete(name):
+    path = _resolved_backup_path(name)
+    if not path:
+        abort(404)
+    try:
+        os.remove(path)
+        flash(_("备份已删除"), "success")
+    except OSError:
+        flash(_("删除失败"), "danger")
+    return redirect(url_for("admin.backup"))
+
+
+@admin_bp.route("/backup/restore/<name>", methods=["POST"])
+@admin_required
+def backup_restore(name):
+    path = _resolved_backup_path(name)
+    if not path:
+        abort(404)
+    if not os.path.isfile(path):
+        flash(_("备份文件不存在"), "danger")
+        return redirect(url_for("admin.backup"))
+    try:
+        data, _kind = _backup_payload(path)
+        # 恢复前先自动做一次即时备份，便于回滚
+        _create_backup(_backup_dir())
+        if _db_type() == "mysql":
+            c = _mysql_creds()
+            env = os.environ.copy()
+            env["MYSQL_PWD"] = c["pwd"]
+            cmd = ["mysql", "-h", c["host"], "-u", c["user"], c["db"]]
+            subprocess.run(cmd, input=data, check=True, env=env)
+        else:
+            db.engine.dispose()
+            with open(_sqlite_db_path(), "wb") as f:
+                f.write(data)
+        flash(_("恢复成功"), "success")
+    except Exception as e:
+        log.error("恢复失败: %s", e, exc_info=True)
+        flash(_("恢复失败：%(err)s", err=e), "danger")
+    return redirect(url_for("admin.backup"))

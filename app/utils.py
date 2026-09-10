@@ -57,6 +57,10 @@ ALLOWED_TAGS = {
     "article",
     "header",
     "footer",
+    "video",
+    "audio",
+    "source",
+    "track",
 }
 
 # 允许的属性
@@ -78,6 +82,10 @@ ALLOWED_ATTRS = {
     "h5": {"class"},
     "h6": {"class"},
     "blockquote": {"class"},
+    "video": {"src", "controls", "width", "height", "class", "style", "poster", "preload"},
+    "audio": {"src", "controls", "class", "style", "preload"},
+    "source": {"src", "type"},
+    "track": {"src", "kind", "srclang", "label", "default"},
 }
 
 # URL 协议白名单（防 javascript: data: 等）
@@ -98,8 +106,11 @@ def sanitize_html(raw_html: str) -> str:
     )
 
 
-def strip_html(raw_html: str, max_len: int = 220) -> str:
-    """去除 HTML 标签,提取纯文本摘要"""
+def strip_html(raw_html: str, max_len: int | None = 220) -> str:
+    """去除 HTML 标签,提取纯文本摘要。
+
+    max_len=None 表示不截断，适用于全文字数统计等场景。
+    """
     if not raw_html:
         return ""
     # nh3.clean 已剥离 script/style,再剥离所有标签
@@ -108,7 +119,7 @@ def strip_html(raw_html: str, max_len: int = 220) -> str:
     text = text.replace("&nbsp;", " ").replace("&lt;", "<").replace("&gt;", ">")
     text = text.replace("&amp;", "&").replace("&quot;", '"').replace("&#39;", "'")
     text = re.sub(r"\s+", " ", text).strip()
-    if len(text) > max_len:
+    if max_len is not None and len(text) > max_len:
         return text[:max_len] + "..."
     return text
 

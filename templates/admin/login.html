@@ -37,7 +37,12 @@
                 </div>
                 <button class="btn btn-dark w-100 py-1">{{ _('登录') }}</button>
             </form>
-            <div class="text-center mt-4">
+            <div class="text-center mt-3">
+                <a href="{{ url_for('admin.forgot') }}" class="text-secondary text-decoration-none">
+                    <i class="bi bi-question-circle"></i> {{ _('忘记密码？') }}
+                </a>
+            </div>
+            <div class="text-center mt-2">
                 <a href="{{ url_for('blog.index') }}" class="text-secondary text-decoration-none">
                     <i class="bi bi-arrow-left"></i> {{ _('返回博客首页') }}
                 </a>

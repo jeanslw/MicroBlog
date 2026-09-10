@@ -4,29 +4,71 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{{ site_name }}{% endblock %}</title>
+    {% block meta %}{% endblock %}
     <link rel="icon" href="{{ site_favicon or url_for('static', filename='favicon.ico') }}" type="image/x-icon">
     <link href="{{ url_for('static', filename='lib/bootstrap.min.css') }}" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='lib/bootstrap-icons.css') }}">
     <link href="{{ url_for('static', filename='lib/prism-tomorrow.min.css') }}" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/themes.css') }}?v=20260906a" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/themes.css') }}?v=20260911a" rel="stylesheet">
     <link rel="alternate" type="application/rss+xml" title="{{ site_name }} - RSS" href="{{ url_for('blog.feed_rss') }}">
     <link rel="alternate" type="application/atom+xml" title="{{ site_name }} - Atom" href="{{ url_for('blog.feed_atom') }}">
     <style>
         body { background:transparent; min-height:100vh; display:flex; flex-direction:column; margin:0; }
         main { flex:1; padding:8px 0; }
+        .glass-panel,
+        .blog-card,
+        .sidebar-box,
+        .card,
+        .page-header-card,
+        .admin-panel-card,
+        .alert.alert-light {
+            border: 1px solid rgba(255,255,255,0.22) !important;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+            backdrop-filter: blur(14px) saturate(1.5);
+            -webkit-backdrop-filter: blur(14px) saturate(1.5);
+            background-color: rgba(255,255,255,0.48) !important;
+        }
         .blog-card { border-radius:14px; box-shadow:0 3px 15px rgba(0,0,0,0.06); border:none; transition:0.25s ease; margin-bottom:18px; }
         .blog-card:hover { transform:translateY(-6px); box-shadow:0 8px 24px rgba(0,0,0,0.1); }
         .sidebar-box { border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,0.05); padding:20px; position:sticky; top:20px; min-height:240px; }
-        footer { color:#fff; padding:12px 0; text-align:center; }
+        footer { color:#fff; padding:4px 0; text-align:center; }
         .rss-link { display:inline-flex; align-items:center; color:#fff; font-size:1.3rem; line-height:1; opacity:.85; transition:opacity .2s, color .2s; }
         .rss-link:hover { color:#ff9800; opacity:1; }
         pre { background:#2d2d2d; color:#ccc; padding:12px 16px; border-radius:8px; overflow-x:auto; font-family:'Fira Code','Consolas','Courier New',monospace; font-size:14px; line-height:1.6; }
         :not(pre) > code { color:#e83e8c; background:#f8f9fa; padding:2px 6px; border-radius:4px; font-family:'Fira Code','Consolas',monospace; font-size:0.9em; }
         .breadcrumb-item + .breadcrumb-item::before { content:"-"; }
+        .glass-panel {
+            background: rgba(255,255,255,0.5);
+            border: 1px solid rgba(255,255,255,0.35);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 14px;
+        }
+        /* 侧边栏树形菜单（栏目分类 / 文章档案），首页与文章详情页共用 */
+        .sidebar-nav { font-size: 15px; }
+        .tree-toggle { color: #495057; text-decoration: none; }
+        .tree-toggle:hover { color: #0d6efd; }
+        .tree-chevron { display: inline-block; transition: transform .2s ease; font-size: .8rem; }
+        .tree-toggle[aria-expanded="true"] > .tree-chevron { transform: rotate(90deg); }
+        .tree-children { border-left: 1px dashed rgba(0,0,0,.15); margin: 2px 0 6px 7px; padding-left: 8px; }
+        .tree-children .nav-link { font-size: 13px; line-height: 1.5; padding: 1px 0; color: #6c757d; }
+        .tree-children .nav-link:hover { color: #0d6efd; }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
 <body data-bg="{{ site_bg_style }}"{% if site_bg_custom %} style="--custom-bg: url('{{ site_bg_custom }}')"{% endif %}>
+<script>
+/* 首帧即应用用户保存的背景风格，避免先渲染默认 bg1 再闪到经典风格 */
+(function () {
+    var supported = ['bg1', 'bg2', 'bg3', 'bg4', 'bg5', 'bg6', 'bg7', 'bg8', 'bg9', 'bg10',
+                     'vdysjx', 'bg13', 'custom', 'classic'];
+    var saved = null;
+    try { saved = localStorage.getItem('blog-bg-style'); } catch (e) { saved = null; }
+    if (saved && supported.indexOf(saved) !== -1) {
+        document.body.setAttribute('data-bg', saved);
+    }
+})();
+</script>
 <!-- 动态背景层（风格由 themes.css + theme-switcher.js 控制） -->
 <div class="bg-layer" id="bgLayer" aria-hidden="true"></div>
 <!-- Flash Toast 容器（牛皮癣式提示，不占用页面布局） -->
@@ -57,6 +99,9 @@
                     <a class="nav-link" href="{{ url_for('blog.about') }}">{{ _('关于我') }}</a>
                 </li>
                 {% if current_user.is_authenticated %}
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('admin.panel') }}">{{ _('管理') }}</a>
+                </li>
                 <li class="nav-item ms-lg-2">
                     <form method="POST" action="{{ url_for('admin.logout') }}" class="d-flex h-100 align-items-center">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

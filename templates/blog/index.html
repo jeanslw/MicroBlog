@@ -65,51 +65,7 @@
 <div class="row g-4">
     <!-- 侧边栏目栏 -->
     <div class="col-lg-3">
-        <div class="sidebar-box">
-            <h5 class="fw-bold border-bottom pb-2"><i class="bi bi-list-ul"></i> {{ _('栏目分类') }}</h5>
-            <ul class="nav flex-column mt-3">
-                <li class="nav-item mb-2">
-                    <a class="nav-link px-0" href="{{ url_for('blog.index') }}">{{ _('全部文章') }} ({{ all_article_count }})</a>
-                </li>
-                {% for cat in categories %}
-                <li class="nav-item mb-2 d-flex align-items-center justify-content-between">
-                    <a class="nav-link px-0" href="{{ url_for('blog.category', cid=cat.id) }}">
-                        {{ cat.cat_name }} <span class="text-muted">({{ cat.art_count }})</span>
-                    </a>
-                    {% if current_user.is_authenticated %}
-                    <span class="d-inline-flex align-items-center gap-1 ms-3">
-                    <form method="POST" action="{{ url_for('blog.edit_category', cid=cat.id) }}"
-                          onsubmit="var n=prompt('{{ _('输入新栏目名称') }}', {{ cat.cat_name|tojson }}); if(n===null) return false; var i=document.createElement('input'); i.type='hidden'; i.name='cat_name'; i.value=n; this.appendChild(i);">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="btn btn-sm btn-outline-secondary p-0 px-1"
-                                title="{{ _('重命名栏目') }}" aria-label="{{ _('重命名栏目') }}">
-                            <i class="bi bi-pencil"></i>
-                        </button>
-                    </form>
-                    <form method="POST" action="{{ url_for('blog.del_category', cid=cat.id) }}"
-                          onsubmit="return confirm('{{ _('确定删除该栏目及标签？该栏目下文章将变为未分类。') }}')">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="btn btn-sm btn-outline-danger p-0 px-1"
-                                title="{{ _('删除栏目') }}" aria-label="{{ _('删除栏目') }}">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </form>
-                    </span>
-                    {% endif %}
-                </li>
-                {% endfor %}
-            </ul>
-            {% if current_user.is_authenticated %}
-            <hr>
-            <h6 class="fw-semibold">{{ _('新建栏目') }}</h6>
-            <form action="{{ url_for('blog.add_category') }}" method="POST">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input name="cat_name" class="form-control form-control-sm mb-2" placeholder="{{ _('栏目名称') }}" required>
-                <input name="tag_text" class="form-control form-control-sm mb-2" placeholder="{{ _('标签（选填）') }}">
-                <button class="btn btn-sm btn-primary w-100">{{ _('添加分类') }}</button>
-            </form>
-            {% endif %}
-        </div>
+        {% include "blog/_sidebar.html" %}
     </div>
 
     <!-- 文章主列表 -->

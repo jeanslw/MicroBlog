@@ -27,7 +27,7 @@ def _env_bool(name: str, default: str = "false") -> bool:
 
 # ── 业务常量（不随环境变化，直接定义供模块导入） ───────────
 # 应用版本（SemVer）。发布新版本时更新，须与 Git Tag 保持一致。
-APP_VERSION = "1.3.1"
+APP_VERSION = "1.3.2"
 
 PAGE_SIZE = int(os.environ.get("BLOG_PAGE_SIZE", "6"))
 
@@ -89,6 +89,17 @@ class Config:
     PROXY_FIX_X_PROTO = int(os.environ.get("BLOG_PROXY_XPROTO", "0"))
     PROXY_FIX_X_HOST = int(os.environ.get("BLOG_PROXY_XHOST", "0"))
 
+    # ── 邮件（找回密码） ────────────────────────────────
+    MAIL_HOST = os.environ.get("BLOG_MAIL_HOST", "")
+    MAIL_PORT = int(os.environ.get("BLOG_MAIL_PORT", "587") or "587")
+    MAIL_USER = os.environ.get("BLOG_MAIL_USER", "")
+    MAIL_PASSWORD = os.environ.get("BLOG_MAIL_PASSWORD", "")
+    MAIL_FROM = os.environ.get("BLOG_MAIL_FROM", "")
+    MAIL_USE_SSL = _env_bool("BLOG_MAIL_USE_SSL", "false")
+    MAIL_USE_TLS = _env_bool("BLOG_MAIL_USE_TLS", "true")
+    # 密码找回令牌有效期（秒）
+    RESET_TOKEN_MAX_AGE = int(os.environ.get("BLOG_RESET_TOKEN_MAX_AGE", "1800"))
+
 
 class DevelopmentConfig(Config):
     DEBUG = True
@@ -108,24 +119,27 @@ class ProductionConfig(Config):
 # 在类外部预先计算并设置 SQLALCHEMY_DATABASE_URI（Flask-SQLAlchemy
 # 通过 from_object 读取类属性）。
 def _resolve_db_uri_for_class(cls):
-    db_type = os.environ.get("BLOG_DB_TYPE", "sqlite")
+    db_type = (os.environ.get("BLOG_DB_TYPE") or "sqlite").strip().lower()
     if db_type == "mysql":
-        host = os.environ.get("BLOG_MYSQL_HOST", "localhost")
-        user = os.environ.get("BLOG_MYSQL_USER", "root")
-        pwd = os.environ.get("BLOG_MYSQL_PWD", "")
-        db = os.environ.get("BLOG_MYSQL_DB", "flask_blog")
-        cls.SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{user}:{pwd}@{host}/{db}?charset=utf8mb4"
-        # MySQL 连接建立时显式启用严格模式,确保部署到外部 MySQL（非 Docker,
-        # 服务端可能未设 sql-mode）时也按严格模式运行,避免静默截断/隐式转换。
-        # 仅在 MySQL 方言下注入 connect_args,SQLite 不受影响。
-        cls.SQLALCHEMY_ENGINE_OPTIONS = {
-            "connect_args": {
-                "init_command": "SET sql_mode='STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION'",
-            },
-        }
-    else:
-        path = os.environ.get("BLOG_SQLITE_PATH", "data/blog.db")
-        cls.SQLALCHEMY_DATABASE_URI = "sqlite:///" + os.path.abspath(path)
+        host = os.environ.get("BLOG_MYSQL_HOST") or "localhost"
+        user = os.environ.get("BLOG_MYSQL_USER") or "root"
+        pwd = os.environ.get("BLOG_MYSQL_PWD") or ""
+        db_name = os.environ.get("BLOG_MYSQL_DB") or "flask_blog"
+        # 生产环境下如果任意 MySQL 连接字段缺失,不要让应用直接崩掉，而是优雅回退到 SQLite，
+        # 这样能在最坏情况下继续运行，避免“配置残缺导致启动失败”。
+        if not host or not user or not db_name:
+            db_type = "sqlite"
+        if db_type == "mysql":
+            cls.SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{user}:{pwd}@{host}/{db_name}?charset=utf8mb4"
+            cls.SQLALCHEMY_ENGINE_OPTIONS = {
+                "connect_args": {
+                    "init_command": "SET sql_mode='STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION'",
+                },
+            }
+            return
+    path = os.environ.get("BLOG_SQLITE_PATH") or "data/blog.db"
+    cls.SQLALCHEMY_DATABASE_URI = "sqlite:///" + os.path.abspath(path)
+    cls.SQLALCHEMY_ENGINE_OPTIONS = {}
 
 
 _resolve_db_uri_for_class(DevelopmentConfig)

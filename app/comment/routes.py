@@ -32,6 +32,14 @@ def _normalize_username(raw: str) -> str:
     return (raw.strip() or "游客")[:USERNAME_MAX_LEN]
 
 
+def _comments_enabled() -> bool:
+    """评论总开关是否开启（site_config.comments_enabled，未设置默认开启）。"""
+    from app.models import SiteConfig
+
+    val = db.session.scalar(db.select(SiteConfig.comments_enabled))
+    return True if val is None else bool(val)
+
+
 def _vote_return_to(aid: int) -> str:
     """点赞后的跳转目标：next 合法（站内相对路径）则返回 next,否则回文章详情页"""
     nxt = (request.form.get("next") or "").strip()
@@ -87,6 +95,10 @@ def add_comment(aid):
         flash(_("文章不存在或未发布"), "warning")
         return redirect(url_for("blog.index"))
 
+    if not _comments_enabled():
+        flash(_("评论已关闭"), "warning")
+        return redirect(url_for("blog.article_detail", aid=aid))
+
     form = CommentForm()
     if not form.validate_on_submit():
         for field, errs in form.errors.items():
@@ -118,6 +130,10 @@ def add_reply(aid, cid):
     comment = db.session.get(Comment, cid)
     if not comment or comment.article_id != aid:
         flash(_("评论不存在"), "warning")
+        return redirect(url_for("blog.article_detail", aid=aid))
+
+    if not _comments_enabled():
+        flash(_("评论已关闭"), "warning")
         return redirect(url_for("blog.article_detail", aid=aid))
 
     form = ReplyForm()

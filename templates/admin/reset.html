@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}{{ _('重置密码') }} - {{ site_name }}{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item active" aria-current="page">{{ _('重置密码') }}</li>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .login-box { border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,.15); margin-top: 40px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-4">
+        <div class="card login-box p-4">
+            <h4 class="text-center mb-3 fw-bold">
+                <i class="bi bi-key text-primary"></i> {{ _('重置密码') }}
+            </h4>
+
+            {% if form.errors %}
+            <div class="alert alert-danger py-2 small">
+                {% for field, errs in form.errors.items() %}
+                {% for err in errs %}<div>{{ err }}</div>{% endfor %}
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <form method="POST">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="mb-3">
+                    <label class="form-label">{{ _('新密码') }}</label>
+                    <input type="password" name="new_pwd" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">{{ _('确认新密码') }}</label>
+                    <input type="password" name="confirm_pwd" class="form-control" required>
+                </div>
+                <button class="btn btn-dark w-100 py-1">{{ _('重置密码') }}</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

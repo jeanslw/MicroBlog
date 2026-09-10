@@ -1,13 +1,265 @@
 {% extends "base.html" %}
 {% block title %}{{ article.title }} - {{ site_name }}{% endblock %}
 
+{% block meta %}
+{% if article.seo_description %}<meta name="description" content="{{ article.seo_description }}">{% endif %}
+{% if article.seo_keywords %}<meta name="keywords" content="{{ article.seo_keywords }}">{% endif %}
+<meta property="og:type" content="article">
+<meta property="og:title" content="{{ article.title }}">
+{% if article.seo_description %}<meta property="og:description" content="{{ article.seo_description }}">{% endif %}
+<meta property="og:url" content="{{ url_for('blog.article_detail', aid=article.id, _external=True) }}">
+{% if article.og_image %}<meta property="og:image" content="{{ article.og_image }}">{% endif %}
+<meta property="og:site_name" content="{{ site_name }}">
+{% endblock %}
+
 {% block breadcrumb %}
 <li class="breadcrumb-item active" aria-current="page">{{ article.title }}</li>
 {% endblock %}
 
 {% block extra_css %}
 <style>
-    /* 文章内容区图片样式 */
+    .reading-progress-wrap {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        height: 4px;
+        background: rgba(255, 255, 255, 0.18);
+        backdrop-filter: blur(6px);
+        margin-top: -8px;
+        margin-bottom: 18px;
+    }
+    .reading-progress-bar {
+        height: 100%;
+        width: 0;
+        background: linear-gradient(90deg, #4f9cff, #7a5cff, #ff8a5b);
+        box-shadow: 0 0 12px rgba(79, 156, 255, 0.45);
+        transition: width 0.08s linear;
+    }
+    body[data-reading-theme="light"], body:not([data-reading-theme]) {
+        --article-shell-bg: rgba(255, 255, 255, 0.62);
+        --article-shell-border: rgba(255, 255, 255, 0.4);
+        --article-meta-bg: rgba(255, 255, 255, 0.55);
+        --article-meta-text: #495057;
+        --article-text: #1f2937;
+        --article-subtle: #7a7f86;
+        --article-toc-bg: rgba(255, 255, 255, 0.5);
+        --article-toc-border: rgba(255, 255, 255, 0.35);
+        --article-toc-text: #495057;
+        --article-toc-active: #0d6efd;
+        --article-link: #0d6efd;
+        --sidebar-bg: rgba(255, 255, 255, 0.38);
+        --sidebar-border: rgba(255, 255, 255, 0.32);
+        --sidebar-text: #1f2937;
+        --sidebar-muted: #5b6470;
+        --sidebar-input: rgba(255, 255, 255, 0.35);
+        --sidebar-item-hover: rgba(13, 110, 253, 0.08);
+    }
+    body[data-reading-theme="dark"] {
+        --article-shell-bg: rgba(17, 24, 39, 0.86);
+        --article-shell-border: rgba(255, 255, 255, 0.12);
+        --article-meta-bg: rgba(31, 41, 55, 0.8);
+        --article-meta-text: #e5e7eb;
+        --article-text: #f3f4f6;
+        --article-subtle: #cbd5e1;
+        --article-toc-bg: rgba(17, 24, 39, 0.7);
+        --article-toc-border: rgba(255, 255, 255, 0.12);
+        --article-toc-text: #dfe7f3;
+        --article-toc-active: #93c5fd;
+        --article-link: #93c5fd;
+        --sidebar-bg: rgba(17, 24, 39, 0.72);
+        --sidebar-border: rgba(255, 255, 255, 0.12);
+        --sidebar-text: #f3f4f6;
+        --sidebar-muted: #d7e3f0;
+        --sidebar-input: rgba(15, 23, 42, 0.38);
+        --sidebar-item-hover: rgba(147, 197, 253, 0.12);
+    }
+    .sidebar-box {
+        background: var(--sidebar-bg) !important;
+        border: 1px solid var(--sidebar-border) !important;
+        border-radius: 18px;
+        color: var(--sidebar-text);
+        backdrop-filter: blur(18px) saturate(1.25) !important;
+        -webkit-backdrop-filter: blur(18px) saturate(1.25) !important;
+        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+        padding: 18px 14px 16px;
+    }
+    .sidebar-box h5,
+    .sidebar-box h6,
+    .sidebar-box .nav-link,
+    .sidebar-box .text-muted,
+    .sidebar-box .form-control,
+    .sidebar-box .btn,
+    .sidebar-box .badge,
+    .sidebar-box .border-bottom {
+        color: var(--sidebar-text) !important;
+    }
+    .sidebar-box .border-bottom {
+        border-color: var(--sidebar-border) !important;
+    }
+    .sidebar-box .nav-link {
+        color: var(--sidebar-text) !important;
+        border-radius: 8px;
+        transition: background 0.2s ease, color 0.2s ease;
+    }
+    .sidebar-box .nav-link:hover {
+        background: var(--sidebar-item-hover);
+        color: var(--sidebar-text) !important;
+    }
+    .sidebar-box .text-muted,
+    .sidebar-box .nav-link .text-muted,
+    .sidebar-box .small,
+    .sidebar-box .form-control::placeholder {
+        color: var(--sidebar-muted) !important;
+    }
+    .sidebar-box .form-control {
+        background: var(--sidebar-input) !important;
+        border-color: var(--sidebar-border) !important;
+        color: var(--sidebar-text) !important;
+    }
+    .article-meta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        margin-top: 10px;
+        color: var(--article-meta-text);
+        font-size: 0.95rem;
+    }
+    .article-meta-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: var(--article-meta-bg);
+        color: var(--article-meta-text);
+        border: 1px solid var(--article-shell-border);
+        border-radius: 999px;
+        padding: 6px 10px;
+    }
+    .article-toolbar {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        justify-content: center;
+        align-items: center;
+        margin: 0;
+    }
+    .article-toolbar .btn-group {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        background: rgba(255, 255, 255, 0.08);
+        padding: 2px;
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+    }
+    .article-toolbar .btn-group .btn {
+        border-radius: 999px;
+        padding: 0.34rem 0.7rem;
+        font-size: 0.78rem;
+        line-height: 1.2;
+        min-width: 0;
+        border: none;
+        background: transparent;
+        color: #f3f4f6;
+    }
+    .article-toolbar .btn-group .btn.active,
+    .article-toolbar .btn-group .btn.btn-primary {
+        background: rgba(100, 116, 139, 0.38);
+        color: #ffffff;
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+    }
+    .reader-control-strip {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        margin: 0 auto 14px;
+        padding: 8px 12px;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 999px;
+        background: rgba(17, 24, 39, 0.3);
+        backdrop-filter: blur(14px) saturate(1.2);
+        -webkit-backdrop-filter: blur(14px) saturate(1.2);
+        box-shadow: 0 10px 26px rgba(15, 23, 42, 0.2);
+        width: fit-content;
+        max-width: calc(100% - 18px);
+        min-width: 0;
+    }
+    .reader-control-tools {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        width: auto;
+    }
+    .article-layout {
+        position: relative;
+    }
+    .article-shell-card {
+        position: relative;
+        width: 100%;
+        min-width: 0;
+        padding-right: clamp(190px, 20vw, 240px);
+        background: var(--article-shell-bg) !important;
+        border-color: var(--article-shell-border) !important;
+        color: var(--article-text) !important;
+    }
+    .article-side-controls {
+        position: absolute;
+        top: 16px;
+        right: 18px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 10px;
+        z-index: 2;
+    }
+    .article-admin-rail {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: nowrap;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 8px;
+    }
+    .article-admin-rail form {
+        margin: 0;
+    }
+    .article-admin-rail .article-action-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 0;
+        width: auto;
+        border-radius: 10px;
+        padding: 0.46rem 0.8rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+        white-space: nowrap;
+    }
+    .article-content {
+        font-size: var(--article-font-size, clamp(1rem, 0.95vw + 0.72rem, 1.1rem));
+        line-height: 1.9;
+        color: var(--article-text);
+        transition: font-size 0.2s ease;
+    }
+    @media (max-width: 1199.98px) {
+        .article-shell-card {
+            padding-right: 1rem;
+        }
+        .article-side-controls {
+            position: static;
+            align-items: flex-end;
+            margin: 0 0 12px;
+        }
+        .article-admin-rail {
+            flex-direction: row;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+    }
     .article-content img {
         max-width: 100%;
         height: auto;
@@ -29,87 +281,116 @@
         color: #ccc;
         font-family: 'Fira Code', 'Consolas', monospace;
     }
+    .article-content h1,
+    .article-content h2,
+    .article-content h3 {
+        scroll-margin-top: 80px;
+    }
+    .article-toc {
+        position: sticky;
+        top: 80px;
+        background: var(--article-toc-bg);
+        border: 1px solid var(--article-toc-border);
+        border-radius: 14px;
+        padding: 14px 12px;
+        backdrop-filter: blur(12px);
+    }
+    .article-toc ul {
+        list-style: none;
+        padding-left: 0;
+        margin: 0;
+    }
+    .article-toc li {
+        margin: 6px 0;
+    }
+    .article-toc a {
+        color: var(--article-toc-text);
+        text-decoration: none;
+        font-size: 0.9rem;
+    }
+    .article-toc a:hover,
+    .article-toc a.active {
+        color: var(--article-toc-active);
+    }
+    .article-toc li[data-level="2"] { margin-left: 0; }
+    .article-toc li[data-level="3"] { margin-left: 12px; }
+    .article-section-title {
+        margin-bottom: 12px;
+        font-size: 0.85rem;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        color: var(--article-subtle);
+        text-transform: uppercase;
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="row g-4">
-    <!-- 左侧栏目菜单 -->
-    <div class="col-lg-3">
-        <div class="sidebar-box">
-            <h5 class="fw-bold border-bottom pb-2"><i class="bi bi-list-ul"></i> {{ _('栏目分类') }}</h5>
-            <ul class="nav flex-column mt-3">
-                <li class="nav-item mb-2">
-                    <a class="nav-link ps-0" href="{{ url_for('blog.index') }}">{{ _('全部文章') }}({{ all_article_count }})</a>
-                </li>
-                {% for cat in categories %}
-                <li class="nav-item mb-2 d-flex align-items-center justify-content-between">
-                    <a class="nav-link ps-0" href="{{ url_for('blog.category', cid=cat.id) }}">
-                        {{ cat.cat_name }} ({{ cat.art_count }})
-                        {% if cat.tag_text %}<span class="badge bg-secondary ms-1">#{{ cat.tag_text }}</span>{% endif %}
-                    </a>
-                    {% if current_user.is_authenticated %}
-                    <span class="d-inline-flex align-items-center gap-1 ms-3">
-                    <form method="POST" action="{{ url_for('blog.edit_category', cid=cat.id) }}"
-                          onsubmit="var n=prompt('{{ _('输入新栏目名称') }}', {{ cat.cat_name|tojson }}); if(n===null) return false; var i=document.createElement('input'); i.type='hidden'; i.name='cat_name'; i.value=n; this.appendChild(i);">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="btn btn-sm btn-outline-secondary p-0 px-1"
-                                title="{{ _('重命名栏目') }}" aria-label="{{ _('重命名栏目') }}">
-                            <i class="bi bi-pencil"></i>
-                        </button>
-                    </form>
-                    <form method="POST" action="{{ url_for('blog.del_category', cid=cat.id) }}"
-                          onsubmit="return confirm('{{ _('确定删除该栏目及标签？该栏目下文章将变为未分类。') }}')">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit" class="btn btn-sm btn-outline-danger p-0 px-1"
-                                title="{{ _('删除栏目') }}" aria-label="{{ _('删除栏目') }}">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                    </form>
-                    </span>
-                    {% endif %}
-                </li>
-                {% else %}
-                <li class="text-muted small">{{ _('管理员尚未创建栏目分类') }}</li>
-                {% endfor %}
-            </ul>
-            {% if current_user.is_authenticated %}
-            <hr>
-            <h6 class="fw-semibold">{{ _('新建栏目/标签') }}</h6>
-            <form action="{{ url_for('blog.add_category') }}" method="POST">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <input name="cat_name" class="form-control form-control-sm mb-2" placeholder="{{ _('栏目名称') }}" required>
-                <input name="tag_text" class="form-control form-control-sm mb-2" placeholder="{{ _('标签（选填）') }}">
-                <button class="btn btn-sm btn-primary w-100">{{ _('添加分类') }}</button>
-            </form>
-            {% endif %}
+<div class="reading-progress-wrap" aria-hidden="true">
+    <div class="reading-progress-bar" id="readingProgressBar"></div>
+</div>
+<div class="reader-control-strip">
+    <div class="reader-control-tools">
+        <div class="article-toolbar" aria-label="Reading controls">
+            <div class="btn-group" role="group" aria-label="Theme switch">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-theme-mode="light">{{ _('浅色') }}</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-theme-mode="dark">{{ _('深色') }}</button>
+            </div>
+            <div class="btn-group" role="group" aria-label="Font size switch">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-font-size="small">A-</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary active" data-font-size="medium">A</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-font-size="large">A+</button>
+            </div>
         </div>
-    </div>
-
-    <!-- 文章正文区域 -->
-    <div class="col-lg-9">
         {% if current_user.is_authenticated %}
-        <div class="d-flex gap-2 mb-3">
-            <a href="{{ url_for('blog.article_edit', aid=article.id) }}" class="btn btn-sm btn-outline-dark">
-                <i class="bi bi-pencil"></i> {{ _('编辑') }}
+        <div class="article-admin-rail" aria-label="Article actions">
+            <a href="{{ url_for('blog.article_edit', aid=article.id) }}" class="btn btn-success article-action-btn">
+                <i class="bi bi-pencil-square"></i> {{ _('编辑') }}
             </a>
-            <form method="POST" action="{{ url_for('blog.article_del', aid=article.id) }}" class="d-inline"
+            <form method="POST" action="{{ url_for('blog.article_pin', aid=article.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-warning article-action-btn">
+                    {% if article.is_pinned %}
+                    <i class="bi bi-pin-angle-fill"></i> {{ _('取消置顶') }}
+                    {% else %}
+                    <i class="bi bi-pin-angle"></i> {{ _('置顶') }}
+                    {% endif %}
+                </button>
+            </form>
+            <form method="POST" action="{{ url_for('blog.article_del', aid=article.id) }}"
                   onsubmit="return confirm('确定删除？')">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="btn btn-sm btn-danger">
+                <button type="submit" class="btn btn-danger article-action-btn">
                     <i class="bi bi-trash"></i> {{ _('删除') }}
                 </button>
             </form>
         </div>
         {% endif %}
-        <div class="card p-4 mb-4">
-            <h4 class="fw-bold">{{ article.title }}</h4>
-            <p class="text-muted mb-3">
-                <i class="bi bi-calendar3"></i> {{ _('发布：%(time)s', time=article.create_time) }}
-            </p>
-            <hr>
-            <div class="lh-lg article-content">
-                {{ article.content|safe }}
+    </div>
+</div>
+<div class="row g-4">
+    <!-- 左侧栏目菜单 -->
+    <div class="col-lg-3{% if article.toc %} col-xl-3{% endif %}">
+        {% include "blog/_sidebar.html" %}
+    </div>
+
+    <!-- 文章正文区域 -->
+    <div class="col-lg-9{% if article.toc %} col-xl-7{% endif %}">
+        <div class="article-layout">
+            <div class="card p-4 mb-4 article-shell-card">
+                <h4 class="fw-bold" style="color: var(--article-text); font-size: clamp(2.1rem, 1.5vw + 1.2rem, 2.8rem); letter-spacing: -0.03em;">{{ article.title }}</h4>
+                <div class="article-meta-row">
+                    {% if author_name %}
+                    <span class="article-meta-pill"><i class="bi bi-person-circle"></i> {{ author_name }}</span>
+                    {% endif %}
+                    <span class="article-meta-pill"><i class="bi bi-calendar3"></i> {{ _('发布：%(time)s', time=article.create_time) }}</span>
+                    <span class="article-meta-pill"><i class="bi bi-justify-left"></i> {{ article.word_count }} {{ _('字') }}</span>
+                    <span class="article-meta-pill"><i class="bi bi-stopwatch"></i> {{ _('约 %(minutes)s 分钟阅读', minutes=article.reading_time) }}</span>
+                </div>
+                <hr>
+                <div class="lh-lg article-content" id="articleContent">
+                    {{ article.content|safe }}
+                </div>
             </div>
         </div>
 
@@ -121,12 +402,19 @@
                     <i class="bi bi-hand-thumbs-up"></i> {{ _('点赞') }} {{ article.vote_num }}
                 </button>
             </form>
+            {% if comments_enabled %}
             <button type="button" class="btn btn-outline-primary btn-sm px-3" data-bs-toggle="modal" data-bs-target="#commentModal">
                 <i class="bi bi-chat-dots"></i> {{ _('评论') }}
             </button>
+            {% else %}
+            <span class="btn btn-outline-secondary btn-sm px-3 disabled">
+                <i class="bi bi-chat-dots"></i> {{ _('评论已关闭') }}
+            </span>
+            {% endif %}
         </div>
 
         <!-- 评论弹窗（提交后随页面刷新自动关闭） -->
+        {% if comments_enabled %}
         <div class="modal fade" id="commentModal" tabindex="-1" aria-labelledby="commentModalLabel" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">
@@ -150,6 +438,7 @@
                 </div>
             </div>
         </div>
+        {% endif %}
 
         <!-- 全部评论 -->
         <h5 class="fw-bold mb-3" id="comment_box"><i class="bi bi-chat-square-text"></i> {{ _('全部评论（%(num)s）', num=comments|length) }}</h5>
@@ -159,6 +448,7 @@
                 <span class="text-muted small">{{ c.create_time }}</span>
             </div>
             <p class="text-secondary">{{ c.content }}</p>
+            {% if comments_enabled %}
             <form action="{{ url_for('comment.add_reply', aid=article.id, cid=c.id) }}" method="POST" class="row g-2 mb-3">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="col-auto">
@@ -171,6 +461,7 @@
                     <button class="btn btn-sm btn-outline-primary">{{ _('回复') }}</button>
                 </div>
             </form>
+            {% endif %}
             {% if c.reply_list %}
                 <div class="ps-4">
                     {% for r in c.reply_list %}
@@ -184,8 +475,119 @@
             {% endif %}
         </div>
         {% else %}
-        <div class="alert alert-light text-center py-4">{{ _('暂无评论，快来抢沙发！') }}</div>
+        <div class="alert alert-light text-center py-4">
+            {% if comments_enabled %}{{ _('暂无评论，快来抢沙发！') }}{% else %}{{ _('评论已关闭') }}{% endif %}
+        </div>
         {% endfor %}
     </div>
+
+    <!-- 文章目录（右侧跳读） -->
+    {% if article.toc %}
+    <div class="col-xl-2 d-none d-xl-block">
+        <aside class="article-toc" id="article-toc">
+            <div class="article-section-title">TOC</div>
+            <ul>
+                {% for item in article.toc %}
+                <li data-level="{{ item.level }}"><a href="#{{ item.id }}">{{ item.title }}</a></li>
+                {% endfor %}
+            </ul>
+        </aside>
+    </div>
+    {% endif %}
 </div>
+<script>
+(function () {
+    const progressBar = document.getElementById('readingProgressBar');
+    const articleContent = document.getElementById('articleContent');
+    if (!progressBar || !articleContent) return;
+
+    function updateProgress() {
+        const scrollTop = window.scrollY || document.documentElement.scrollTop || 0;
+        const docHeight = document.body.scrollHeight || articleContent.scrollHeight || 0;
+        const winHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+        const maxScroll = Math.max(1, docHeight - winHeight);
+        const progressValue = Math.min(100, Math.max(0, (scrollTop / maxScroll) * 100));
+        progressBar.style.width = progressValue + '%';
+    }
+
+    updateProgress();
+    window.addEventListener('scroll', updateProgress, { passive: true });
+    window.addEventListener('resize', updateProgress);
+
+    const navButtons = document.querySelectorAll('[data-font-size]');
+    const contentRoot = document.getElementById('articleContent');
+    const fontMap = { small: '0.92rem', medium: '1rem', large: '1.12rem' };
+    const savedFont = localStorage.getItem('article-font-size') || 'medium';
+    const savedTheme = localStorage.getItem('article-theme-mode') || 'light';
+
+    function applyReadingTheme(theme) {
+        const root = document.body;
+        root.dataset.readingTheme = theme;
+        localStorage.setItem('article-theme-mode', theme);
+        document.querySelectorAll('[data-theme-mode]').forEach(function (item) {
+            const active = item.dataset.themeMode === theme;
+            item.classList.toggle('btn-primary', active);
+            item.classList.toggle('btn-outline-secondary', !active);
+            item.classList.toggle('active', active);
+        });
+    }
+
+    function applyFontSize(size) {
+        const target = fontMap[size] || fontMap.medium;
+        contentRoot.style.setProperty('--article-font-size', target);
+        localStorage.setItem('article-font-size', size);
+        navButtons.forEach(function (button) {
+            button.classList.toggle('active', button.dataset.fontSize === size);
+        });
+    }
+
+    navButtons.forEach(function (button) {
+        button.addEventListener('click', function () {
+            const size = button.dataset.fontSize || 'medium';
+            applyFontSize(size);
+        });
+    });
+
+    document.querySelectorAll('[data-theme-mode]').forEach(function (button) {
+        button.addEventListener('click', function () {
+            const theme = button.dataset.themeMode || 'light';
+            applyReadingTheme(theme);
+        });
+    });
+
+    applyFontSize(savedFont);
+    applyReadingTheme(savedTheme);
+
+    const tocLinks = document.querySelectorAll('#article-toc a');
+    const headings = Array.from(document.querySelectorAll('#articleContent h1, #articleContent h2, #articleContent h3'));
+    function updateTocHighlight() {
+        const scrollTop = window.scrollY + 120;
+        let activeId = null;
+        headings.forEach(function (heading) {
+            if (heading.offsetTop <= scrollTop) activeId = heading.id;
+        });
+        tocLinks.forEach(function (link) {
+            const isActive = link.getAttribute('href') === '#' + activeId;
+            link.classList.toggle('active', isActive);
+        });
+    }
+    if (tocLinks.length && headings.length) {
+        window.addEventListener('scroll', updateTocHighlight, { passive: true });
+        updateTocHighlight();
+    }
+
+    document.querySelectorAll('#article-toc a').forEach(function (link) {
+        link.addEventListener('click', function (event) {
+            const targetId = link.getAttribute('href');
+            if (targetId && targetId.indexOf('#') === 0) {
+                const target = document.getElementById(targetId.slice(1));
+                if (target) {
+                    event.preventDefault();
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }
+        });
+    });
+})();
+</script>
 {% endblock %}

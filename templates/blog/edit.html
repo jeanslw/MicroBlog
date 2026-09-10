@@ -10,18 +10,48 @@
 <style>
     .edit-card {border-radius:14px;box-shadow:0 4px 20px rgba(0,0,0,0.08);}
     /* EasyMDE 编辑器暗色适配 */
-    .editor-toolbar { border-radius: 8px 8px 0 0; border-color: #dee2e6; }
+    .editor-toolbar {
+        border-radius: 8px 8px 0 0;
+        border-color: rgba(148, 163, 184, 0.5);
+        background: rgba(255,255,255,0.9);
+        backdrop-filter: blur(6px);
+    }
+    .editor-toolbar button {
+        color: #495057;
+    }
+    .editor-toolbar button:hover,
+    .editor-toolbar button.active {
+        background: rgba(13, 110, 253, 0.08);
+        color: #0d6efd;
+        border-radius: 6px;
+    }
     .CodeMirror {
         border-radius: 0 0 8px 8px;
-        border-color: #dee2e6;
-        min-height: 400px;
+        border-color: rgba(148, 163, 184, 0.5);
+        min-height: 420px;
         font-size: 14px;
-        line-height: 1.7;
+        line-height: 1.8;
+        font-family: 'Fira Code', 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+        background: rgba(248, 250, 252, 0.96);
+        color: #111827;
     }
+    .CodeMirror-cursor { border-left: 2px solid #2563eb; }
     .editor-preview {
         border-radius: 0 0 8px 8px;
-        border-color: #dee2e6;
-        background: #fefefe;
+        border-color: rgba(148, 163, 184, 0.5);
+        background: rgba(255,255,255,0.9);
+    }
+    .CodeMirror-scroll {
+        min-height: 420px;
+    }
+    .draft-restore-modal .modal-content {
+        border-radius: 18px;
+        border: 1px solid rgba(148, 163, 184, 0.35);
+        box-shadow: 0 20px 50px rgba(15, 23, 42, 0.2);
+        overflow: hidden;
+    }
+    .draft-restore-modal .modal-header {
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(168, 85, 247, 0.08));
     }
     /* 预览区代码块 */
     .editor-preview pre {
@@ -99,8 +129,25 @@
                             <input type="file" id="md_upload_input" accept=".md,.markdown,text/markdown,text/x-markdown,text/plain" style="display:none;">
                             <button type="button" id="upload_image_btn" data-upload-url="{{ url_for('admin.upload_image') }}">📷 {{ _('上传图片') }}</button>
                             <input type="file" id="image_upload_input" accept="image/jpeg,image/png,image/gif" style="display:none;">
+                            <button type="button" id="insert_media_btn">🎵/🎬 {{ _('插入媒体') }}</button>
                         </div>
                     </div>
+                </div>
+                <div class="mb-4">
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label fw-semibold">{{ _('SEO 描述（留空自动生成）') }}</label>
+                    <input type="text" name="seo_description" class="form-control" maxlength="300"
+                           value="{{ article.seo_description if article else '' }}"
+                           placeholder="{{ _('用于搜索引擎摘要，留空则自动从正文生成') }}">
+                    <div class="form-text">{{ _('建议 160 字以内') }}</div>
+                </div>
+                <div class="mb-4">
+                    <label class="form-label fw-semibold">{{ _('SEO 关键词（留空自动生成）') }}</label>
+                    <input type="text" name="seo_keywords" class="form-control" maxlength="300"
+                           value="{{ article.seo_keywords if article else '' }}"
+                           placeholder="{{ _('逗号分隔，留空则从栏目/标题自动生成') }}">
                 </div>
                 <div class="mb-4">
                     <label class="form-label fw-semibold">{{ _('保存方式') }}</label>
@@ -114,6 +161,10 @@
                             {% if article and article.status == 'publish' %}checked{% endif %}>
                         <label class="form-check-label" for="pub">{{ _('公开发布（所有人可见）') }}</label>
                     </div>
+                </div>
+                <div class="d-flex align-items-center gap-2 mb-3 text-muted small" id="auto-save-status" aria-live="polite" data-auto-save="auto-save">
+                    <i class="bi bi-cloud-arrow-up"></i>
+                    <span>{{ _('自动保存草稿已启用') }} (auto-save)</span>
                 </div>
                 <div class="d-flex gap-3">
                     <button type="submit" class="btn btn-success flex-grow-1 py-1">{{ _('提交保存') }}</button>
@@ -139,7 +190,31 @@
     data-md-read-error='{{ _('读取 Markdown 文件失败，请检查文件编码（建议 UTF-8）') | e }}'
     data-loading='{{ _('加载中…') | e }}'
     data-image-alt='{{ _('图片') | e }}'
+    data-media-title='{{ _('插入媒体') | e }}'
+    data-media-type='{{ _('媒体类型') | e }}'
+    data-media-audio='{{ _('音频') | e }}'
+    data-media-video='{{ _('视频') | e }}'
+    data-media-url='{{ _('媒体链接') | e }}'
+    data-media-cancel='{{ _('取消') | e }}'
+    data-media-confirm='{{ _('确认插入') | e }}'
 ></div>
+<div class="modal fade draft-restore-modal" id="draftRestoreModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0">
+                <h6 class="modal-title fw-bold mb-0"><i class="bi bi-file-earmark-text text-primary"></i> {{ _('恢复草稿') }}</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body py-3">
+                <p class="mb-0 text-secondary">{{ _('检测到未保存草稿，是否恢复？') }}</p>
+            </div>
+            <div class="modal-footer border-0 pt-0">
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">{{ _('取消') }}</button>
+                <button type="button" class="btn btn-sm btn-primary" id="confirmRestoreDraft">{{ _('恢复草稿') }}</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -180,8 +255,8 @@ function htmlToMarkdown(html) {
     md = md.replace(/<img[^>]*src="([^"]*)"[^>]*>/gi, '![]($1)');
     // 列表
     md = md.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, '- $1\n');
-    // 去掉其余标签
-    md = md.replace(/<[^>]+>/g, '');
+    // 去掉其余标签（保留音视频标签，供详情页渲染）
+    md = md.replace(/<(?!\/?(?:video|audio|source|track)\b)[^>]+>/gi, '');
     // 解码实体
     md = md.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&nbsp;/g, ' ');
     // 清理多余空行
@@ -215,10 +290,11 @@ var easyMDE = new EasyMDE({
     placeholder: [i18n.mdPlaceholder, '', '```python', 'print("hello world")', '```', '', i18n.mdHint].join('\n'),
     tabSize: 4,
     autosave: { enabled: false },
+    mode: 'gfm',
     toolbar: [
         'bold', 'italic', 'strikethrough', 'heading', '|',
         'code', 'quote', 'unordered-list', 'ordered-list', '|',
-        'link', 'table', 'horizontal-rule', '|',
+        'link', 'image', 'table', 'horizontal-rule', '|',
         'preview', 'side-by-side', 'fullscreen', '|',
         'guide'
     ],
@@ -237,6 +313,105 @@ var easyMDE = new EasyMDE({
     status: ['lines', 'words', 'cursor'],
     styleSelectedText: false,
     minHeight: '400px'
+});
+
+const autoSaveStatus = document.getElementById('auto-save-status');
+const draftKey = "blog_editor_draft_{{ article.id if article else 'new' }}";
+const initialTitle = document.querySelector('input[name="title"]').value || '';
+const initialContent = easyMDE.value();
+let submitting = false;
+
+function updateAutoSaveStatus(message) {
+    if (!autoSaveStatus) return;
+    const label = autoSaveStatus.querySelector('span');
+    if (label) label.textContent = message;
+}
+
+function saveDraft() {
+    const titleInput = document.querySelector('input[name="title"]');
+    const statusInput = document.querySelector('input[name="status"]:checked');
+    const data = {
+        title: titleInput ? titleInput.value : '',
+        content: easyMDE.value(),
+        status: statusInput ? statusInput.value : 'draft',
+        updatedAt: Date.now()
+    };
+    localStorage.setItem(draftKey, JSON.stringify(data));
+    updateAutoSaveStatus('{{ _('自动保存草稿已保存') }}');
+}
+
+let blogDraftTimer = null;
+easyMDE.codemirror.on('change', function() {
+    updateAutoSaveStatus('{{ _('自动保存草稿中...') }}');
+    clearTimeout(blogDraftTimer);
+    blogDraftTimer = setTimeout(saveDraft, 1200);
+});
+
+document.querySelector('input[name="title"]').addEventListener('input', function() {
+    clearTimeout(blogDraftTimer);
+    blogDraftTimer = setTimeout(saveDraft, 1200);
+});
+
+document.querySelectorAll('input[name="status"]').forEach(function (radio) {
+    radio.addEventListener('change', saveDraft);
+});
+
+const savedDraft = localStorage.getItem(draftKey);
+const draftRestoreModal = document.getElementById('draftRestoreModal');
+const confirmRestoreDraft = document.getElementById('confirmRestoreDraft');
+
+function restoreDraftFromStorage() {
+    try {
+        const draft = JSON.parse(savedDraft || '{}');
+        if (!(draft && (draft.title || draft.content))) return;
+
+        const titleInput = document.querySelector('input[name="title"]');
+        if (titleInput) titleInput.value = draft.title || '';
+        easyMDE.value(draft.content || '');
+        if (draft.status) {
+            const radio = document.querySelector('input[name="status"][value="' + draft.status + '"]');
+            if (radio) radio.checked = true;
+        }
+        updateAutoSaveStatus('{{ _('草稿已恢复') }}');
+    } catch (e) {
+        localStorage.removeItem(draftKey);
+    }
+}
+
+if (savedDraft) {
+    try {
+        const draft = JSON.parse(savedDraft);
+        const changed = (draft.title || '') !== initialTitle || (draft.content || '') !== initialContent;
+        if (draft && (draft.title || draft.content) && changed) {
+            if (draftRestoreModal && confirmRestoreDraft) {
+                const modal = new bootstrap.Modal(draftRestoreModal);
+                confirmRestoreDraft.addEventListener('click', function () {
+                    restoreDraftFromStorage();
+                    modal.hide();
+                }, { once: true });
+                // 弹窗关闭（无论恢复或取消）后清除这份草稿，避免下次再弹
+                draftRestoreModal.addEventListener('hidden.bs.modal', function () {
+                    localStorage.removeItem(draftKey);
+                });
+                modal.show();
+            } else {
+                restoreDraftFromStorage();
+            }
+        } else {
+            // 草稿与当前内容一致或为空：直接清掉，无需弹窗
+            localStorage.removeItem(draftKey);
+        }
+    } catch (e) {
+        localStorage.removeItem(draftKey);
+    }
+}
+
+window.addEventListener('beforeunload', function() {
+    if (submitting) return;
+    const titleInput = document.querySelector('input[name="title"]');
+    const titleNow = titleInput ? titleInput.value : '';
+    if (titleNow === initialTitle && easyMDE.value() === initialContent) return;
+    saveDraft();
 });
 
 // 自定义图片上传功能
@@ -365,8 +540,82 @@ var easyMDE = new EasyMDE({
     });
 })();
 
-// 表单提交前：Markdown → HTML
+(function() {
+    var mediaBtn = document.getElementById('insert_media_btn');
+    if (!mediaBtn) return;
+
+    function showMediaModal() {
+        var modalId = 'media-modal';
+        var existing = document.getElementById(modalId);
+        if (existing) {
+            existing.remove();
+        }
+
+        var modal = document.createElement('div');
+        modal.id = modalId;
+        modal.className = 'modal fade';
+        modal.setAttribute('tabindex', '-1');
+        modal.setAttribute('aria-hidden', 'true');
+        modal.innerHTML = [
+            '<div class="modal-dialog modal-dialog-centered">',
+            '  <div class="modal-content">',
+            '    <div class="modal-header">',
+            '      <h5 class="modal-title">' + i18n.mediaTitle + '</h5>',
+            '      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>',
+            '    </div>',
+            '    <div class="modal-body">',
+            '      <div class="mb-3">',
+            '        <label class="form-label fw-semibold">' + i18n.mediaType + '</label>',
+            '        <select id="media-type-select" class="form-select">',
+            '          <option value="audio">' + i18n.mediaAudio + '</option>',
+            '          <option value="video">' + i18n.mediaVideo + '</option>',
+            '        </select>',
+            '      </div>',
+            '      <div class="mb-3">',
+            '        <label class="form-label fw-semibold">' + i18n.mediaUrl + '</label>',
+            '        <input id="media-url-input" class="form-control" type="url" value="https://example.com/audio.mp3" placeholder="https://...">',
+            '      </div>',
+            '    </div>',
+            '    <div class="modal-footer">',
+            '      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">' + i18n.mediaCancel + '</button>',
+            '      <button type="button" class="btn btn-primary" id="media-confirm-btn">' + i18n.mediaConfirm + '</button>',
+            '    </div>',
+            '  </div>',
+            '</div>'
+        ].join('');
+
+        document.body.appendChild(modal);
+        var bootstrapModal = new bootstrap.Modal(modal);
+        document.getElementById('media-confirm-btn').addEventListener('click', function() {
+            var type = document.getElementById('media-type-select').value;
+            var url = document.getElementById('media-url-input').value.trim();
+            if (!url) {
+                document.getElementById('media-url-input').focus();
+                return;
+            }
+
+            var snippet = type === 'video'
+                ? '<video controls src="' + url + '" style="width:100%;max-width:640px;border-radius:8px;"></video>'
+                : '<audio controls src="' + url + '" style="width:100%;max-width:640px;"></audio>';
+
+            var cm = easyMDE.codemirror;
+            var cursor = cm.getCursor();
+            cm.replaceSelection(snippet);
+            cm.setCursor({ line: cursor.line, ch: cursor.ch + snippet.length });
+            cm.focus();
+            bootstrapModal.hide();
+        });
+
+        bootstrapModal.show();
+    }
+
+    mediaBtn.addEventListener('click', showMediaModal);
+})();
+
+// 表单提交前：Markdown → HTML，并清除本次草稿（避免下次编辑再弹恢复框）
 document.getElementById('article_form').addEventListener('submit', function(e) {
+    submitting = true;
+    localStorage.removeItem(draftKey);
     var mdContent = easyMDE.value();
     var htmlContent = marked.parse(mdContent);
     document.getElementById('rich_content').value = htmlContent;
