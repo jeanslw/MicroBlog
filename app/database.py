@@ -15,6 +15,7 @@ import os
 import warnings
 
 from flask import current_app
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from app.extensions import db, log
 
@@ -23,11 +24,19 @@ def init_db():
     """创建所有表（已存在则跳过,幂等）。
 
     仅对开发/SQLite 首次启动有意义；MySQL 生产环境推荐用 init.sql + Flask-Migrate。
+    多 worker（如 gunicorn -w 4）并发启动时可能抢建同一张表,
+    对 "table already exists" 做一次重试（此时表已被其他 worker 建好,
+    create_all 的 checkfirst 会跳过已存在的表）。
     """
     # 触发所有模型注册
     from app import models  # noqa: F401
 
-    db.create_all()
+    try:
+        db.create_all()
+    except OperationalError as e:
+        if "already exists" not in str(e).lower():
+            raise
+        db.create_all()
     _migrate_admin()
     _migrate_article()
     _migrate_site_config()
@@ -173,7 +182,18 @@ def ensure_admin_exists():
 
     hashed = generate_password_hash(admin_pwd)
     db.session.add(Admin(username=admin_user, password=hashed))
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        # gunicorn 多 worker 并发启动时,其他 worker 可能已用同名账号先一步提交
+        # （username 唯一约束）。回滚后复查：确认管理员已存在即视为初始化完成,
+        # 这是预期的竞争结果,不是错误；复查仍为空才说明是其它异常。
+        db.session.rollback()
+        existing = db.session.scalar(db.select(db.func.count(Admin.id)))
+        if existing and existing > 0:
+            log.info("初始管理员已由其他进程创建,跳过: %s", admin_user)
+            return
+        raise
     log.info("初始管理员账号已创建: %s", admin_user)
 
 
@@ -188,4 +208,10 @@ def ensure_site_config():
         return
     if cnt == 0:
         db.session.add(SiteConfig(site_name="我的博客", favicon_path="static/favicon.ico"))
-        db.session.commit()
+        try:
+            db.session.commit()
+        except IntegrityError:
+            # 多 worker 并发时其他进程可能已插入；复查确认后静默跳过
+            db.session.rollback()
+            if not db.session.scalar(db.select(db.func.count(SiteConfig.id))):
+                raise

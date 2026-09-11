@@ -137,12 +137,13 @@ def create_app(config_name: str | None = None):
     with app.app_context():
         from app.database import ensure_admin_exists, ensure_site_config, init_db
 
-        try:
-            init_db()
-            ensure_site_config()
-            ensure_admin_exists()
-        except Exception as e:
-            app.logger.warning("数据库初始化跳过: %s", e)
+        # 三个步骤相互独立：多 worker 并发启动时,任一 worker 建表/写入失败
+        # 不应导致其它初始化步骤被整体跳过。
+        for _init_step in (init_db, ensure_site_config, ensure_admin_exists):
+            try:
+                _init_step()
+            except Exception as e:
+                app.logger.warning("%s 跳过: %s", _init_step.__name__, e)
 
     # ── 模板全局变量（每页面一次,带异常兜底） ─────────────
     # 注:不在此注入 csrf_token —— Flask-WTF 通过 jinja_env.globals
