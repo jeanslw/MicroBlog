@@ -43,7 +43,7 @@ def _is_trusted_host(host: str | None) -> bool:
         return False
     # 去除端口（兼容 IPv6 的 [::1]:5000 形式）
     host_only = host.split("]", 1)[0] + "]" if host.startswith("[") else host.split(":", 1)[0]
-    trusted = current_app.config.get("TRUSTED_HOSTS") or []
+    trusted = current_app.config.get("HOST_WHITELIST") or []
     if not trusted:
         return True  # 未配置白名单时放行
     return host_only.lower() in trusted
@@ -135,7 +135,11 @@ def create_app(config_name: str | None = None):
 
     # ── 启动时初始化数据库与初始数据 ────────────────────
     with app.app_context():
-        from app.database import ensure_admin_exists, ensure_site_config, init_db
+        from app.database import ensure_admin_exists, ensure_site_config, init_db, wait_for_database
+
+        # 先等数据库可连通（MySQL 容器首次初始化较慢）。超时直接抛出,
+        # 由 gunicorn/容器重启策略重新拉起,避免初始化只跑一次却静默跳过。
+        wait_for_database()
 
         # 三个步骤相互独立：多 worker 并发启动时,任一 worker 建表/写入失败
         # 不应导致其它初始化步骤被整体跳过。
@@ -202,8 +206,9 @@ def create_app(config_name: str | None = None):
     # ── Host 白名单校验（防 Host 头注入 / 密码重置邮件投毒） ─
     @app.before_request
     def _validate_host():
-        # 静态文件、健康检查等放行；其余非白名单 Host 返回 400
-        if request.endpoint == "static":
+        # 静态文件与容器健康探针放行（探针 Host 为容器内地址，无法预知）；
+        # 其余非白名单 Host 返回 400。
+        if request.endpoint in ("static", "main.healthz"):
             return None
         if not _is_trusted_host(request.host):
             app.logger.warning("拒绝非白名单 Host 请求: %s (ip=%s)", request.host, request.remote_addr)

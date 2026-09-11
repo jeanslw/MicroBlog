@@ -5,10 +5,27 @@
 
 from urllib.parse import urljoin, urlparse
 
-from flask import Response, redirect, request, session, url_for
+from flask import Response, jsonify, redirect, request, session, url_for
 
-from app.extensions import external_url_for
+from app.extensions import db, external_url_for
 from app.main import main_bp
+
+
+@main_bp.route("/healthz")
+def healthz():
+    """健康检查探针：进程存活且数据库可连通时返回 200，否则 503。
+
+    供容器 HEALTHCHECK / 编排探针使用，在 Host 白名单校验中显式豁免
+    （探针的 Host 头通常是 127.0.0.1:5000 等容器内地址，不可控）。
+    """
+    from sqlalchemy import text
+
+    try:
+        db.session.execute(text("SELECT 1"))
+    except Exception:
+        db.session.rollback()
+        return jsonify(status="db unavailable"), 503
+    return jsonify(status="ok"), 200
 
 
 def _safe_next_url(target: str) -> str | None:

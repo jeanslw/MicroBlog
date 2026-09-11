@@ -19,7 +19,17 @@ try:
 
     load_dotenv()
 except ImportError:
-    pass
+    # python-dotenv 未安装时 .env 会被静默忽略,多 worker 下还会因随机
+    # SECRET_KEY 导致登录/CSRF 随机失败。若根目录存在 .env 则明确告警,
+    # 避免这种"配置写了却没生效"的隐蔽故障。
+    import warnings
+
+    if os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")):
+        warnings.warn(
+            "检测到 .env 文件但未安装 python-dotenv,该文件不会被加载。"
+            "请执行 pip install python-dotenv 后重启服务。",
+            stacklevel=2,
+        )
 
 
 def _env_bool(name: str, default: str = "false") -> bool:
@@ -46,7 +56,7 @@ def _normalize_trusted_host(entry: str) -> str:
 
 # ── 业务常量（不随环境变化，直接定义供模块导入） ───────────
 # 应用版本（SemVer）。发布新版本时更新，须与 Git Tag 保持一致。
-APP_VERSION = "1.3.2"
+APP_VERSION = "1.3.3"
 
 PAGE_SIZE = int(os.environ.get("BLOG_PAGE_SIZE", "6"))
 
@@ -83,9 +93,12 @@ class Config:
     # 避免攻击者伪造 Host 头向管理员邮件投毒外站链接。
     # 留空时回退到 request.host_url（仅开发便捷，不推荐生产）。
     CANONICAL_URL = (os.environ.get("BLOG_CANONICAL_URL") or "").rstrip("/")
-    # Host 白名单（逗号分隔）。设置后，非白名单 Host 的请求将被拒绝（400）。
-    # 留空表示不校验（仅开发便捷）。生产环境建议设置为真实域名。
-    TRUSTED_HOSTS: ClassVar[list[str]] = [
+    # Host 白名单（逗号分隔，环境变量 BLOG_TRUSTED_HOSTS）。
+    # 设置后，非白名单 Host 的请求将被拒绝（400）；留空表示不校验（仅开发便捷）。
+    # 注意：配置键刻意不用 TRUSTED_HOSTS —— Flask 3.1 会原生消费该同名键，
+    # 在请求上下文阶段（早于 before_request）直接拒绝，且无法为 /healthz 等
+    # 容器健康探针按路径豁免。这里由应用在 before_request 自行校验。
+    HOST_WHITELIST: ClassVar[list[str]] = [
         h
         for h in (
             _normalize_trusted_host(x)
@@ -202,7 +215,7 @@ class TestingConfig(Config):
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     # 测试环境封闭：不受开发者 .env 的 Host 白名单影响
-    TRUSTED_HOSTS: ClassVar[list[str]] = []
+    HOST_WHITELIST: ClassVar[list[str]] = []
     CANONICAL_URL = ""
     # 测试密钥由 tests/conftest.py 通过 BLOG_SECRET_KEY 环境变量注入,
     # 不再在代码中硬编码,避免 CI 密钥扫描误报。

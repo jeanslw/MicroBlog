@@ -20,6 +20,39 @@ from sqlalchemy.exc import IntegrityError, OperationalError
 from app.extensions import db, log
 
 
+def wait_for_database(max_wait: int = 90, interval: float = 3.0) -> None:
+    """启动前等待数据库可连通（仅 MySQL 需要等待,SQLite 首次探测即成功）。
+
+    MySQL 容器首次启动要执行初始化（30s 以上），若应用先于数据库就绪启动,
+    建表/初始数据写入会一次性失败且启动期内不再重试。此处有限重试兜底，
+    同时覆盖非容器直跑（waitress/gunicorn 连接本机或远程 MySQL）的场景。
+    超时后抛出最后一次异常,由进程管理器（gunicorn worker 重启 / 容器重启策略）
+    继续重试。
+    """
+    import time
+
+    if db.engine.dialect.name != "mysql":
+        return
+
+    deadline = time.monotonic() + max_wait
+    attempt = 0
+    while True:
+        attempt += 1
+        try:
+            db.session.execute(db.text("SELECT 1"))
+            db.session.commit()
+            if attempt > 1:
+                log.info("MySQL 连接已就绪（第 %d 次探测成功）", attempt)
+            return
+        except Exception as e:
+            db.session.rollback()
+            if time.monotonic() >= deadline:
+                log.error("等待 MySQL 就绪超时（%ss）: %s", max_wait, e)
+                raise
+            log.warning("MySQL 尚未就绪,%.0fs 后重试（第 %d 次探测）: %s", interval, attempt, e)
+            time.sleep(interval)
+
+
 def init_db():
     """创建所有表（已存在则跳过,幂等）。
 
