@@ -64,6 +64,14 @@
         background-color: rgba(220, 53, 69, .12) !important;
         color: #dc3545;
     }
+    /* 左侧管理菜单列：lg+ 在原 col-lg-2（16.7%）基础上适当加宽，
+       clamp 限制极值避免小屏过窄/超宽屏过宽；右侧 .col 自动占满剩余空间 */
+    @media (min-width: 992px) {
+        .admin-aside {
+            flex: 0 0 auto;
+            width: clamp(240px, 21%, 420px);
+        }
+    }
     /* 右侧内容区统一毛玻璃卡片 —— 双类选择器提升优先级，覆盖 Bootstrap .card */
     .admin-panel-card.card {
         background-color: rgba(255, 255, 255, .55) !important;
@@ -85,7 +93,7 @@
 </style>
 <div class="row g-4">
     <!-- 左侧菜单区 -->
-    <aside class="col-md-3 col-lg-2">
+    <aside class="col-md-3 admin-aside">
         <div class="card admin-sidebar">
             <div class="card-body p-2">
                 <!-- 站点设置 -->
@@ -145,9 +153,9 @@
                            href="{{ url_for('admin.change_pwd') }}">
                             <i class="bi bi-key"></i> {{ _('修改密码') }}
                         </a>
-                        <a class="list-group-item list-group-item-action {% if request.endpoint == 'admin.account' %}active{% endif %}"
+                        <a class="list-group-item list-group-item-action {% if request.endpoint in ['admin.account', 'admin.mail_setting'] %}active{% endif %}"
                            href="{{ url_for('admin.account') }}">
-                            <i class="bi bi-envelope"></i> {{ _('账户邮箱') }}
+                            <i class="bi bi-envelope-gear"></i> {{ _('账户邮件设置') }}
                         </a>
                         <form method="POST" action="{{ url_for('admin.logout') }}">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -162,10 +170,6 @@
                 <div class="admin-menu-group">
                     <div class="admin-menu-title">{{ _('运维安全') }}</div>
                     <div class="list-group list-group-flush admin-menu-list">
-                        <a class="list-group-item list-group-item-action {% if request.endpoint == 'admin.mail_setting' %}active{% endif %}"
-                           href="{{ url_for('admin.mail_setting') }}">
-                            <i class="bi bi-envelope-gear"></i> {{ _('邮件设置') }}
-                        </a>
                         <a class="list-group-item list-group-item-action {% if request.endpoint == 'admin.backup' %}active{% endif %}"
                            href="{{ url_for('admin.backup') }}">
                             <i class="bi bi-database"></i> {{ _('数据库备份') }}
@@ -182,7 +186,7 @@
     </aside>
 
     <!-- 右侧功能区展示区 -->
-    <section class="col-md-9 col-lg-10">
+    <section class="col">
         {% block admin_content %}{% endblock %}
     </section>
 </div>

@@ -138,6 +138,8 @@ class SiteConfig(db.Model):
     mail_use_tls = Column(Boolean, default=True, nullable=False)
     # 评论总开关：关闭后全站禁止新评论/回复（已有评论仍可查看）
     comments_enabled = Column(Boolean, default=True, nullable=False)
+    # 侧边栏「栏目分类」样式：book=书本树形（可展开）/ classic=经典折叠箭头
+    sidebar_style = Column(String(20), default="book", nullable=False)
 
 
 class VoteLog(db.Model):
@@ -163,3 +165,19 @@ class LoginAttempt(db.Model):
     username = Column(String(100), nullable=False)
     fail_count = Column(Integer, default=0, nullable=False)
     lock_until = Column(Integer, default=0, nullable=False)
+
+
+class RateLimit(db.Model):
+    """通用频率限制记录（按 IP + 动作），用于评论/回复/点赞/找回密码防刷。
+
+    每次动作插入一条带时间戳的记录；统计窗口内的记录数判断是否超限。
+    窗口外的旧记录由 check_rate_limit 惰性清理，避免表无限膨胀。
+    """
+
+    __tablename__ = "rate_limit"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    ip = Column(String(100), nullable=False, index=True)
+    action = Column(String(50), nullable=False, index=True)
+    create_time = Column(String(50), nullable=False)
+

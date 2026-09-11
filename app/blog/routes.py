@@ -24,7 +24,7 @@ from app.blog.queries import (
     get_sidebar_tree,
     search_articles,
 )
-from app.extensions import admin_required, db, log
+from app.extensions import admin_required, db, flash_form_errors, log
 from app.forms import ArticleForm, CategoryForm
 from app.models import Admin, Article, Category, SiteConfig
 from app.utils import collect_static_upload_urls, remove_static_upload, strip_html
@@ -170,10 +170,12 @@ def article_detail(aid):
     reading_stats = _estimate_reading_stats(article.content)
     article.word_count = reading_stats["word_count"]
     article.reading_time = reading_stats["reading_minutes"]
-    article.content, article.toc = _extract_toc(article.content)
+    # 从净化后的 safe_content 提取 TOC,结果存到非映射属性 rendered_content,
+    # 不修改 mapped 的 content 列（否则每次访问都会触发一条无谓 UPDATE）
+    article.rendered_content, article.toc = _extract_toc(article.safe_content)
     # 正文首图，供 Open Graph og:image 使用
     article.og_image = ""
-    m = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', article.content or "")
+    m = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', article.rendered_content or "")
     if m:
         article.og_image = m.group(1)
     # 作者署名：昵称未设置时回退为管理员用户名
@@ -377,9 +379,7 @@ def add_category():
             db.session.rollback()
             flash(_("栏目名称重复"), "danger")
     else:
-        for field, errors in form.errors.items():
-            for err in errors:
-                flash(f"{field}: {err}", "danger")
+        flash_form_errors(form)
     return redirect(url_for("blog.index"))
 
 
@@ -427,9 +427,7 @@ def edit_category(cid):
             db.session.rollback()
             flash(_("栏目名称重复"), "danger")
     else:
-        for field, errors in form.errors.items():
-            for err in errors:
-                flash(f"{field}: {err}", "danger")
+        flash_form_errors(form)
     return redirect(url_for("blog.index"))
 
 
@@ -502,9 +500,12 @@ def _build_feed():
     """
     from feedgen.feed import FeedGenerator
 
+    from app.extensions import external_url_for
+
     articles = get_recent_articles()
     site_name = db.session.scalar(db.select(SiteConfig.site_name)) or "博客"
-    base_url = request.host_url.rstrip("/")
+    # 优先使用配置的 CANONICAL_URL,避免 Host 头注入导致订阅源链接被投毒
+    base_url = (current_app.config.get("CANONICAL_URL") or request.host_url).rstrip("/")
     feed = FeedGenerator()
     feed.id(base_url)
     feed.title(site_name)

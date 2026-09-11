@@ -20,9 +20,14 @@
         {% if db_type == 'mysql' %}{{ _('（备份依赖服务器已安装 mysqldump）') }}{% endif %}
     </p>
 
-    <div class="alert alert-warning border border-warning-subtle mb-3" role="alert">
+    <div class="alert alert-warning border border-warning-subtle alert-dismissible fade show mb-3" role="alert">
         <h5 class="alert-heading fw-bold"><i class="bi bi-exclamation-triangle-fill"></i> {{ _('恢复风险提示') }}</h5>
         <p class="mb-0">{{ _('恢复数据库将用备份文件覆盖当前全部数据，且不可撤销。操作前请务必先「立即备份」当前数据，并确认所选备份文件无误；恢复期间请勿访问后台或写入数据。') }}</p>
+        {% if db_type == 'sqlite' %}
+        <hr>
+        <p class="mb-0"><i class="bi bi-info-circle-fill"></i> {{ _('当前为 SQLite 数据库：恢复完成后必须手动重启服务（gunicorn/uwsgi），否则其他 worker 可能仍持有旧数据。') }}</p>
+        {% endif %}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="{{ _('关闭') }}"></button>
     </div>
 
     {% if backups %}

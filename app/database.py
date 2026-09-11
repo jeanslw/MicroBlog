@@ -133,6 +133,9 @@ def _migrate_site_config():
             # 评论总开关（关闭后全站禁止新评论/回复）
             if "comments_enabled" not in cols:
                 conn.execute(db.text("ALTER TABLE site_config ADD COLUMN comments_enabled BOOLEAN NOT NULL DEFAULT 1"))
+            # 栏目分类样式（book=书本树形 / classic=经典箭头）
+            if "sidebar_style" not in cols:
+                conn.execute(db.text("ALTER TABLE site_config ADD COLUMN sidebar_style VARCHAR(20) NOT NULL DEFAULT 'book'"))
     except Exception as e:
         log.warning("site_config 背景列迁移失败,可手动执行 ALTER TABLE: %s", e)
 

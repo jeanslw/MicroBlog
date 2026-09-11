@@ -7,6 +7,7 @@ from urllib.parse import urljoin, urlparse
 
 from flask import Response, redirect, request, session, url_for
 
+from app.extensions import external_url_for
 from app.main import main_bp
 
 
@@ -39,7 +40,7 @@ def set_lang(lang: str):
 @main_bp.route("/robots.txt")
 def robots():
     """简单的 robots.txt（默认允许）+ 站点地图声明"""
-    sitemap_url = url_for("main.sitemap", _external=True)
+    sitemap_url = external_url_for("main.sitemap")
     body = "User-agent: *\nAllow: /\nSitemap: " + sitemap_url + "\n"
     return Response(body, mimetype="text/plain")
 
@@ -51,19 +52,19 @@ def sitemap():
     from app.models import Article, Category
 
     pages = [
-        {"loc": url_for("blog.index", _external=True), "lastmod": "", "priority": "1.0"},
-        {"loc": url_for("blog.about", _external=True), "lastmod": "", "priority": "0.6"},
+        {"loc": external_url_for("blog.index"), "lastmod": "", "priority": "1.0"},
+        {"loc": external_url_for("blog.about"), "lastmod": "", "priority": "0.6"},
     ]
     for cat in db.session.scalars(db.select(Category).order_by(Category.id)).all():
         pages.append(
-            {"loc": url_for("blog.category", cid=cat.id, _external=True), "lastmod": "", "priority": "0.5"}
+            {"loc": external_url_for("blog.category", cid=cat.id), "lastmod": "", "priority": "0.5"}
         )
     for art in db.session.scalars(
         db.select(Article).where(Article.status == "publish").order_by(Article.create_time.desc())
     ).all():
         pages.append(
             {
-                "loc": url_for("blog.article_detail", aid=art.id, _external=True),
+                "loc": external_url_for("blog.article_detail", aid=art.id),
                 "lastmod": (art.update_time or art.create_time or "")[:10],
                 "priority": "0.8",
             }

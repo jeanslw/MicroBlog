@@ -37,6 +37,7 @@
             <div class="card-body p-0">
                 <h5 class="fw-bold d-flex align-items-center gap-1 mb-1">
                     <i class="bi bi-fire text-danger fs-6"></i>
+                    {% if art.is_pinned %}<span class="badge bg-danger text-white fs-7">[{{ _('置顶') }}]</span>{% endif %}
                     <a href="{{ url_for('blog.article_detail', aid=art.id) }}" class="text-dark text-decoration-none">
                         {{ art.title }}
                     </a>

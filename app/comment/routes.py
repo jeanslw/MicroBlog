@@ -16,7 +16,7 @@ from flask_babel import _
 from sqlalchemy.exc import IntegrityError
 
 from app.comment import comment_bp
-from app.extensions import db, get_client_ip
+from app.extensions import db, flash_form_errors, get_client_ip, rate_limit
 from app.forms import CommentForm, ReplyForm
 from app.models import Article, Comment, Reply, VoteLog
 
@@ -57,6 +57,7 @@ def _vote_return_to(aid: int) -> str:
 
 
 @comment_bp.route("/vote/<int:aid>", methods=["POST"])
+@rate_limit("vote", limit=20, window_seconds=300)
 def vote(aid):
     """点赞文章：校验文章存在且已发布,IP+文章去重防刷"""
     article = db.session.get(Article, aid)
@@ -89,6 +90,7 @@ def vote(aid):
 
 
 @comment_bp.route("/comment/add/<int:aid>", methods=["POST"])
+@rate_limit("comment", limit=10, window_seconds=300)
 def add_comment(aid):
     article = db.session.get(Article, aid)
     if not article or article.status != "publish":
@@ -101,9 +103,7 @@ def add_comment(aid):
 
     form = CommentForm()
     if not form.validate_on_submit():
-        for field, errs in form.errors.items():
-            for err in errs:
-                flash(f"{field}: {err}", "danger")
+        flash_form_errors(form)
         return redirect(url_for("blog.article_detail", aid=aid))
 
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -120,6 +120,7 @@ def add_comment(aid):
 
 
 @comment_bp.route("/reply/add/<int:aid>/<int:cid>", methods=["POST"])
+@rate_limit("reply", limit=10, window_seconds=300)
 def add_reply(aid, cid):
     """回复评论：校验文章已发布 + 评论存在且关联"""
     article = db.session.get(Article, aid)
@@ -138,9 +139,7 @@ def add_reply(aid, cid):
 
     form = ReplyForm()
     if not form.validate_on_submit():
-        for field, errs in form.errors.items():
-            for err in errs:
-                flash(f"{field}: {err}", "danger")
+        flash_form_errors(form)
         return redirect(url_for("blog.article_detail", aid=aid))
 
     now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")

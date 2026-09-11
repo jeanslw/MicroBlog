@@ -17,7 +17,7 @@ import os
 import traceback
 from datetime import date, timedelta
 
-from flask import Flask, jsonify, render_template, request, session
+from flask import Flask, current_app, jsonify, render_template, request, session
 from flask_babel import Babel, _
 from werkzeug.exceptions import HTTPException
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -31,6 +31,25 @@ from app.extensions import (
 )
 from app.utils import configure_pillow
 from config import APP_VERSION, get_config
+
+
+def _is_trusted_host(host: str | None) -> bool:
+    """校验请求 Host 是否在白名单内（BLOG_TRUSTED_HOSTS）。
+
+    白名单为空时放行（仅开发便捷）；生产环境应配置真实域名。
+    去除端口后再比对，支持 IPv6（带方括号）。
+    """
+    if not host:
+        return False
+    # 去除端口（兼容 IPv6 的 [::1]:5000 形式）
+    if host.startswith("["):
+        host_only = host.split("]", 1)[0] + "]"
+    else:
+        host_only = host.split(":", 1)[0]
+    trusted = current_app.config.get("TRUSTED_HOSTS") or []
+    if not trusted:
+        return True  # 未配置白名单时放行
+    return host_only.lower() in trusted
 
 
 def _setup_logging(app: Flask):
@@ -145,28 +164,32 @@ def create_app(config_name: str | None = None):
         return ctx
 
     # ── 错误处理 ────────────────────────────────────────
+    def _safe_error_page(code: int, message: str):
+        """渲染错误页；模板/上下文自身出错时退回纯 HTML,保证错误处理永不二次抛错。"""
+        try:
+            return render_template("error.html", code=code, message=message), code
+        except Exception:
+            return f"<h1>{code}</h1><p>{message}</p>", code
+
     @app.errorhandler(HTTPException)
     def http_error_handler(e):
         # HTTP 异常按状态码返回对应页面,不吞成 500
         code = e.code or 500
         if request.path.startswith("/admin/upload") or request.is_json:
             return jsonify({"error": e.description}), code
-        try:
-            return render_template("error.html", code=code, message=e.description), code
-        except Exception:
-            return f"<h1>{code}</h1><p>{e.description}</p>", code
+        return _safe_error_page(code, e.description)
 
     @app.errorhandler(400)
     def bad_request(e):
         if request.is_json:
             return jsonify({"error": str(e.description or e)}), 400
-        return render_template("error.html", code=400, message=str(e.description or e)), 400
+        return _safe_error_page(400, str(e.description or e))
 
     @app.errorhandler(404)
     def not_found(e):
         if request.is_json:
             return jsonify({"error": "Not Found"}), 404
-        return render_template("error.html", code=404, message=_("页面不存在")), 404
+        return _safe_error_page(404, _("页面不存在"))
 
     @app.errorhandler(Exception)
     def all_err_handler(e):
@@ -176,7 +199,17 @@ def create_app(config_name: str | None = None):
             return traceback.format_exc(), 500
         if request.is_json:
             return jsonify({"error": "服务器内部错误"}), 500
-        return render_template("error.html", code=500, message=_("服务器内部错误,请联系管理员")), 500
+        return _safe_error_page(500, _("服务器内部错误,请联系管理员"))
+
+    # ── Host 白名单校验（防 Host 头注入 / 密码重置邮件投毒） ─
+    @app.before_request
+    def _validate_host():
+        # 静态文件、健康检查等放行；其余非白名单 Host 返回 400
+        if request.endpoint == "static":
+            return None
+        if not _is_trusted_host(request.host):
+            app.logger.warning("拒绝非白名单 Host 请求: %s (ip=%s)", request.host, request.remote_addr)
+            return jsonify({"error": "Invalid Host header"}), 400
 
     # ── 注册蓝图 ────────────────────────────────────────
     from app.admin import admin_bp

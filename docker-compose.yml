@@ -26,6 +26,11 @@ services:
       BLOG_ENV: production
       BLOG_SECRET_KEY: ${BLOG_SECRET_KEY:?必须在 .env.docker 中设置 BLOG_SECRET_KEY}
       BLOG_DEBUG: "False"
+      # 固定外链域名（邮件重置链接/订阅源/sitemap 使用，防 Host 头注入）
+      # 生产请改为真实域名，如 https://blog.example.com
+      BLOG_CANONICAL_URL: ${BLOG_CANONICAL_URL:-}
+      # Host 白名单（逗号分隔），非白名单 Host 请求返回 400
+      BLOG_TRUSTED_HOSTS: ${BLOG_TRUSTED_HOSTS:-}
 
       # ─ 数据库类型：sqlite 或 mysql ─
       # 用 mysql 时下方 BLOG_MYSQL_* 生效；用 sqlite 时 BLOG_SQLITE_PATH 生效
@@ -43,6 +48,17 @@ services:
       # ─ 业务参数 ─
       BLOG_PAGE_SIZE: ${BLOG_PAGE_SIZE:-6}
       BLOG_STATIC_MAX_AGE: ${BLOG_STATIC_MAX_AGE:-43200}
+      # 密码找回令牌有效期（秒，默认 1800）
+      BLOG_RESET_TOKEN_MAX_AGE: ${BLOG_RESET_TOKEN_MAX_AGE:-1800}
+
+      # ─ SMTP 邮件（可选）：不配置时在 管理后台 → 邮件设置 中填写（后台优先） ─
+      BLOG_MAIL_HOST: ${BLOG_MAIL_HOST:-}
+      BLOG_MAIL_PORT: ${BLOG_MAIL_PORT:-587}
+      BLOG_MAIL_USER: ${BLOG_MAIL_USER:-}
+      BLOG_MAIL_PASSWORD: ${BLOG_MAIL_PASSWORD:-}
+      BLOG_MAIL_FROM: ${BLOG_MAIL_FROM:-}
+      BLOG_MAIL_USE_SSL: ${BLOG_MAIL_USE_SSL:-false}
+      BLOG_MAIL_USE_TLS: ${BLOG_MAIL_USE_TLS:-true}
 
       # ─ 反代头解析（经 nginx 时取真实客户端 IP / 协议） ─
       BLOG_PROXY_XFOR: "1"
@@ -51,8 +67,9 @@ services:
       # ─ 初始管理员（仅 SQLite 首次建表写入一次） ─
       BLOG_INIT_ADMIN_USER: ${BLOG_INIT_ADMIN_USER:-admin}
       BLOG_INIT_ADMIN_PWD: ${BLOG_INIT_ADMIN_PWD:-}
-    ports:
-      - "5000:5000"
+    # 生产环境经 nginx 反代访问，不直接暴露 5000；如需直连调试可取消注释
+    # ports:
+    #   - "5000:5000"
     volumes:
       # SQLite 数据文件持久化（mysql 模式下也无害）
       - ./data:/app/data
@@ -60,11 +77,12 @@ services:
       - ./static/banner:/app/static/banner
       # 文章图 / Logo / 自定义背景持久化（nginx 也从宿主机同目录读）
       - ./static/uploads:/app/static/uploads
-    depends_on:
-      db:
-        condition: service_healthy
-    # 仅 SQLite 模式时，去掉 depends_on 即可单跑 web
-    profiles: ["full", "mysql"]
+      # 数据库备份持久化（容器重建不丢失）
+      - ./backups:/app/backups
+    # web 不设 profile、不强制 depends_on：
+    #   - SQLite 模式：docker compose up -d web（仅启动 web，DB 异常由应用兜底）
+    #   - MySQL 模式：docker compose --profile mysql up -d（web + db）
+    #   - 完整模式：  docker compose --profile full up -d（web + db + nginx）
     networks:
       - blog-net
 
@@ -97,8 +115,8 @@ services:
       retries: 10
       start_period: 30s
     ports:
-      # 如不需要从宿主机连数据库，可注释下行
-      - "3306:3306"
+      # 默认不暴露 MySQL 端口到宿主机；如需从宿主机连数据库，取消下行注释
+      # - "3306:3306"
     profiles: ["full", "mysql"]
     networks:
       - blog-net

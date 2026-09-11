@@ -677,40 +677,40 @@ msgid "切换背景风格"
 msgstr "Switch Background Style"
 
 msgid "背景 1"
-msgstr "Background 1"
+msgstr "BG 1"
 
 msgid "背景 2"
-msgstr "Background 2"
+msgstr "BG 2"
 
 msgid "背景 3"
-msgstr "Background 3"
+msgstr "BG 3"
 
 msgid "背景 4"
-msgstr "Background 4"
+msgstr "BG 4"
 
 msgid "背景 5"
-msgstr "Background 5"
+msgstr "BG 5"
 
 msgid "背景 6"
-msgstr "Background 6"
+msgstr "BG 6"
 
 msgid "背景 7"
-msgstr "Background 7"
+msgstr "BG 7"
 
 msgid "背景 8"
-msgstr "Background 8"
+msgstr "BG 8"
 
 msgid "背景 9"
-msgstr "Background 9"
+msgstr "BG 9"
 
 msgid "背景 10"
-msgstr "Background 10"
+msgstr "BG 10"
 
 msgid "水墨云山"
-msgstr "Ink Wash Mountains"
+msgstr "Ink Wash"
 
 msgid "湖光山色"
-msgstr "Lake & Mountain Hues"
+msgstr "Lake View"
 
 msgid "经典"
 msgstr "Classic"
@@ -1286,3 +1286,115 @@ msgstr "Enable comments (when disabled, new comments and replies are blocked sit
 msgid "评论已关闭"
 msgstr "Comments are disabled"
 
+msgid "操作过于频繁，请 %(min)s 分钟后再试"
+msgstr "Too many attempts, please try again in %(min)s minutes"
+
+msgid "请先在「账户」页面设置管理员邮箱"
+msgstr "Please set the admin email in the Account page first"
+
+msgid "邮件配置测试"
+msgstr "Mail Configuration Test"
+
+msgid "这是一封测试邮件。若你收到此邮件，说明 SMTP 配置正确。"
+msgstr "This is a test email. If you received it, your SMTP configuration is correct."
+
+msgid "测试邮件已发送，请查收（收件人：%(email)s）"
+msgstr "Test email sent, please check your inbox (recipient: %(email)s)"
+
+msgid "测试邮件发送失败：%(err)s"
+msgstr "Failed to send test email: %(err)s"
+
+msgid "发送测试邮件"
+msgstr "Send Test Email"
+
+msgid "测试邮件将发送到当前管理员账号绑定的邮箱。"
+msgstr "The test email will be sent to the email bound to the current admin account."
+
+msgid "当前为 SQLite 数据库：恢复完成后必须手动重启服务（gunicorn/uwsgi），否则其他 worker 可能仍持有旧数据。"
+msgstr "Current database is SQLite: after restoring, you must manually restart the service (gunicorn/uwsgi); otherwise other workers may still hold stale data."
+
+msgid "关闭"
+msgstr "Close"
+
+msgid "用户名"
+msgstr "Username"
+
+msgid "内容"
+msgstr "Content"
+
+msgid "栏目名称"
+msgstr "Category Name"
+
+msgid "标签"
+msgstr "Tag"
+
+msgid "轮播图"
+msgstr "Banner Image"
+
+msgid "跳转链接"
+msgstr "Link URL"
+
+msgid "标题"
+msgstr "Title"
+
+msgid "描述"
+msgstr "Description"
+
+msgid "排序"
+msgstr "Sort Order"
+
+msgid "SMTP 服务器"
+msgstr "SMTP Server"
+
+msgid "端口"
+msgstr "Port"
+
+msgid "密码"
+msgstr "Password"
+
+msgid "发件人邮箱"
+msgstr "Sender Email"
+
+msgid "站点名称"
+msgstr "Site Name"
+
+msgid "昵称"
+msgstr "Nickname"
+
+msgid "邮箱"
+msgstr "Email"
+
+msgid "GitHub 链接"
+msgstr "GitHub Link"
+
+msgid "个人主页"
+msgstr "Homepage"
+
+msgid "个人简介"
+msgstr "Bio"
+
+
+
+msgid "栏目分类样式"
+msgstr "Category Tree Style"
+
+msgid "书本树形"
+msgstr "Book Tree"
+
+msgid "经典简洁"
+msgstr "Classic"
+
+msgid "书本图标可展开，阅读页深浅色自适应"
+msgstr "Book icons with expandable lists; adapts to reading theme"
+
+msgid "传统折叠箭头样式"
+msgstr "Traditional collapse arrows"
+
+msgid "账户邮件设置"
+msgstr "Account & Mail Settings"
+
+msgid "测试邮件将发送到上方账户邮箱。"
+msgstr "The test email will be sent to the account email above."
+
+msgid "/static/uploads/backgrounds/xxx.jpg 或 http(s)://..."
+msgstr "/static/uploads/backgrounds/xxx.jpg or http(s)://..."

@@ -11,6 +11,7 @@
 
 import os
 import secrets
+import warnings
 
 # 优先加载项目根目录 .env（若存在），不强制依赖 python-dotenv
 try:
@@ -23,6 +24,23 @@ except ImportError:
 
 def _env_bool(name: str, default: str = "false") -> bool:
     return os.environ.get(name, default).strip().lower() in ("1", "true", "yes", "on")
+
+
+def _normalize_trusted_host(entry: str) -> str:
+    """把白名单条目归一化为纯主机名：兼容完整 URL（http://host:port）与裸域名两种写法。
+
+    统一去端口（IPv6 保留 [方括号] 形式），与请求 Host 的比对逻辑保持一致。
+    """
+    from urllib.parse import urlsplit
+
+    entry = entry.strip().lower()
+    if "://" in entry:
+        entry = urlsplit(entry).netloc or ""
+    if entry.startswith("["):
+        entry = entry.split("]", 1)[0] + "]"
+    else:
+        entry = entry.split(":", 1)[0]
+    return entry
 
 
 # ── 业务常量（不随环境变化，直接定义供模块导入） ───────────
@@ -57,6 +75,23 @@ class Config:
     SECRET_KEY = os.environ.get("BLOG_SECRET_KEY") or secrets.token_hex(32)
     DEBUG = _env_bool("BLOG_DEBUG", "false")
     TESTING = False
+
+    # ── 站点外链域名（防 Host 头注入） ────────────────────
+    # 用于生成邮件重置链接、RSS/Atom 订阅源、sitemap 等绝对 URL。
+    # 生产环境务必配置（如 https://blog.example.com），不依赖请求 Host 头，
+    # 避免攻击者伪造 Host 头向管理员邮件投毒外站链接。
+    # 留空时回退到 request.host_url（仅开发便捷，不推荐生产）。
+    CANONICAL_URL = (os.environ.get("BLOG_CANONICAL_URL") or "").rstrip("/")
+    # Host 白名单（逗号分隔）。设置后，非白名单 Host 的请求将被拒绝（400）。
+    # 留空表示不校验（仅开发便捷）。生产环境建议设置为真实域名。
+    TRUSTED_HOSTS = [
+        h
+        for h in (
+            _normalize_trusted_host(x)
+            for x in (os.environ.get("BLOG_TRUSTED_HOSTS") or "").split(",")
+        )
+        if h
+    ]
 
     # ── Session / Cookie ────────────────────────────────
     SESSION_COOKIE_HTTPONLY = True
@@ -119,24 +154,30 @@ class ProductionConfig(Config):
 # 在类外部预先计算并设置 SQLALCHEMY_DATABASE_URI（Flask-SQLAlchemy
 # 通过 from_object 读取类属性）。
 def _resolve_db_uri_for_class(cls):
+    """解析数据库连接 URI。
+
+    BLOG_DB_TYPE=mysql 时，若 host/user/db_name 等关键字段缺失则直接抛
+    RuntimeError，禁止静默回退到 SQLite（避免数据写到意料之外的位置，
+    导致备份/恢复走错分支、数据丢失等隐蔽故障）。
+    """
     db_type = (os.environ.get("BLOG_DB_TYPE") or "sqlite").strip().lower()
     if db_type == "mysql":
-        host = os.environ.get("BLOG_MYSQL_HOST") or "localhost"
-        user = os.environ.get("BLOG_MYSQL_USER") or "root"
+        host = (os.environ.get("BLOG_MYSQL_HOST") or "").strip()
+        user = (os.environ.get("BLOG_MYSQL_USER") or "").strip()
         pwd = os.environ.get("BLOG_MYSQL_PWD") or ""
-        db_name = os.environ.get("BLOG_MYSQL_DB") or "flask_blog"
-        # 生产环境下如果任意 MySQL 连接字段缺失,不要让应用直接崩掉，而是优雅回退到 SQLite，
-        # 这样能在最坏情况下继续运行，避免“配置残缺导致启动失败”。
+        db_name = (os.environ.get("BLOG_MYSQL_DB") or "").strip()
         if not host or not user or not db_name:
-            db_type = "sqlite"
-        if db_type == "mysql":
-            cls.SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{user}:{pwd}@{host}/{db_name}?charset=utf8mb4"
-            cls.SQLALCHEMY_ENGINE_OPTIONS = {
-                "connect_args": {
-                    "init_command": "SET sql_mode='STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION'",
-                },
-            }
-            return
+            raise RuntimeError(
+                "BLOG_DB_TYPE=mysql 但缺少必要连接字段,请检查 BLOG_MYSQL_HOST / "
+                "BLOG_MYSQL_USER / BLOG_MYSQL_DB 环境变量。"
+            )
+        cls.SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{user}:{pwd}@{host}/{db_name}?charset=utf8mb4"
+        cls.SQLALCHEMY_ENGINE_OPTIONS = {
+            "connect_args": {
+                "init_command": "SET sql_mode='STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION'",
+            },
+        }
+        return
     path = os.environ.get("BLOG_SQLITE_PATH") or "data/blog.db"
     cls.SQLALCHEMY_DATABASE_URI = "sqlite:///" + os.path.abspath(path)
     cls.SQLALCHEMY_ENGINE_OPTIONS = {}
@@ -152,6 +193,9 @@ class TestingConfig(Config):
     WTF_CSRF_ENABLED = False  # 测试关闭 CSRF 方便 test_client
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    # 测试环境封闭：不受开发者 .env 的 Host 白名单影响
+    TRUSTED_HOSTS = []
+    CANONICAL_URL = ""
     # 测试密钥由 tests/conftest.py 通过 BLOG_SECRET_KEY 环境变量注入,
     # 不再在代码中硬编码,避免 CI 密钥扫描误报。
 
@@ -166,9 +210,19 @@ config_map = {
 
 
 def get_config():
-    """根据 BLOG_ENV 返回对应配置类"""
+    """根据 BLOG_ENV 返回对应配置类。
+
+    生产环境（ProductionConfig）若未显式设置 BLOG_SECRET_KEY 则直接报错，
+    避免静默使用随机密钥导致登录态失效与加密字段无法解密。
+    """
     env = os.environ.get("BLOG_ENV", "development").lower()
-    return config_map.get(env, config_map["default"])
+    cls = config_map.get(env, config_map["default"])
+    if cls is ProductionConfig and not os.environ.get("BLOG_SECRET_KEY"):
+        raise RuntimeError(
+            "生产环境必须设置 BLOG_SECRET_KEY 环境变量后再启动。"
+            "生成命令: python -c \"import secrets;print(secrets.token_hex(32))\""
+        )
+    return cls
 
 
 # 模块级常量：供旧代码向后兼容（不应直接依赖）

@@ -1,5 +1,5 @@
 <div class="row justify-content-center">
-    <div class="col-xl-9 col-xxl-8">
+    <div class="col-12">
         <div class="card admin-panel-card p-4">
             <h4 class="mb-4 fw-bold"><i class="bi bi-gear"></i> {{ _('站点全局设置') }}</h4>
 
@@ -16,36 +16,33 @@
 
                 <div class="mb-3">
                     <label class="form-label">{{ _('内置背景图库') }}</label>
-                    <div class="row g-2" id="bgGallery">
+                    {# 自适应网格：宽度足够时每行自动排更多格（≥5），窄屏自动减列，缩略图不再被拉伸 #}
+                    <div class="bg-gallery" id="bgGallery">
                         {% for val, label in form.bg_style.choices %}
                         {% if val != 'custom' %}
-                        <div class="col-3">
-                            <label class="bg-option {% if site.bg_style == val %}active{% endif %}"
-                                   data-bg="{{ val }}" title="{{ label }}">
-                                <input type="radio" name="bg_style" value="{{ val }}"
-                                       {% if site.bg_style == val %}checked{% endif %} class="d-none">
-                                <span class="bg-thumb bg-thumb-{{ val }}"></span>
-                                <span class="bg-name">{{ label }}</span>
-                            </label>
-                        </div>
+                        <label class="bg-option {% if site.bg_style == val %}active{% endif %}"
+                               data-bg="{{ val }}" title="{{ label }}">
+                            <input type="radio" name="bg_style" value="{{ val }}"
+                                   {% if site.bg_style == val %}checked{% endif %} class="d-none">
+                            <span class="bg-thumb bg-thumb-{{ val }}"></span>
+                            <span class="bg-name">{{ label }}</span>
+                        </label>
                         {% endif %}
                         {% endfor %}
-                        <div class="col-3">
-                            <label class="bg-option {% if site.bg_style == 'custom' %}active{% endif %}"
-                                   data-bg="custom" title="{{ _('自定义图片') }}">
-                                <input type="radio" name="bg_style" value="custom"
-                                       {% if site.bg_style == 'custom' %}checked{% endif %} class="d-none">
-                                <span class="bg-thumb bg-thumb-custom"></span>
-                                <span class="bg-name">{{ _('自定义图片') }}</span>
-                            </label>
-                        </div>
+                        <label class="bg-option {% if site.bg_style == 'custom' %}active{% endif %}"
+                               data-bg="custom" title="{{ _('自定义图片') }}">
+                            <input type="radio" name="bg_style" value="custom"
+                                   {% if site.bg_style == 'custom' %}checked{% endif %} class="d-none">
+                            <span class="bg-thumb bg-thumb-custom"></span>
+                            <span class="bg-name">{{ _('自定义图片') }}</span>
+                        </label>
                     </div>
                 </div>
 
                 <div class="mb-3" id="customBgFields">
                     <label class="form-label">{{ _('自定义背景图片') }}</label>
                     <input type="text" name="bg_custom" class="form-control mb-2"
-                           placeholder="/static/uploads/backgrounds/xxx.jpg 或 http(s)://..."
+                           placeholder="{{ _('/static/uploads/backgrounds/xxx.jpg 或 http(s)://...') }}"
                            value="{{ site.bg_custom }}">
                     <input type="file" name="bg_upload" class="form-control"
                            accept=".jpg,.jpeg,.png,.webp">
@@ -68,6 +65,29 @@
                 </div>
 
                 <hr>
+                <h6 class="fw-bold mb-3"><i class="bi bi-journal-bookmark"></i> {{ _('栏目分类样式') }}</h6>
+                <div class="mb-3 row g-2">
+                    <div class="col-6 col-md-4">
+                        <label class="style-option {% if site.sidebar_style != 'classic' %}active{% endif %}">
+                            <input type="radio" name="sidebar_style" value="book"
+                                   {% if site.sidebar_style != 'classic' %}checked{% endif %} class="d-none">
+                            <i class="bi bi-journal-bookmark style-icon"></i>
+                            <span class="style-name">{{ _('书本树形') }}</span>
+                            <span class="style-desc">{{ _('书本图标可展开，阅读页深浅色自适应') }}</span>
+                        </label>
+                    </div>
+                    <div class="col-6 col-md-4">
+                        <label class="style-option {% if site.sidebar_style == 'classic' %}active{% endif %}">
+                            <input type="radio" name="sidebar_style" value="classic"
+                                   {% if site.sidebar_style == 'classic' %}checked{% endif %} class="d-none">
+                            <i class="bi bi-chevron-right style-icon"></i>
+                            <span class="style-name">{{ _('经典简洁') }}</span>
+                            <span class="style-desc">{{ _('传统折叠箭头样式') }}</span>
+                        </label>
+                    </div>
+                </div>
+
+                <hr>
                 <h6 class="fw-bold mb-3"><i class="bi bi-chat-dots"></i> {{ _('评论设置') }}</h6>
                 <div class="form-check form-switch mb-3">
                     <input class="form-check-input" type="checkbox" name="comments_enabled" id="comments_enabled"
@@ -75,7 +95,9 @@
                     <label class="form-check-label" for="comments_enabled">{{ _('开启评论（关闭后全站禁止新评论与回复）') }}</label>
                 </div>
 
-                <button class="btn btn-primary w-100 py-2">{{ _('保存设置') }}</button>
+                <div class="d-flex justify-content-end">
+                    <button class="btn btn-primary px-4">{{ _('保存设置') }}</button>
+                </div>
             </form>
         </div>
     </div>
@@ -97,15 +119,33 @@ document.addEventListener('DOMContentLoaded', function () {
         if (radio) { radio.checked = true; refresh(); }
     }));
     refresh();
+
+    // 栏目分类样式单选卡：点击勾选并移动高亮（输入框隐藏，必须有 JS 反馈否则看起来"选不了"）
+    const styleOpts = document.querySelectorAll('.style-option');
+    styleOpts.forEach(o => o.addEventListener('click', function () {
+        const radio = this.querySelector('input[type="radio"]');
+        if (!radio) return;
+        radio.checked = true;
+        styleOpts.forEach(x => x.classList.toggle('active', x === this));
+    }));
 });
 </script>
 <style>
 .bg-option { cursor: pointer; border: 2px solid rgba(0,0,0,.12); border-radius: 8px;
     padding: 4px; display: block; text-align: center; transition: border-color .15s; }
 .bg-option.active { border-color: #0d6efd; box-shadow: 0 0 0 2px rgba(13,110,253,.25); }
+/* 背景图库自适应网格：每格最小约 130px，行数随面板宽度自动增减（大屏 ≥5 格/行） */
+.bg-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: .5rem; }
 .bg-thumb { display: block; width: 100%; height: 52px; border-radius: 5px;
     background-size: cover; background-position: center; }
 .bg-name { font-size: 12px; color: #555; display: block; margin-top: 3px; }
+.style-option { cursor: pointer; border: 2px solid rgba(0,0,0,.12); border-radius: 10px;
+    padding: 10px 12px; display: block; text-align: center; transition: border-color .15s; height: 100%; }
+.style-option.active { border-color: #0d6efd; box-shadow: 0 0 0 2px rgba(13,110,253,.25); }
+.style-icon { font-size: 1.5rem; color: #495057; }
+.style-option.active .style-icon { color: #0d6efd; }
+.style-name { display: block; font-weight: 600; font-size: 14px; margin-top: 4px; color: #333; }
+.style-desc { display: block; font-size: 12px; color: #777; margin-top: 2px; }
 .bg-thumb-bg1 { background-image: url("{{ url_for('static', filename='backgrounds/250818083142_background1.jpg') }}"); }
 .bg-thumb-bg2 { background-image: url("{{ url_for('static', filename='backgrounds/250818083143_background2.jpg') }}"); }
 .bg-thumb-bg3 { background-image: url("{{ url_for('static', filename='backgrounds/250818083142_background3.jpg') }}"); }
@@ -119,4 +159,5 @@ document.addEventListener('DOMContentLoaded', function () {
 .bg-thumb-vdysjx { background-image: url("{{ url_for('static', filename='backgrounds/250818083148_vdysjx.webp') }}"); }
 .bg-thumb-bg13 { background-image: url("{{ url_for('static', filename='backgrounds/250818085901_13.webp') }}"); }
 .bg-thumb-custom { background: linear-gradient(135deg,#667eea,#764ba2); }
+.bg-thumb-classic { background: linear-gradient(180deg,#f5f7fa,#e9edf3); }
 </style>

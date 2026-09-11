@@ -234,13 +234,15 @@ def test_login_next_internal_path_ok(client, admin_user):
     assert rv.headers.get("Location", "").endswith("/banner/")
 
 
-def test_home_nav_shows_logout_when_logged_in(login_admin):
-    """登录后在首页导航应能看到「退出登录」入口"""
+def test_home_nav_shows_admin_link_when_logged_in(login_admin):
+    """登录后首页导航显示「管理」入口；导航栏不再有退出按钮（退出统一收进后台侧边栏）"""
     rv = login_admin.get("/")
     assert rv.status_code == 200
     body = rv.data.decode("utf-8")
-    assert 'action="/admin/logout"' in body
-    assert "退出登录" in body or "Log Out" in body
+    assert 'action="/admin/logout"' not in body
+
+    rv = login_admin.get("/admin/panel")
+    assert 'action="/admin/logout"' in rv.data.decode("utf-8")  # 退出按钮在后台侧边栏
 
 
 def test_home_nav_hides_logout_when_anonymous(client, admin_user):

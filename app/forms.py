@@ -104,6 +104,7 @@ BG_STYLE_CHOICES = [
     ("bg10", _l("背景 10")),
     ("vdysjx", _l("水墨云山")),
     ("bg13", _l("湖光山色")),
+    ("classic", _l("经典")),
     ("custom", _l("自定义图片")),
 ]
 
@@ -133,6 +134,11 @@ class SiteSettingForm(FlaskForm):
         ],
     )
     comments_enabled = BooleanField("开启评论")
+    sidebar_style = SelectField(
+        "栏目分类样式",
+        choices=[("book", "书本树形"), ("classic", "经典简洁")],
+        default="book",
+    )
     submit = SubmitField("保存")
 
 

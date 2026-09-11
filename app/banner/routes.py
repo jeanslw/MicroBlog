@@ -14,7 +14,7 @@ from flask import current_app, flash, redirect, render_template, url_for
 from flask_babel import _
 
 from app.banner import banner_bp
-from app.extensions import admin_required, db, log, safe_url
+from app.extensions import admin_required, db, flash_form_errors, log, safe_url
 from app.forms import BannerForm
 from app.models import Banner
 from app.utils import (
@@ -37,9 +37,7 @@ def banner_list():
 def banner_add():
     form = BannerForm()
     if not form.validate_on_submit():
-        for field, errs in form.errors.items():
-            for err in errs:
-                flash(f"{field}: {err}", "danger")
+        flash_form_errors(form)
         return redirect(url_for("banner.banner_list"))
 
     img = form.banner_img.data
@@ -100,9 +98,7 @@ def banner_add():
 def banner_edit(bid):
     form = BannerForm()
     if not form.validate_on_submit():
-        for field, errs in form.errors.items():
-            for err in errs:
-                flash(f"{field}: {err}", "danger")
+        flash_form_errors(form)
         return redirect(url_for("banner.banner_list"))
 
     banner = db.session.get(Banner, bid)

@@ -16,7 +16,7 @@
 </style>
 
 <div class="row justify-content-center">
-    <div class="col-xl-9 col-xxl-8">
+    <div class="col-12">
         <div class="card admin-panel-card p-4">
             <h4 class="mb-1 fw-bold"><i class="bi bi-person-badge"></i> {{ _('关于我') }}</h4>
             <p class="text-muted small mb-4">
@@ -92,7 +92,7 @@
                     <div class="form-text">{{ _('支持多行文本，换行会保留') }}</div>
                 </div>
 
-                <div class="d-flex gap-2">
+                <div class="d-flex gap-2 justify-content-end">
                     <button class="btn btn-primary px-4">{{ _('保存设置') }}</button>
                     <a class="btn btn-outline-secondary" href="{{ url_for('blog.about') }}" target="_blank" rel="noopener">
                         <i class="bi bi-eye"></i> {{ _('查看前台效果') }}

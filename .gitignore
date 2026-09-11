@@ -10,15 +10,12 @@ copilot-instructions.md
 # 环境变量与本地数据，禁止入库
 .env
 .env.docker
-/data/*.db
-/data/*.db-journal
-/data/*.db-wal
-/data/*.db-shm
-/backups/*
+/data/
+/backups/
 /static/banner/*
 /static/uploads/*
-test_output.txt
-test_upload.txt
+
+
 # 保留目录占位
 .codebuddy/
 !/static/banner/.gitkeep

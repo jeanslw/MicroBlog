@@ -10,6 +10,7 @@
 
 import os
 import subprocess
+import threading
 import zipfile
 from datetime import datetime
 
@@ -38,8 +39,10 @@ from app.extensions import (
     check_login_lock,
     clear_login_fail,
     db,
+    external_url_for,
     get_client_ip,
     log,
+    rate_limit,
     record_login_fail,
 )
 from app.forms import (
@@ -74,7 +77,16 @@ def _require_setup():
     try:
         count = db.session.scalar(db.select(db.func.count(Admin.id)))
     except Exception:
-        return None  # DB 未就绪时放行，避免启动早期异常
+        # 查询失败：区分「admin 表缺失」（如恢复中断/未初始化）与「数据库不可用」。
+        # 表缺失视为未安装，同样进入引导页；数据库连接失败才放行，避免启动早期异常。
+        try:
+            from sqlalchemy import inspect as sa_inspect
+
+            if sa_inspect(db.engine).has_table(Admin.__tablename__):
+                return None
+        except Exception:
+            return None
+        count = 0
     if not count:
         return redirect(url_for("admin.setup"))
 
@@ -103,8 +115,17 @@ def login():
             clear_login_fail(ip, username)
             flash(_("登录成功"), "success")
             next_url = request.args.get("next") or url_for("admin.panel")
-            # 防止开放重定向（//evil.com 也不能放行）
-            if not next_url.startswith("/") or next_url.startswith("//"):
+            # 防止开放重定向:仅放行站内相对路径,拦截 //evil.com 与 /\evil.com（反斜杠绕过）
+            from urllib.parse import urlsplit
+
+            parts = urlsplit(next_url)
+            if (
+                parts.scheme
+                or parts.netloc
+                or not next_url.startswith("/")
+                or next_url.startswith("//")
+                or "\\" in next_url
+            ):
                 next_url = url_for("admin.panel")
             return redirect(next_url)
 
@@ -274,6 +295,8 @@ def _site_setting_view(template):
                 return render_template(template, form=form, site=site)
         # 评论总开关
         site.comments_enabled = bool(form.comments_enabled.data)
+        # 栏目分类样式（书本树形 / 经典简洁）
+        site.sidebar_style = form.sidebar_style.data if form.sidebar_style.data in ("book", "classic") else "book"
         db.session.commit()
         # 清理被替换的旧背景/旧 Logo 文件,避免磁盘堆积
         if old_bg_custom and old_bg_custom != site.bg_custom:
@@ -328,7 +351,9 @@ def upload_image():
 # ── 首次安装引导 ─────────────────────────────────────────
 @admin_bp.route("/setup", methods=["GET", "POST"])
 def setup():
-    """首次安装引导：仅在 admin 表为空时可用，创建首个管理员账号。"""
+    """首次安装引导：仅在 admin 表为空/缺失时可用，创建首个管理员账号。"""
+    # 幂等建表：恢复中断导致 admin 表缺失时，引导页仍可访问并自动补全缺失表
+    db.create_all()
     count = db.session.scalar(db.select(db.func.count(Admin.id))) or 0
     if count > 0:
         return redirect(url_for("admin.login"))
@@ -363,6 +388,7 @@ def _make_reset_token(admin):
 
 
 @admin_bp.route("/forgot", methods=["GET", "POST"])
+@rate_limit("forgot", limit=5, window_seconds=300)
 def forgot():
     if current_user.is_authenticated:
         return redirect(url_for("admin.panel"))
@@ -374,7 +400,7 @@ def forgot():
         if admin and admin.email and admin.email == email:
             try:
                 token = _make_reset_token(admin)
-                reset_url = url_for("admin.reset", token=token, _external=True)
+                reset_url = external_url_for("admin.reset", token=token)
                 send_mail(
                     admin.email,
                     _("重置密码"),
@@ -413,34 +439,49 @@ def reset(token):
     return render_template("admin/reset.html", form=form)
 
 
-# ── 账户邮箱 ─────────────────────────────────────────────
+# ── 账户邮件设置（管理员邮箱 + SMTP 发信配置,原「邮件设置」页合并至此） ──
 @admin_bp.route("/account", methods=["GET", "POST"])
 @admin_required
 def account():
-    form = AccountForm()
-    if form.validate_on_submit():
-        current_user.email = (form.email.data or "").strip().lower()
+    """账户邮件设置页：上半「账户邮箱」（Admin.email），下半「SMTP 邮件设置」（site_config）。
+
+    两个表单各自提交到自己的端点（/account 与 /mail_setting），
+    互不校验对方字段,避免单表单提交误触发另一表单的验证。
+    """
+    site = db.session.get(SiteConfig, 1)
+    if not site:
+        site = SiteConfig(id=1, site_name="我的博客", favicon_path="static/favicon.ico")
+        db.session.add(site)
+        db.session.commit()
+    email_form = AccountForm()
+    mail_form = MailSettingForm(obj=site)
+    if request.method == "GET":
+        email_form.email.data = current_user.email  # 邮箱回显
+        mail_form.mail_password.data = ""  # 密码不回显，留空表示保持原值
+    if email_form.validate_on_submit():
+        current_user.email = (email_form.email.data or "").strip().lower()
         db.session.commit()
         flash(_("邮箱已保存"), "success")
         return redirect(url_for("admin.account"))
-    if request.method == "GET":
-        form.email.data = current_user.email
-    return render_template("admin/account.html", form=form)
+    return render_template("admin/account.html", form=email_form, mail_form=mail_form)
 
 
-# ── SMTP 邮件设置 ─────────────────────────────────────────
+# ── SMTP 邮件设置（表单在「账户邮件设置」页内,本端点仅负责保存） ──
 @admin_bp.route("/mail_setting", methods=["GET", "POST"])
 @admin_required
 def mail_setting():
-    """SMTP 邮件配置：存 site_config，保存后优先于 .env 的 BLOG_MAIL_* 生效。"""
+    """SMTP 邮件配置：存 site_config，保存后优先于 .env 的 BLOG_MAIL_* 生效。
+
+    GET 一律跳转到合并后的「账户邮件设置」页（兼容旧书签/旧链接）。
+    """
+    if request.method == "GET":
+        return redirect(url_for("admin.account"))
     site = db.session.get(SiteConfig, 1)
     if not site:
         site = SiteConfig(id=1, site_name="我的博客", favicon_path="static/favicon.ico")
         db.session.add(site)
         db.session.commit()
     form = MailSettingForm(obj=site)
-    if request.method == "GET":
-        form.mail_password.data = ""  # 密码不回显，留空表示保持原值
     if form.validate_on_submit():
         site.mail_host = (form.mail_host.data or "").strip()
         site.mail_port = form.mail_port.data or 587
@@ -452,8 +493,28 @@ def mail_setting():
         site.mail_use_tls = bool(form.mail_use_tls.data)
         db.session.commit()
         flash(_("邮件设置已保存"), "success")
-        return redirect(url_for("admin.mail_setting"))
-    return render_template("admin/mail_setting.html", form=form, site=site)
+    return redirect(url_for("admin.account"))
+
+
+@admin_bp.route("/mail_test", methods=["POST"])
+@admin_required
+def mail_test():
+    """发送测试邮件到当前管理员邮箱,验证 SMTP 配置是否生效。"""
+    to = (current_user.email or "").strip()
+    if not to:
+        flash(_("请先在「账户邮件设置」页填写管理员邮箱"), "warning")
+        return redirect(url_for("admin.account"))
+    try:
+        send_mail(
+            to,
+            _("邮件配置测试"),
+            _("这是一封测试邮件。若你收到此邮件，说明 SMTP 配置正确。"),
+        )
+        flash(_("测试邮件已发送，请查收（收件人：%(email)s）", email=to), "success")
+    except MailError as e:
+        log.warning("测试邮件发送失败: %s", e)
+        flash(_("测试邮件发送失败：%(err)s", err=e), "danger")
+    return redirect(url_for("admin.account"))
 
 
 # ── 数据库备份与恢复 ─────────────────────────────────────
@@ -520,24 +581,59 @@ def _list_backups(backup_dir):
     return files
 
 
-def _create_backup(backup_dir):
-    """备份打包为 zip：内含 .db（SQLite）或 .sql（MySQL）单个文件。"""
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    zip_name = f"backup_{timestamp}.zip"
+def _create_backup(backup_dir, tag=""):
+    """备份打包为 zip：内含 .db（SQLite）或 .sql（MySQL）单个文件。
+
+    SQLite 使用 VACUUM INTO 生成一致性快照（而非直接拷贝活动文件,避免
+    并发写入导致备份文件损坏）；MySQL 走 mysqldump。
+
+    tag: 文件名标记。恢复前自动备份传 "_snapshot",与手动备份在列表中一眼区分。
+    """
+    # 文件名精确到毫秒：同一秒内的手动备份与恢复前自动备份不再重名
+    now = datetime.now()
+    timestamp = now.strftime("%Y%m%d_%H%M%S") + f"_{now.microsecond // 1000:03d}"
+    zip_name = f"backup_{timestamp}{tag}.zip"
     zip_path = os.path.join(backup_dir, zip_name)
     if _db_type() == "mysql":
         c = _mysql_creds()
         env = os.environ.copy()
         env["MYSQL_PWD"] = c["pwd"]
-        cmd = ["mysqldump", "-h", c["host"], "-u", c["user"], c["db"]]
+        # --single-transaction:InnoDB 一致性快照,备份不阻塞业务
+        # --skip-add-locks:dump 内不生成 LOCK TABLES,恢复端不会因元数据锁(MDL)等待挂起
+        # --default-character-set=utf8mb4:避免中文数据乱码
+        # 注:mysqldump 不支持 --connect-timeout（exit 7 unknown variable），
+        # 连接失败由子进程 timeout=120 兜底
+        cmd = [
+            "mysqldump",
+            "--single-transaction",
+            "--skip-add-locks",
+            "--default-character-set=utf8mb4",
+            "-h",
+            c["host"],
+            "-u",
+            c["user"],
+            c["db"],
+        ]
         inner_name = f"backup_{timestamp}.sql"
-        result = subprocess.run(cmd, capture_output=True, check=True, env=env)
+        result = subprocess.run(cmd, capture_output=True, check=True, env=env, timeout=120)
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
             zf.writestr(inner_name, result.stdout)
         return zip_name
+    # SQLite:用 VACUUM INTO 生成一致性快照,避免热拷贝损坏
     inner_name = f"backup_{timestamp}.db"
-    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.write(_sqlite_db_path(), arcname=inner_name)
+    snapshot_path = os.path.join(backup_dir, f".snapshot_{timestamp}.db")
+    try:
+        with db.engine.begin() as conn:
+            conn.execute(db.text(f"VACUUM INTO :path"), {"path": snapshot_path})
+        with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.write(snapshot_path, arcname=inner_name)
+    finally:
+        # 清理临时快照文件
+        try:
+            if os.path.exists(snapshot_path):
+                os.remove(snapshot_path)
+        except OSError:
+            pass
     return zip_name
 
 
@@ -598,6 +694,10 @@ def backup_delete(name):
     return redirect(url_for("admin.backup"))
 
 
+# 模块级恢复锁：防止并发恢复（双击/多标签页）导致两个 mysql 进程 DDL 交错执行、损坏库表
+_restore_lock = threading.Lock()
+
+
 @admin_bp.route("/backup/restore/<name>", methods=["POST"])
 @admin_required
 def backup_restore(name):
@@ -607,22 +707,90 @@ def backup_restore(name):
     if not os.path.isfile(path):
         flash(_("备份文件不存在"), "danger")
         return redirect(url_for("admin.backup"))
+    if not _restore_lock.acquire(blocking=False):
+        flash(_("已有恢复任务进行中，请勿重复提交"), "warning")
+        return redirect(url_for("admin.backup"))
     try:
         data, _kind = _backup_payload(path)
-        # 恢复前先自动做一次即时备份，便于回滚
-        _create_backup(_backup_dir())
+        if _db_type() == "mysql":
+            # 过滤 dump 中的 LOCK/UNLOCK TABLES 语句：恢复是单连接顺序执行，表锁没有意义，
+            # 旧格式备份的 LOCK TABLES 反而可能被并发请求持有的元数据锁(MDL)阻塞,
+            # 造成恢复超时中断、库表处于不一致状态（如 admin 表被删后未重建）
+            data = b"\n".join(
+                line
+                for line in data.split(b"\n")
+                if not line.lstrip().startswith((b"LOCK TABLES", b"UNLOCK TABLES"))
+            )
+        # 恢复前先自动做一次即时备份（文件名带 _snapshot 标记），便于回滚
+        _create_backup(_backup_dir(), tag="_snapshot")
         if _db_type() == "mysql":
             c = _mysql_creds()
             env = os.environ.copy()
             env["MYSQL_PWD"] = c["pwd"]
-            cmd = ["mysql", "-h", c["host"], "-u", c["user"], c["db"]]
-            subprocess.run(cmd, input=data, check=True, env=env)
+            # 关键：先归还当前请求的数据库连接并清空连接池。
+            # 本请求在 @admin_required/current_user 阶段已执行过 SELECT admin,
+            # 其事务持有的连接持有 admin 表元数据锁(MDL),会让恢复端
+            # DROP TABLE 永久阻塞直至 120s 超时 —— 且此时 DROP 可能刚好完成,
+            # mysql 被杀后 dump 其余部分(CREATE/INSERT)不再执行,留下残库。
+            # session.remove() 归还请求自身占用的连接,dispose() 清空池中其余连接。
+            db.session.remove()
+            db.engine.dispose()
+            cmd = [
+                "mysql",
+                "--default-character-set=utf8mb4",
+                "--connect-timeout=10",
+                "-h",
+                c["host"],
+                "-u",
+                c["user"],
+                c["db"],
+            ]
+            # 加 timeout 避免 mysqldump/mysql 客户端因等待输入而永久挂起
+            # （如密码错误进入交互提示符会卡住请求）
+            result = subprocess.run(
+                cmd, input=data, capture_output=True, timeout=120, env=env
+            )
+            if result.returncode != 0:
+                # 把 mysql 的 stderr 透出,便于定位（密码错误/表不存在等）
+                raise RuntimeError(
+                    result.stderr.decode("utf-8", errors="replace").strip()
+                    or f"mysql exited with code {result.returncode}"
+                )
+            # 丢弃恢复前留下的旧连接缓存，确保后续请求读到恢复后的数据
+            db.engine.dispose()
+            # 恢复完整性校验：admin 表是 dump 中首张建表且必含 INSERT,
+            # 若表缺失或无数据,说明恢复被中断、库表处于不一致状态
+            with db.engine.connect() as conn:
+                admin_count = conn.execute(
+                    db.text(
+                        "SELECT COUNT(*) FROM information_schema.tables "
+                        "WHERE table_schema = :db AND table_name = 'admin'"
+                    ),
+                    {"db": c["db"]},
+                ).scalar()
+                if admin_count:
+                    admin_count = conn.execute(
+                        db.text("SELECT COUNT(*) FROM admin")
+                    ).scalar()
+            if not admin_count:
+                raise RuntimeError(
+                    _("恢复不完整：admin 表缺失或无数据，请直接重新执行一次恢复")
+                )
         else:
+            db.session.remove()
             db.engine.dispose()
             with open(_sqlite_db_path(), "wb") as f:
                 f.write(data)
         flash(_("恢复成功"), "success")
+    except subprocess.TimeoutExpired:
+        log.error("MySQL 恢复超时", exc_info=True)
+        flash(
+            _("恢复失败：MySQL 命令执行超时，请检查连接配置；如页面异常请重新执行一次恢复"),
+            "danger",
+        )
     except Exception as e:
         log.error("恢复失败: %s", e, exc_info=True)
         flash(_("恢复失败：%(err)s", err=e), "danger")
+    finally:
+        _restore_lock.release()
     return redirect(url_for("admin.backup"))

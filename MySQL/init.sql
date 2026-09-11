@@ -155,6 +155,7 @@ CREATE TABLE `site_config` (
   `mail_use_ssl` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否使用 SSL（465）',
   `mail_use_tls` tinyint(1) NOT NULL DEFAULT '1' COMMENT '是否使用 STARTTLS（587）',
   `comments_enabled` tinyint(1) NOT NULL DEFAULT '1' COMMENT '评论总开关（0=关闭，全站禁止新评论/回复）',
+  `sidebar_style` varchar(20) NOT NULL DEFAULT 'book' COMMENT '侧边栏栏目分类样式（book=书本树形/classic=经典箭头）',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -185,6 +186,20 @@ CREATE TABLE `login_attempt` (
   `lock_until` int NOT NULL DEFAULT '0',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_ip_username` (`ip`, `username`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- --------------------------------------------------------
+-- 表：rate_limit（通用频率限制，评论/回复/点赞/找回密码防刷）
+-- --------------------------------------------------------
+DROP TABLE IF EXISTS `rate_limit`;
+CREATE TABLE `rate_limit` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `ip` varchar(100) NOT NULL,
+  `action` varchar(50) NOT NULL,
+  `create_time` varchar(50) NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_ip_action` (`ip`, `action`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 

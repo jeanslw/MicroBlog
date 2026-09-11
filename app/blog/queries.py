@@ -72,14 +72,16 @@ def get_article_detail(aid: int):
     """获取文章详情 + 评论 + 回复（批量查询避免 N+1）
 
     返回 (article, comments_with_replies)
-    article.content 会被净化以防止 XSS。
+    article.safe_content 为净化后的 HTML（非映射属性,不会触发脏 UPDATE）。
+    切勿把净化结果赋回 article.content（mapped 列会变 dirty,触发无谓 UPDATE）。
     """
     article = db.session.get(Article, aid)
     if not article:
         return None, []
 
-    # 净化 HTML 输出,防止存储型 XSS
-    article.content = sanitize_html(article.content)
+    # 净化 HTML 输出,防止存储型 XSS。结果存到非映射属性 safe_content,
+    # 不修改 mapped 的 content 列，避免每次详情页访问都触发一条 UPDATE。
+    article.safe_content = sanitize_html(article.content)
 
     # 一次性查出所有评论
     comments = db.session.scalars(select(Comment).where(Comment.article_id == aid).order_by(Comment.create_time)).all()
