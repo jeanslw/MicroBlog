@@ -1,13 +1,13 @@
 # 博客系统部署文档
 
-版本：v1.3.2
+版本：v1.3.3
 
 基于 Flask 3.1 框架，功能包括：文章发布与管理、Markdown文档上传、支持代码高亮与图片上传、评论与点赞、文章分类、Banner 轮播、中英双语 i18n。
 整体 UI 采用玻璃拟态透明风格，搭配动态炫酷背景（极光 / 星空 / 流光 / 气泡 / 经典），右下角悬浮调色盘按钮一键自由切换风格，选择记忆在 localStorage 中。
-全部静态资源本地加载，支持 SQLite 与 MySQL，内置 135 项自动化测试。
+全部静态资源本地加载，支持 SQLite 与 MySQL，内置 219 项自动化测试。
 
 <p align="center">
-  <a href="https://gitee.com/jeanslw/MicroBlog/releases/tag/v1.3.1"><img src="https://img.shields.io/github/v/release/jeanslw/MicroBlog?style=flat-square&label=Release" alt="Release"></a>
+  <a href="https://gitee.com/jeanslw/MicroBlog/releases/tag/v1.3.3"><img src="https://img.shields.io/github/v/release/jeanslw/MicroBlog?style=flat-square&label=Release" alt="Release"></a>
   <a href="https://gitee.com/jeanslw/MicroBlog"><img src="https://img.shields.io/github/last-commit/jeanslw/MicroBlog?style=flat-square&label=Last%20Commit" alt="Last Commit"></a>
   <a href="https://www.python.org"><img src="https://img.shields.io/badge/Python-3.10+-777BB4?logo=python&logoColor=white" alt="Language"></a>
   <a href="https://flask.palletsprojects.com"><img src="https://img.shields.io/badge/Flask-3.1.0+-777BB4?logo=Flask&logoColor=white" alt="framework"></a>
@@ -37,7 +37,7 @@
 | UI 主题 | 玻璃拟态透明 UI，内置 12 张 1920x1080 高清背景图库，右下角调色盘一键切换；后台可上传或填 URL 自定义背景；localStorage 记忆选择 |
 | 安全 | CSRF 保护、HTML 净化防 XSS（nh3）、登录防暴力破解、安全 Session、图片解压炸弹防护 |
 | 数据库 | SQLAlchemy ORM，SQLite / MySQL 无缝切换 |
-| 测试 | pytest 135 项测试，覆盖认证/博客/评论/安全/i18n 等模块 |
+| 测试 | pytest 219 项测试，覆盖认证/博客/评论/安全/i18n 等模块 |
 
 ## 2. 环境要求
 
@@ -50,11 +50,79 @@
 | Docker Compose | v2+（可选） | 多容器编排 |
 
 > **SQLite 模式**：无需安装任何数据库，开箱即用，适合开发测试和小型部署。
-> **Docker 模式**：一条命令启动 web + db + nginx，见[部署文档](docs/部署文档.md)。
+> **Docker 模式**：复制配置示例、填写数据库密码后一条命令启动 web + db + nginx，见下方[第 3 节 快速开始](#3-快速开始)。
 
-## 3. 组件依赖
+## 3. 快速开始
 
-### 3.1 Python 依赖（requirements.txt）
+### 3.1 Docker Compose（推荐，开箱即用）
+
+只需复制配置示例、填写两个数据库密码，其余保持默认即可启动。
+
+```bash
+# 1) 准备配置
+cp .env.docker.example .env.docker
+#    编辑 .env.docker，至少修改下面两项：
+#      MYSQL_ROOT_PASSWORD=你的强密码
+#      MYSQL_PASSWORD=你的强密码
+
+# 2) 一键启动 web + MySQL 8 + Nginx
+docker compose --env-file .env.docker --profile full up -d
+
+# 3) 浏览器访问
+#    站点首页  http://localhost
+#    后台入口  http://localhost/admin/login
+#    直连调试  http://127.0.0.1:5000
+```
+
+三种编排组合（profile）：
+
+| 命令 | 启动的服务 | 适用场景 |
+|------|-----------|---------|
+| `docker compose up -d web` | 仅 web（SQLite，**零配置、无需密码**） | 最快体验 |
+| `docker compose --env-file .env.docker --profile mysql up -d` | web + MySQL | 已有外部反代 |
+| `docker compose --env-file .env.docker --profile full up -d` | web + MySQL + Nginx | 完整推荐 |
+
+开箱即用的内置保障：
+
+- **就绪编排**：容器内置 `/healthz` 健康检查（同时探测进程与数据库），web 等 MySQL 首次初始化完成后才启动，Nginx 等 web 健康后才接入流量；应用启动时另有 MySQL 连接重试兜底
+- **自动建表建号**：MySQL 首启自动导入 [MySQL/init.sql](MySQL/init.sql)；未配置初始管理员密码时，首访 `/admin/setup` 按引导创建管理员，也可在 `.env.docker` 设置 `BLOG_INIT_ADMIN_PWD` 自动创建
+- **HTTP 可直接登录**：内置 Nginx 仅提供明文 HTTP(80)，默认 `BLOG_COOKIE_SECURE=false`；自行配置 HTTPS 后置为 `true`
+- **反代头已配好**：默认 `BLOG_PROXY_XFOR=1`、`BLOG_PROXY_XPROTO=1`、`BLOG_PROXY_XHOST=0`
+- 默认密钥与默认数据库密码仅供本机测试，**公网部署务必修改** `BLOG_SECRET_KEY`、`MYSQL_ROOT_PASSWORD`、`MYSQL_PASSWORD`
+- 数据持久化：SQLite 在 `./data`、上传图片在 `./static`、MySQL 在命名卷 `flask-blog-mysql-data`
+
+常用运维命令：
+
+```bash
+docker compose --env-file .env.docker --profile full logs -f web      # 跟踪日志
+docker compose --env-file .env.docker --profile full down              # 停止
+docker compose --env-file .env.docker --profile full up -d --build     # 代码更新后重建
+```
+
+### 3.2 本机直接运行（开发 / 调试）
+
+```bash
+python -m venv venv
+# Linux / WSL2：
+source venv/bin/activate
+# Windows：
+venv\Scripts\activate
+pip install -r requirements.txt
+
+cp .env.example .env     # 编辑 BLOG_SECRET_KEY、BLOG_DB_TYPE、数据库账号等
+
+# Linux / WSL2（gunicorn 多 worker）
+gunicorn -w 4 -b 127.0.0.1:5000 --access-logfile - --error-logfile - "app:create_app()"
+
+# Windows（gunicorn 依赖 fork，不支持 Windows，使用 waitress）
+waitress-serve --listen=127.0.0.1:5000 wsgi:application
+```
+
+访问 `http://127.0.0.1:5000`。经 Nginx 反代时可直接使用 [nginx/nginx.conf](nginx/nginx.conf)（须转发 `Host` 与 `X-Forwarded-*` 头，并在 `.env` 设置 `BLOG_PROXY_XFOR=1`、`BLOG_PROXY_XPROTO=1`；明文 HTTP 调试需 `BLOG_COOKIE_SECURE=false`）。裸机部署与 HTTPS 完整步骤见[部署文档](docs/部署文档.md)。
+
+## 4. 组件依赖
+
+### 4.1 Python 依赖（requirements.txt）
 
 | 依赖 | 版本 | 用途 |
 |------|------|------|
@@ -69,6 +137,7 @@
 | PyMySQL | 1.2.0 | MySQL 驱动 |
 | cryptography | 43.0.1 | PyMySQL 依赖的加密库 |
 | gunicorn | 23.0.0 | WSGI 服务器（Docker / Linux 生产） |
+| waitress | 3.0.2 | WSGI 服务器（Windows 本地运行，gunicorn 不支持 Windows） |
 | python-dotenv | 1.2.1 | 从 `.env` 文件读取环境变量 |
 | Pillow | 10.4.0 | 图片处理（缩放/压缩/格式转换/解压炸弹防护） |
 | nh3 | 0.2.18 | HTML 净化（防 XSS，Rust ammonia 绑定） |
@@ -77,7 +146,7 @@
 
 > uWSGI 用户可额外 `pip install uwsgi`，配置文件已提供 [uwsgi.ini](uwsgi.ini)。
 
-### 3.2 前端静态资源（static/lib/）
+### 4.2 前端静态资源（static/lib/）
 
 所有 JS/CSS 均已本地化，**部署后无需访问任何 CDN**，内网完全可用。
 
@@ -95,7 +164,7 @@
 
 > 页面中所有 `<link>` 和 `<script>` 均使用 `url_for('static', ...)` 引用本地文件，零外链。
 
-## 4. 管理员登录与后台地址
+## 5. 管理员登录与后台地址
 
 | 页面 | 地址 | 说明 |
 |------|------|------|
@@ -108,16 +177,16 @@
 | 轮播图管理 | `/banner/list` | 需登录，管理 Banner |
 | 语言切换 | `/set_lang/zh_CN` 或 `/set_lang/en` | 切换中/英文 |
 
-**首次登录步骤：**
+**首次登录步骤（二选一）：**
 
-1. 确保 `BLOG_INIT_ADMIN_PWD` 已设置
-2. 启动服务后访问 `http://your-server/admin/login`
-3. 用 `admin` / 你设置的密码登录
-4. **登录后立即在「改密码」页面修改为强密码**
+- 方式一（推荐）：不预设密码，启动服务后访问 `http://your-server/admin/login`，检测到无管理员时会自动跳转 `/admin/setup` 引导页，在页面上创建账号
+- 方式二：在 `.env` / `.env.docker` 设置 `BLOG_INIT_ADMIN_PWD`，首次启动自动创建，用 `admin` / 你设置的密码登录
 
-> 若未设置 `BLOG_INIT_ADMIN_PWD`，管理员不会创建，启动日志会有警告。补设后重启服务即可自动补建。
+**登录后立即在「改密码」页面修改为强密码。**
 
-## 5. 国际化（i18n）
+> `BLOG_INIT_ADMIN_PWD` 仅在 admin 表为空时生效一次，不会覆盖已有账号；未设置时启动日志会有提示性警告，属正常现象。
+
+## 6. 国际化（i18n）
 
 - 支持中文（zh_CN）和英文（en）双语
 - **默认跟随浏览器语言**：首次访问根据浏览器 `Accept-Language` 自动选择
@@ -125,7 +194,7 @@
 - 翻译文件位于 `translations/` 目录，使用 Flask-Babel 管理
 - 修改翻译后需重新编译：`pybabel compile -d translations`
 
-## 6. 测试
+## 7. 测试
 
 ```bash
 # 运行全部测试
@@ -139,9 +208,9 @@ pytest tests/test_i18n.py
 pytest --cov=app
 ```
 
-测试覆盖 135 项，包括：认证与防暴力、文章 CRUD、评论与点赞、Banner 管理、安全（XSS 净化/CSRF/路径校验）、i18n 语言切换、数据模型等。
+测试覆盖 219 项，包括：认证与防暴力、文章 CRUD、评论与点赞、Banner 管理、健康检查与 MySQL 就绪等待、安全（XSS 净化/CSRF/Host 白名单/路径校验）、i18n 语言切换、数据模型等。
 
-## 7. 安全特性
+## 8. 安全特性
 
 | 特性 | 实现 |
 |------|------|
@@ -154,7 +223,7 @@ pytest --cov=app
 | 图片防盗链 | Nginx valid_referers 规则保护 `/static/banner/` 和 `/static/uploads/` |
 | 错误信息隐藏 | 生产模式隐藏异常堆栈，返回通用错误页 |
 
-## 8. 目录权限
+## 9. 目录权限
 
 ```bash
 # 上传目录可写

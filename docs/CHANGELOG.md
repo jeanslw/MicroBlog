@@ -1,5 +1,32 @@
 # MicroBlog Changelog
 
+## [v1.3.3] - 2026-09-12
+
+Docker Compose out-of-the-box overhaul, container health probe and database readiness wait, plus a fix for login failures behind an nginx reverse proxy.
+
+### Added
+
+- Health probe `GET /healthz`: the app runs `SELECT 1` to verify database connectivity, returning `{"status":"ok"}` (200) on success or 503 (with rollback) on failure. The path is exempt from the Host allowlist so container health checks and load-balancer probes work.
+- MySQL readiness wait on app startup (`wait_for_database`): MySQL mode only — probes every 3s for up to 90s; SQLite passes immediately. gunicorn / waitress direct deployments benefit too, eliminating skipped table creation/initialization caused by slow MySQL first boot.
+- New image entrypoint `docker-entrypoint.sh`: starts as root, fixes ownership of bind-mounted directories (`data`, `static/banner`, `static/uploads`, `backups`), then drops privileges to appuser via gosu — resolves Permission denied on native Linux Docker mounts.
+- waitress 3.0.2 added as a dependency: on Windows run `waitress-serve --listen=127.0.0.1:5000 wsgi:application` (gunicorn relies on fork and doesn't support Windows).
+
+### Changed & Fixed
+
+- Out-of-the-box docker-compose: test-only built-in defaults are provided for `BLOG_SECRET_KEY` and database passwords — after copying `.env.docker.example`, **only `MYSQL_ROOT_PASSWORD` and `MYSQL_PASSWORD` must be filled in**. SQLite mode `docker compose up -d web` needs zero configuration and no env file.
+- Readiness ordering: web `depends_on` the db health check (`required: false`, automatically ignored in SQLite mode; requires Docker Compose v2.20+), and nginx only routes traffic after web is healthy. The db and image HEALTHCHECKs use `mysqladmin ping` / `/healthz`.
+- Fixed login failure / redirect loop behind nginx: the bundled nginx serves plain HTTP (port 80) only, so compose defaults `BLOG_COOKIE_SECURE=false`; set it to `true` after enabling HTTPS. Compose also preconfigures `BLOG_PROXY_XFOR=1`, `BLOG_PROXY_XPROTO=1`, `BLOG_PROXY_XHOST=0`.
+- Fixed the nginx `/healthz` proxy: a trailing slash in `proxy_pass` rewrote the path to `/`; also added the forwarded `Host` header.
+- Renamed the Host allowlist config key from `TRUSTED_HOSTS` to `HOST_WHITELIST`: Flask 3.1 natively consumes `TRUSTED_HOSTS` and rejects requests with 400 during request context (before `before_request`), making a per-path probe exemption impossible. The environment variable name `BLOG_TRUSTED_HOSTS` is unchanged.
+- The web port is now published to host loopback only (`127.0.0.1:5000`, override with `WEB_PORT`); MySQL 3306 is not published by default.
+
+### Tests & Docs
+
+- New `tests/test_health.py` with 5 tests: probe 200/503, probe exempt from the Host allowlist, MySQL retry-until-ready, SQLite skip-wait. **219 tests** pass in total.
+- Both READMEs gain a "Quick Start" section (three Docker Compose profiles + local gunicorn/waitress); the deployment guide documents health checks/startup order/directory permissions, and the FAQ adds entries for reverse-proxy login failure, Host allowlist 400, probe 503, mount permissions, and waitress on Windows.
+
+---
+
 ## [v1.3.2] - 2026-09-11
 
 First-install setup wizard, email password recovery, database backup/restore, article SEO + sitemap, plus security hardening and a unified admin UI overhaul.
