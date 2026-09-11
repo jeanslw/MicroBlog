@@ -179,7 +179,11 @@ def _resolve_db_uri_for_class(cls):
         }
         return
     path = os.environ.get("BLOG_SQLITE_PATH") or "data/blog.db"
-    cls.SQLALCHEMY_DATABASE_URI = "sqlite:///" + os.path.abspath(path)
+    abs_path = os.path.abspath(path)
+    # SQLite 引擎只创建库文件、不创建父目录，这里确保目录存在，
+    # 避免全新部署（data/ 缺失）时首启报 unable to open database file。
+    os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+    cls.SQLALCHEMY_DATABASE_URI = "sqlite:///" + abs_path
     cls.SQLALCHEMY_ENGINE_OPTIONS = {}
 
 
