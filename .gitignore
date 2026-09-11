@@ -6,6 +6,7 @@
 /__pycache__/*
 /app/__pycache__/*
 copilot-instructions.md
+*.bat
 
 # 环境变量与本地数据，禁止入库
 .env
