@@ -23,7 +23,10 @@ except ImportError:
 
 
 def _env_bool(name: str, default: str = "false") -> bool:
-    return os.environ.get(name, default).strip().lower() in ("1", "true", "yes", "on")
+    value = os.environ.get(name)
+    if value is None or not value.strip():
+        value = default
+    return value.strip().lower() in ("1", "true", "yes", "on")
 
 
 def _normalize_trusted_host(entry: str) -> str:
@@ -94,6 +97,8 @@ class Config:
     # ── Session / Cookie ────────────────────────────────
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
+    # 本地明文 HTTP 调试可显式设置 BLOG_COOKIE_SECURE=false；生产默认仍为 true。
+    SESSION_COOKIE_SECURE = _env_bool("BLOG_COOKIE_SECURE", "false")
     PERMANENT_SESSION_LIFETIME = 60 * 60 * 12  # 12 小时（秒）
     PERMANENT_SESSION_LIFETIME_DELTA = None  # 由 __init__.py 转 timedelta
 
@@ -145,7 +150,8 @@ class DevelopmentConfig(Config):
 
 class ProductionConfig(Config):
     DEBUG = False
-    SESSION_COOKIE_SECURE = True  # 生产强制 Secure Cookie
+    # 生产默认强制 Secure Cookie；仅本地明文 HTTP 调试时通过环境变量显式关闭。
+    SESSION_COOKIE_SECURE = _env_bool("BLOG_COOKIE_SECURE", "true")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 

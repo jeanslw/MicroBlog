@@ -26,6 +26,8 @@ services:
       BLOG_ENV: production
       BLOG_SECRET_KEY: ${BLOG_SECRET_KEY:?必须在 .env.docker 中设置 BLOG_SECRET_KEY}
       BLOG_DEBUG: "False"
+      # 生产默认 true；仅本地明文 HTTP 调试时在 .env.docker 设置 false
+      BLOG_COOKIE_SECURE: ${BLOG_COOKIE_SECURE:-}
       # 固定外链域名（邮件重置链接/订阅源/sitemap 使用，防 Host 头注入）
       # 生产请改为真实域名，如 https://blog.example.com
       BLOG_CANONICAL_URL: ${BLOG_CANONICAL_URL:-}
@@ -114,9 +116,9 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
-    ports:
-      # 默认不暴露 MySQL 端口到宿主机；如需从宿主机连数据库，取消下行注释
-      # - "3306:3306"
+    # 默认不暴露 MySQL 端口到宿主机；如需从宿主机连数据库，取消下方注释
+    # ports:
+    #   - "3306:3306"
     profiles: ["full", "mysql"]
     networks:
       - blog-net
