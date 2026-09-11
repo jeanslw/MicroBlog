@@ -321,18 +321,16 @@ docker compose --env-file .env.docker --profile full up -d
 
 #### 2.6.8 Reverse Proxy Domain & HTTPS
 
-Change `server_name _;` in `nginx/nginx.conf` to your domain, mount certificates, and switch to 443:
+The complete HTTPS configuration is **already written and commented out** in [nginx/nginx.conf](../nginx/nginx.conf) and docker-compose.yml — just uncomment, no hand-writing required:
 
-```nginx
-server {
-    listen 443 ssl http2;
-    server_name blog.example.com;
-    ssl_certificate     /etc/nginx/certs/fullchain.pem;
-    ssl_certificate_key /etc/nginx/certs/privkey.pem;
-}
-```
+1. Put the certificates in `./nginx/certs/` on the host: `fullchain.pem` (full chain) and `privkey.pem` (private key). This directory is listed in `.gitignore` so certificates can never be committed by accident
+2. In the nginx service of `docker-compose.yml`, uncomment `#- "443:443"` and `#- ./nginx/certs:/etc/nginx/certs:ro`
+3. In `nginx/nginx.conf`, uncomment the whole 443 server block at the bottom, change its `server_name` to your real domain, and uncomment `#return 301 https://$host$request_uri;` in the port-80 server (HTTP→HTTPS redirect)
+4. Set `BLOG_COOKIE_SECURE=true` in `.env.docker` (`BLOG_PROXY_XPROTO=1` is already enabled by compose, so the app correctly detects HTTPS)
+5. Recreate: `docker compose --env-file .env.docker --profile full up -d`, then verify with `docker exec flask-blog-nginx nginx -t`
 
-Also set `BLOG_COOKIE_SECURE=true` in `.env.docker` and recreate web (`BLOG_PROXY_XPROTO=1` is already enabled by compose, so the app correctly detects HTTPS).
+> The 443 block includes TLS 1.2/1.3, modern cipher suites, session caching, and all security headers/hotlink-protection locations. The HSTS line stays commented by default — enable it only after the site is confirmed to work over HTTPS long-term.
+> When issuing/renewing Let's Encrypt certificates via HTTP-01, temporarily comment the port-80 301 redirect (or use DNS-01).
 
 In production **only expose 80/443**; do NOT expose 5000 (Flask) or 3306 (MySQL) to the public internet (the current compose already binds 5000 to loopback and does not publish 3306).
 

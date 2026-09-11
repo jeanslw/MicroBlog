@@ -13,6 +13,8 @@ copilot-instructions.md
 .env.docker
 /data/
 /backups/
+# SSL 证书/私钥禁止入库（启用 HTTPS 时放入 nginx/certs/）
+/nginx/certs/
 /static/banner/*
 /static/uploads/*
 

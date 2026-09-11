@@ -158,8 +158,16 @@ services:
     restart: unless-stopped
     ports:
       - "80:80"
+      # 启用 HTTPS 时取消注释（同时按 nginx/nginx.conf 顶部说明操作）：
+      # 1) 证书放到宿主机 ./nginx/certs/（fullchain.pem / privkey.pem）
+      # 2) 取消下方 443 端口与 certs 目录挂载两行注释
+      # 3) 取消 nginx.conf 中 443 server 块与 80 跳转行的注释
+      # 4) .env.docker 设 BLOG_COOKIE_SECURE=true 后重建
+      #- "443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      # 证书目录（只读）；未挂载且未启用 443 配置时不影响默认 HTTP 启动
+      #- ./nginx/certs:/etc/nginx/certs:ro
       - ./static:/app/static:ro
     depends_on:
       # 等 web 健康检查（/healthz）通过后再接入流量
