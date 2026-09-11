@@ -42,10 +42,7 @@ def _is_trusted_host(host: str | None) -> bool:
     if not host:
         return False
     # 去除端口（兼容 IPv6 的 [::1]:5000 形式）
-    if host.startswith("["):
-        host_only = host.split("]", 1)[0] + "]"
-    else:
-        host_only = host.split(":", 1)[0]
+    host_only = host.split("]", 1)[0] + "]" if host.startswith("[") else host.split(":", 1)[0]
     trusted = current_app.config.get("TRUSTED_HOSTS") or []
     if not trusted:
         return True  # 未配置白名单时放行

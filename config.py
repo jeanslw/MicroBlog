@@ -11,7 +11,7 @@
 
 import os
 import secrets
-import warnings
+from typing import ClassVar
 
 # 优先加载项目根目录 .env（若存在），不强制依赖 python-dotenv
 try:
@@ -36,10 +36,8 @@ def _normalize_trusted_host(entry: str) -> str:
     entry = entry.strip().lower()
     if "://" in entry:
         entry = urlsplit(entry).netloc or ""
-    if entry.startswith("["):
-        entry = entry.split("]", 1)[0] + "]"
-    else:
-        entry = entry.split(":", 1)[0]
+    # 去端口（IPv6 保留 [方括号] 形式）
+    entry = entry.split("]", 1)[0] + "]" if entry.startswith("[") else entry.split(":", 1)[0]
     return entry
 
 
@@ -84,7 +82,7 @@ class Config:
     CANONICAL_URL = (os.environ.get("BLOG_CANONICAL_URL") or "").rstrip("/")
     # Host 白名单（逗号分隔）。设置后，非白名单 Host 的请求将被拒绝（400）。
     # 留空表示不校验（仅开发便捷）。生产环境建议设置为真实域名。
-    TRUSTED_HOSTS = [
+    TRUSTED_HOSTS: ClassVar[list[str]] = [
         h
         for h in (
             _normalize_trusted_host(x)
@@ -198,7 +196,7 @@ class TestingConfig(Config):
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     # 测试环境封闭：不受开发者 .env 的 Host 白名单影响
-    TRUSTED_HOSTS = []
+    TRUSTED_HOSTS: ClassVar[list[str]] = []
     CANONICAL_URL = ""
     # 测试密钥由 tests/conftest.py 通过 BLOG_SECRET_KEY 环境变量注入,
     # 不再在代码中硬编码,避免 CI 密钥扫描误报。

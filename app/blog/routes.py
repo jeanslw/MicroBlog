@@ -500,8 +500,6 @@ def _build_feed():
     """
     from feedgen.feed import FeedGenerator
 
-    from app.extensions import external_url_for
-
     articles = get_recent_articles()
     site_name = db.session.scalar(db.select(SiteConfig.site_name)) or "博客"
     # 优先使用配置的 CANONICAL_URL,避免 Host 头注入导致订阅源链接被投毒

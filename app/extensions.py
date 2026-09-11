@@ -11,7 +11,8 @@ from functools import wraps
 from urllib.parse import urlparse
 
 from flask import flash, redirect, request, url_for
-from flask_babel import _, lazy_gettext as _l
+from flask_babel import _
+from flask_babel import lazy_gettext as _l
 from flask_login import LoginManager, current_user
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf import CSRFProtect

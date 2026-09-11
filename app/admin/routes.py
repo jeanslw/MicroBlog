@@ -624,7 +624,7 @@ def _create_backup(backup_dir, tag=""):
     snapshot_path = os.path.join(backup_dir, f".snapshot_{timestamp}.db")
     try:
         with db.engine.begin() as conn:
-            conn.execute(db.text(f"VACUUM INTO :path"), {"path": snapshot_path})
+            conn.execute(db.text("VACUUM INTO :path"), {"path": snapshot_path})
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
             zf.write(snapshot_path, arcname=inner_name)
     finally:
