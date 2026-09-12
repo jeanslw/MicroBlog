@@ -86,11 +86,11 @@
                     </div>
                 </div>
                 <div class="d-flex gap-2 mt-3 justify-content-end">
-                    <button type="submit" class="btn btn-primary px-4">{{ _('保存') }}</button>
-                    {# 通过 form 属性关联独立表单，避免 form 嵌套被浏览器丢弃导致误提交设置表单 #}
+				    {# 通过 form 属性关联独立表单，避免 form 嵌套被浏览器丢弃导致误提交设置表单 #}
                     <button type="submit" class="btn btn-outline-secondary" form="mail-test-form">
                         <i class="bi bi-send"></i> {{ _('发送测试邮件') }}
                     </button>
+                    <button type="submit" class="btn btn-primary px-4">{{ _('保存') }}</button>
                 </div>
                 <p class="text-muted small mt-2 mb-0">{{ _('测试邮件将发送到上方账户邮箱。') }}</p>
             </form>
