@@ -225,15 +225,15 @@ msgid "密码"
 msgstr "Password"
 
 #: templates/admin/login.html:46
-msgid "返回博客首页"
-msgstr "Back to Blog Home"
+msgid "返回首页"
+msgstr "Back to Home"
 
 #: templates/admin/site_setting.html:12
 msgid "站点全局设置"
 msgstr "Global Site Settings"
 
 #: templates/admin/site_setting.html:18
-msgid "博客网站名称"
+msgid "网站名称"
 msgstr "Blog Site Name"
 
 #: templates/admin/site_setting.html
@@ -366,8 +366,8 @@ msgid "全部文章"
 msgstr "All Articles"
 
 #: templates/blog/detail.html:61
-msgid "管理员尚未创建栏目分类"
-msgstr "The administrator has not created any categories yet"
+msgid "尚未创建栏目分类"
+msgstr "No category has been created yet"
 
 #: templates/blog/detail.html:66
 msgid "新建栏目/标签"
@@ -581,8 +581,8 @@ msgid "查看全部评论"
 msgstr "View all comments"
 
 #: templates/blog/index.html:172
-msgid "暂无公开文章，请管理员登录后发布内容"
-msgstr "No published articles yet. Please log in as admin to post content."
+msgid "暂无公开文章，请登录后发布内容"
+msgstr "No published articles yet.Please log in to publish content."
 
 #: templates/blog/index.html:183
 msgid "上一页"

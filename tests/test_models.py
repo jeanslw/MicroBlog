@@ -98,7 +98,7 @@ def test_site_config_default(db):
     s = SiteConfig()
     db.session.add(s)
     db.session.commit()
-    assert s.site_name == "我的博客"
+    assert s.site_name == "My Blog"
     assert s.favicon_path == "static/favicon.ico"
 
 

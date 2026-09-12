@@ -112,7 +112,7 @@ class SiteConfig(db.Model):
     __tablename__ = "site_config"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    site_name = Column(String(100), nullable=False, default="我的博客")
+    site_name = Column(String(100), nullable=False, default="My Blog")
     favicon_path = Column(String(200), default="static/favicon.ico")
     # 网站 Logo 图片 URL（导航栏显示；上传时过大自动缩放）
     logo_path = Column(String(200), default="")

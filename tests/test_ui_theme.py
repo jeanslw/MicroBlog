@@ -34,7 +34,7 @@ def test_site_bg_style_save(login_admin, db):
     rv = login_admin.post(
         "/admin/site_setting",
         data={
-            "site_name": "我的博客",
+            "site_name": "My Blog",
             "bg_style": "bg3",
         },
         follow_redirects=False,
@@ -51,7 +51,7 @@ def test_site_bg_custom_url_save(login_admin, db):
     rv = login_admin.post(
         "/admin/site_setting",
         data={
-            "site_name": "我的博客",
+            "site_name": "My Blog",
             "bg_style": "custom",
             "bg_custom": url,
         },
@@ -79,7 +79,7 @@ def test_site_bg_upload_save(login_admin, db, monkeypatch, tmp_path):
     rv = login_admin.post(
         "/admin/site_setting",
         data={
-            "site_name": "我的博客",
+            "site_name": "My Blog",
             "bg_style": "custom",
             "bg_upload": (img, "my-bg.jpg"),
         },
@@ -102,7 +102,7 @@ def test_site_bg_upload_invalid_rejected(login_admin, db):
     rv = login_admin.post(
         "/admin/site_setting",
         data={
-            "site_name": "我的博客",
+            "site_name": "My Blog",
             "bg_style": "custom",
             "bg_upload": (io.BytesIO(b"not an image"), "evil.txt"),
         },
@@ -130,7 +130,7 @@ def test_site_logo_upload_save(login_admin, db, monkeypatch, tmp_path):
     rv = login_admin.post(
         "/admin/site_setting",
         data={
-            "site_name": "我的博客",
+            "site_name": "My Blog",
             "bg_style": "bg1",
             "logo_upload": (img, "my-logo.png"),
         },
@@ -160,7 +160,7 @@ def test_site_logo_oversized_auto_scaled(login_admin, db, monkeypatch, tmp_path)
     rv = login_admin.post(
         "/admin/site_setting",
         data={
-            "site_name": "我的博客",
+            "site_name": "My Blog",
             "bg_style": "bg1",
             "logo_upload": (img, "big-logo.jpg"),
         },
@@ -182,7 +182,7 @@ def test_site_logo_invalid_rejected(login_admin, db):
     rv = login_admin.post(
         "/admin/site_setting",
         data={
-            "site_name": "我的博客",
+            "site_name": "My Blog",
             "bg_style": "bg1",
             "logo_upload": (io.BytesIO(b"not an image"), "evil.txt"),
         },

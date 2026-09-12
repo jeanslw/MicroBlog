@@ -174,7 +174,7 @@ def test_ensure_site_config_creates_default(app, db):
     ensure_site_config()
     s = db.session.get(SiteConfig, 1)
     assert s is not None
-    assert s.site_name == "我的博客"
+    assert s.site_name == "My Blog"
 
 
 def test_cli_init_db(runner):

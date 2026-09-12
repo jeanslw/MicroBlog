@@ -240,7 +240,7 @@ def ensure_site_config():
         log.warning("ensure_site_config: 查询失败: %s", e)
         return
     if cnt == 0:
-        db.session.add(SiteConfig(site_name="我的博客", favicon_path="static/favicon.ico"))
+        db.session.add(SiteConfig(site_name="My Blog", favicon_path="static/favicon.ico"))
         try:
             db.session.commit()
         except IntegrityError:

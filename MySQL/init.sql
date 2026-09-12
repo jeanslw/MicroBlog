@@ -136,7 +136,7 @@ CREATE TABLE `banner` (
 DROP TABLE IF EXISTS `site_config`;
 CREATE TABLE `site_config` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `site_name` varchar(100) NOT NULL DEFAULT '我的博客',
+  `site_name` varchar(100) NOT NULL DEFAULT 'My Blog',
   `favicon_path` varchar(200) DEFAULT 'static/favicon.ico',
   `logo_path` varchar(200) DEFAULT '' COMMENT '网站 Logo 图片 URL（导航栏显示，上传时过大自动缩放）',
   `bg_style` varchar(50) DEFAULT 'bg1' COMMENT '背景风格：bg1~bg10/vdysjx/bg13 内置图库或 custom 自定义',
@@ -208,7 +208,7 @@ CREATE TABLE `rate_limit` (
 -- --------------------------------------------------------
 -- 站点配置（仅一条）
 INSERT INTO `site_config` (`id`, `site_name`, `favicon_path`, `logo_path`, `bg_style`, `bg_custom`, `about_avatar`, `about_bio`, `about_email`, `about_github`, `about_homepage`, `about_nickname`)
-VALUES (1, '我的博客', 'static/favicon.ico', '', 'bg1', '', '', NULL, '', '', '', '');
+VALUES (1, 'My Blog', 'static/favicon.ico', '', 'bg1', '', '', NULL, '', '', '', '');
 
 -- ⚠️ 不在此插入初始管理员账号（避免明文密码）
 -- 请用以下任一方式创建管理员：

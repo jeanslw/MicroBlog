@@ -184,7 +184,7 @@ def about_setting():
     """「关于我」编辑页：头像/邮箱/GitHub/个人主页/简介,数据存 site_config.about_*"""
     site = db.session.get(SiteConfig, 1)
     if not site:
-        site = SiteConfig(id=1, site_name="我的博客", favicon_path="static/favicon.ico")
+        site = SiteConfig(id=1, site_name="My Blog", favicon_path="static/favicon.ico")
         db.session.add(site)
         db.session.commit()
     form = AboutForm()
@@ -232,7 +232,7 @@ def _site_setting_view(template):
     """站点设置公共视图：panel 首页与独立站点设置页共用"""
     site = db.session.get(SiteConfig, 1)
     if not site:
-        site = SiteConfig(id=1, site_name="我的博客", favicon_path="static/favicon.ico")
+        site = SiteConfig(id=1, site_name="My Blog", favicon_path="static/favicon.ico")
         db.session.add(site)
         db.session.commit()
     form = SiteSettingForm(obj=site)
@@ -450,7 +450,7 @@ def account():
     """
     site = db.session.get(SiteConfig, 1)
     if not site:
-        site = SiteConfig(id=1, site_name="我的博客", favicon_path="static/favicon.ico")
+        site = SiteConfig(id=1, site_name="My Blog", favicon_path="static/favicon.ico")
         db.session.add(site)
         db.session.commit()
     email_form = AccountForm()
@@ -478,7 +478,7 @@ def mail_setting():
         return redirect(url_for("admin.account"))
     site = db.session.get(SiteConfig, 1)
     if not site:
-        site = SiteConfig(id=1, site_name="我的博客", favicon_path="static/favicon.ico")
+        site = SiteConfig(id=1, site_name="My Blog", favicon_path="static/favicon.ico")
         db.session.add(site)
         db.session.commit()
     form = MailSettingForm(obj=site)

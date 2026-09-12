@@ -225,16 +225,16 @@ msgid "密码"
 msgstr "密码"
 
 #: templates/admin/login.html:46
-msgid "返回博客首页"
-msgstr "返回博客首页"
+msgid "返回首页"
+msgstr "返回首页"
 
 #: templates/admin/site_setting.html:12
 msgid "站点全局设置"
 msgstr "站点全局设置"
 
 #: templates/admin/site_setting.html:18
-msgid "博客网站名称"
-msgstr "博客网站名称"
+msgid "网站名称"
+msgstr "网站名称"
 
 #: templates/admin/site_setting.html:21
 msgid "保存设置"
@@ -348,8 +348,8 @@ msgid "全部文章"
 msgstr "全部文章"
 
 #: templates/blog/detail.html:61
-msgid "管理员尚未创建栏目分类"
-msgstr "管理员尚未创建栏目分类"
+msgid "尚未创建栏目分类"
+msgstr "尚未创建栏目分类"
 
 #: templates/blog/detail.html:66
 msgid "新建栏目/标签"
@@ -514,8 +514,8 @@ msgid "查看全部评论"
 msgstr "查看全部评论"
 
 #: templates/blog/index.html:172
-msgid "暂无公开文章，请管理员登录后发布内容"
-msgstr "暂无公开文章，请管理员登录后发布内容"
+msgid "暂无公开文章，请登录后发布内容"
+msgstr "暂无公开文章，请登录后发布内容"
 
 #: templates/blog/index.html:183
 msgid "上一页"
