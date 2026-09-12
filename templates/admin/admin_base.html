@@ -72,6 +72,18 @@
             width: clamp(240px, 21%, 420px);
         }
     }
+    /* <576px 时菜单变为左侧抽屉（offcanvas-sm）：透明背景承托毛玻璃卡片，
+       宽度随屏幕自适应；>=576px 恢复为左侧固定栏，内容始终在菜单右侧 */
+    .admin-aside {
+        --bs-offcanvas-width: min(85vw, 320px);
+        --bs-offcanvas-bg: transparent;
+        --bs-offcanvas-border-width: 0;
+    }
+    /* 右侧内容列必须允许收缩（min-width:0）：草稿卡摘要 text-truncate 的
+       nowrap 会撑大列的 min-content，把整个内容列挤到菜单下方换行 */
+    .admin-content-col {
+        min-width: 0;
+    }
     /* 右侧内容区统一毛玻璃卡片 —— 双类选择器提升优先级，覆盖 Bootstrap .card */
     .admin-panel-card.card {
         background-color: rgba(255, 255, 255, .55) !important;
@@ -91,10 +103,22 @@
         border-radius: 14px;
     }
 </style>
+<!-- 菜单抽屉按钮（仅 <576px 显示；>=576px 菜单固定在左侧栏） -->
+<button class="btn btn-primary d-sm-none mb-3" type="button" data-bs-toggle="offcanvas"
+        data-bs-target="#adminSidebar" aria-controls="adminSidebar">
+    <i class="bi bi-list"></i> {{ _('管理菜单') }}
+</button>
 <div class="row g-4">
-    <!-- 左侧菜单区 -->
-    <aside class="col-md-3 admin-aside">
-        <div class="card admin-sidebar">
+    <!-- 左侧菜单区：<576px 为抽屉，>=576px 固定左栏，内容区始终位于其右侧 -->
+    <aside class="admin-aside offcanvas-sm offcanvas-start col-sm-4 col-md-3"
+           id="adminSidebar" tabindex="-1" aria-label="{{ _('管理菜单') }}">
+        <div class="offcanvas-header">
+            <h5 class="offcanvas-title">{{ _('管理菜单') }}</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="offcanvas"
+                    aria-label="{{ _('关闭') }}"></button>
+        </div>
+        <div class="offcanvas-body">
+            <div class="card admin-sidebar w-100">
             <div class="card-body p-2">
                 <!-- 站点设置 -->
                 <div class="admin-menu-group">
@@ -117,7 +141,7 @@
                     <div class="list-group list-group-flush admin-menu-list">
                         <a class="list-group-item list-group-item-action {% if request.endpoint == 'blog.drafts' %}active{% endif %}"
                            href="{{ url_for('blog.drafts') }}">
-                            <i class="bi bi-file-earmark-draft"></i> {{ _('草稿箱') }}
+                            <i class="bi bi-envelope-paper"></i> {{ _('草稿箱') }}
                         </a>
                         <a class="list-group-item list-group-item-action {% if request.endpoint in ['blog.article_new', 'blog.article_edit'] %}active{% endif %}"
                            href="{{ url_for('blog.article_new') }}">
@@ -155,7 +179,7 @@
                         </a>
                         <a class="list-group-item list-group-item-action {% if request.endpoint in ['admin.account', 'admin.mail_setting'] %}active{% endif %}"
                            href="{{ url_for('admin.account') }}">
-                            <i class="bi bi-envelope-gear"></i> {{ _('账户邮件设置') }}
+                            <i class="bi bi-envelope"></i> {{ _('账户邮件设置') }}
                         </a>
                         <form method="POST" action="{{ url_for('admin.logout') }}">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -177,11 +201,12 @@
                     </div>
                 </div>
             </div>
+            </div>
         </div>
     </aside>
 
     <!-- 右侧功能区展示区 -->
-    <section class="col">
+    <section class="col admin-content-col">
         {% block admin_content %}{% endblock %}
     </section>
 </div>

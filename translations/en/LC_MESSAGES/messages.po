@@ -172,6 +172,10 @@ msgstr "Change Password"
 msgid "退出登录"
 msgstr "Log Out"
 
+#: templates/admin/admin_base.html:104 templates/admin/admin_base.html:112
+msgid "管理菜单"
+msgstr "Admin Menu"
+
 #: templates/base.html:83
 msgid "All Rights Reserved"
 msgstr "All Rights Reserved"
