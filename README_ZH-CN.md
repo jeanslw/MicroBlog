@@ -155,6 +155,7 @@ waitress-serve --listen=127.0.0.1:5000 wsgi:application
 | `bootstrap.min.css` | 228 KB | Bootstrap 5.3 样式框架 |
 | `bootstrap.bundle.min.js` | 79 KB | Bootstrap JS（导航/折叠/轮播） |
 | `bootstrap-icons.css` | 94 KB | Bootstrap 图标库 |
+| `font-awesome.min.css` | 31 KB | Font Awesome 4.7 图标（EasyMDE 工具栏） |
 | `easymde.min.js` | 320 KB | Markdown 编辑器 |
 | `easymde.min.css` | 13 KB | 编辑器样式 |
 | `marked.min.js` | 39 KB | Markdown → HTML 转换（v15） |
@@ -163,6 +164,8 @@ waitress-serve --listen=127.0.0.1:5000 wsgi:application
 | `prism-autoloader.min.js` | 6 KB | 按需加载编程语言高亮 |
 
 > 页面中所有 `<link>` 和 `<script>` 均使用 `url_for('static', ...)` 引用本地文件，零外链。
+> 图标字体位于 `static/lib/fonts/`（bootstrap-icons、fontawesome-webfont 的 woff2/woff/ttf/svg/eot）。
+> EasyMDE 已设置 `autoDownloadFontAwesome: false` 并本地引入 Font Awesome，不会在运行时注入 maxcdn 外链。
 
 ## 5. 管理员登录与后台地址
 

@@ -6,6 +6,7 @@
 {% endblock %}
 
 {% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='lib/font-awesome.min.css') }}?v=4.7.0">
 <link rel="stylesheet" href="{{ url_for('static', filename='lib/easymde.min.css') }}">
 <style>
     .edit-card {border-radius:14px;box-shadow:0 4px 20px rgba(0,0,0,0.08);}
@@ -287,6 +288,9 @@ var easyMDE = new EasyMDE({
     element: document.getElementById('rich_content'),
     initialValue: initialValue,
     spellChecker: false,
+    // Font Awesome 已在页面头本地引入（static/lib/font-awesome.min.css），
+    // 关闭 EasyMDE 默认的 maxcdn CDN 自动注入，保证离线可用且符合 CSP
+    autoDownloadFontAwesome: false,
     placeholder: [i18n.mdPlaceholder, '', '```python', 'print("hello world")', '```', '', i18n.mdHint].join('\n'),
     tabSize: 4,
     autosave: { enabled: false },

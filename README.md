@@ -155,6 +155,7 @@ All JS/CSS files are localized. **No CDN is required after deployment**, fully u
 | `bootstrap.min.css` | 228 KB | Bootstrap 5.3 CSS framework |
 | `bootstrap.bundle.min.js` | 79 KB | Bootstrap JS (nav/collapse/carousel) |
 | `bootstrap-icons.css` | 94 KB | Bootstrap icon library |
+| `font-awesome.min.css` | 31 KB | Font Awesome 4.7 icons (EasyMDE toolbar) |
 | `easymde.min.js` | 320 KB | Markdown editor |
 | `easymde.min.css` | 13 KB | Editor styles |
 | `marked.min.js` | 39 KB | Markdown to HTML conversion (v15) |
@@ -163,6 +164,8 @@ All JS/CSS files are localized. **No CDN is required after deployment**, fully u
 | `prism-autoloader.min.js` | 6 KB | On-demand language highlighting |
 
 > All `<link>` and `<script>` tags reference local files via `url_for('static', ...)` — zero external links.
+> Icon fonts live in `static/lib/fonts/` (bootstrap-icons plus fontawesome-webfont woff2/woff/ttf/svg/eot).
+> EasyMDE is initialized with `autoDownloadFontAwesome: false` and Font Awesome is loaded locally, so no maxcdn request is injected at runtime.
 
 ## 5. Admin Login & Backend URLs
 

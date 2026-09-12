@@ -3,7 +3,7 @@
 Troubleshooting and answers for common issues. For setup steps, see the [Deployment Guide](DEPLOYMENT.md).
 
 **Q: Page styles broken?**
-Confirm all 9 files in `static/lib/` exist (see the static-asset table in the [README dependencies section](../README.md#4-dependencies)).
+Confirm all 10 JS/CSS files in `static/lib/` and the fonts in `static/lib/fonts/` exist (see the [static-asset table in the README](../README.md#42-frontend-static-assets-staticlib)).
 
 **Q: Database connection failed (MySQL)?**
 - Confirm MySQL service is running
