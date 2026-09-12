@@ -29,6 +29,7 @@ from flask import (
 from flask_babel import _
 from flask_login import current_user, login_required, login_user, logout_user
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
+from sqlalchemy.exc import IntegrityError
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import safe_join
 
@@ -369,7 +370,16 @@ def setup():
             email=(form.email.data or "").strip().lower(),
         )
         db.session.add(admin)
-        db.session.commit()
+        try:
+            db.session.commit()
+        except IntegrityError:
+            # 多 worker 并发安装时,其他人可能已抢先建号（username 唯一约束）。
+            # 回滚复查:已有管理员则视为安装完成,引导页自动失效。
+            db.session.rollback()
+            if db.session.scalar(db.select(db.func.count(Admin.id))):
+                flash(_("管理员已由其他进程创建,请直接登录"), "info")
+                return redirect(url_for("admin.login"))
+            raise
         login_user(admin, remember=False)
         session.permanent = True
         flash(_("安装完成，欢迎使用"), "success")

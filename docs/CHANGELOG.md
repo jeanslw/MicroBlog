@@ -1,5 +1,24 @@
 # MicroBlog Changelog
 
+## [v1.3.4] - 2026-09-12
+
+Security responsibility migration: response headers / caching / hotlink protection moved from nginx config into the application layer; nginx is now plain proxying.
+
+### Changed & Fixed
+
+- Security headers are now issued by the application layer (`app/__init__.py` `after_request`): CSP (including `media-src 'self' https:` required for external audio/video), `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, and HSTS over HTTPS. The CSP policy is a config item (`CSP_POLICY`). Protection now lives in version control with test coverage, identical across nginx / direct / Docker deployments.
+- Hotlink protection moved into the app (`before_request`): `/static/banner/` and `/static/uploads/` allow empty Referer, same-origin, and Host-allowlisted referrers; everything else gets 403, matching the previous nginx `valid_referers` behavior. With no allowlist configured, only same-origin passes.
+- Static asset caching moved into the app: when `BLOG_STATIC_MAX_AGE > 0`, static responses carry `Cache-Control: public, max-age=N, immutable` (compose template defaults to 43200); dev default 0 means no caching.
+- nginx config reduced to plain proxying: removed `add_header` security headers, static-file locations, and `client_max_body_size` (request size is enforced by the app's `MAX_CONTENT_LENGTH` = 16MB). ⚠️ Never re-add CSP via nginx — browsers intersect multiple CSP headers.
+- Clarified first-install messaging: with `BLOG_INIT_ADMIN_PWD` unset, the startup log is now an informational note (previously a misleading warning saying "set it and restart") — leaving it empty is a normal path; visiting any admin route redirects to the `/admin/setup` wizard. The wizard commit now also handles the multi-worker IntegrityError race (graceful redirect to login instead of a 500 when another process created the admin first).
+
+### Tests & Docs
+
+- New `tests/test_security_headers.py` with 13 tests: full header assertions (including a `media-src` regression guard), headers on error responses, HSTS absent on HTTP / present on HTTPS, static cache toggle, and five hotlink scenarios; new `tests/test_setup.py` with 8 tests: admin-route redirects to the wizard when no admin exists, account creation with auto-login, password validation, wizard disabled once an admin exists, and the concurrent-creation race; **240** tests passing in total.
+- Deployment docs (EN/CN) updated to reflect the new ownership of headers/caching/hotlink protection.
+
+---
+
 ## [v1.3.3] - 2026-09-12
 
 Docker Compose out-of-the-box overhaul, container health probe and database readiness wait, plus a fix for login failures behind an nginx reverse proxy.

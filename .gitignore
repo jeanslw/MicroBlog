@@ -17,6 +17,7 @@ copilot-instructions.md
 /nginx/certs/
 /static/banner/*
 /static/uploads/*
+/logs/*
 
 
 # 保留目录占位

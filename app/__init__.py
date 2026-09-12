@@ -16,6 +16,7 @@ import logging
 import os
 import traceback
 from datetime import date, timedelta
+from urllib.parse import urlsplit
 
 from flask import Flask, current_app, jsonify, render_template, request, session
 from flask_babel import Babel, _
@@ -213,6 +214,54 @@ def create_app(config_name: str | None = None):
         if not _is_trusted_host(request.host):
             app.logger.warning("拒绝非白名单 Host 请求: %s (ip=%s)", request.host, request.remote_addr)
             return jsonify({"error": "Invalid Host header"}), 400
+
+    # ── 上传资源防盗链（对齐原 nginx valid_referers，迁移至应用层） ──
+    # 轮播图/文章上传图仅允许：空 Referer、同源请求、Host 白名单站点引用；
+    # 其余 Referer 返回 403。
+    @app.before_request
+    def _protect_hotlink():
+        prefixes = app.config.get("HOTLINK_PROTECTED_PREFIXES") or ()
+        if request.method not in ("GET", "HEAD") or not request.path.startswith(prefixes):
+            return None
+        referer = request.referrer
+        if not referer:
+            return None  # 空 Referer 放行（对齐 valid_referers none）
+        try:
+            ref_host = urlsplit(referer).netloc
+        except ValueError:
+            return None
+        if not ref_host:
+            return None  # 无法解析的 Referer 放行（对齐 valid_referers blocked）
+        # 同源（忽略端口）或 Host 白名单内的站点放行；
+        # 白名单为空时仅同源放行（防盗链不因白名单未配置而失效）
+        allowed = {request.host.lower().split(":", 1)[0]}
+        allowed |= {h.split(":", 1)[0] for h in (app.config.get("HOST_WHITELIST") or [])}
+        if ref_host.lower().split(":", 1)[0] in allowed:
+            return None
+        app.logger.warning("拒绝外站盗链: %s -> %s (ip=%s)", referer, request.path, request.remote_addr)
+        return jsonify({"error": "Hotlink denied"}), 403
+
+    # ── 安全响应头（应用层统一下发，nginx 只做纯转发） ────
+    # 单一事实来源：无论直连、nginx 还是 Docker 部署，防护始终一致，
+    # 且随代码进版本库、有测试覆盖。⚠️ 不要在 nginx 再 add_header 重复下发
+    # CSP（浏览器对多份 CSP 取交集执行，极易出现莫名拦资源）。
+    @app.after_request
+    def _security_headers(response):
+        response.headers["Content-Security-Policy"] = app.config.get("CSP_POLICY", "")
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        # HSTS 仅在 HTTPS 下下发；经 nginx 终结 TLS 时依赖 ProxyFix(x_proto)
+        # 还原真实协议（BLOG_PROXY_XPROTO=1）
+        if request.is_secure:
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        # 静态资源缓存策略（对齐原 nginx expires 30d + immutable）；
+        # BLOG_STATIC_MAX_AGE=0（开发默认）时不加缓存头，避免调试看到旧资源
+        if request.endpoint == "static" and response.status_code == 200:
+            max_age = int(app.config.get("SEND_FILE_MAX_AGE_DEFAULT") or 0)
+            if max_age > 0:
+                response.headers["Cache-Control"] = f"public, max-age={max_age}, immutable"
+        return response
 
     # ── 注册蓝图 ────────────────────────────────────────
     from app.admin import admin_bp

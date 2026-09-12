@@ -1,6 +1,6 @@
 # Blog System Deployment Documentation
 
-Version: v1.3.3
+Version: v1.3.4
 
 Built with Flask 3.1, it features article publishing and management, Markdown uploads, code highlighting, image uploads, comments and likes, article categories, a banner carousel, and bilingual support (Chinese/English). 
 The UI rocks a glassmorphism transparent style with awesome dynamic backgrounds (aurora / starry sky / flowing light / bubbles / classic). There's a floating color palette button at the bottom right to switch styles with one click, and your choice is saved in localStorage. 
@@ -187,7 +187,7 @@ All JS/CSS files are localized. **No CDN is required after deployment**, fully u
 
 **Immediately change to a strong password on the "Change Password" page after logging in.**
 
-> `BLOG_INIT_ADMIN_PWD` only takes effect once when the admin table is empty and never overwrites an existing account. When it is unset, the startup log shows an informational warning — this is expected.
+> `BLOG_INIT_ADMIN_PWD` only takes effect once when the admin table is empty and never overwrites an existing account. When it is unset, the startup log just notes that the admin can be created via the `/admin/setup` wizard — this is expected, not an error.
 
 ## 6. Internationalization (i18n)
 

@@ -56,7 +56,7 @@ def _normalize_trusted_host(entry: str) -> str:
 
 # ── 业务常量（不随环境变化，直接定义供模块导入） ───────────
 # 应用版本（SemVer）。发布新版本时更新，须与 Git Tag 保持一致。
-APP_VERSION = "1.3.3"
+APP_VERSION = "1.3.4"
 
 PAGE_SIZE = int(os.environ.get("BLOG_PAGE_SIZE", "6"))
 
@@ -106,6 +106,26 @@ class Config:
         )
         if h
     ]
+
+    # ── 安全响应头（app/__init__.py after_request 统一下发） ──
+    # 单一事实来源：安全头随代码进版本库、有测试覆盖，与部署方式
+    # （nginx/直连/Docker）无关。⚠️ 切勿再在 nginx add_header 重复配置 CSP ——
+    # 浏览器对多份 CSP 取交集执行，配置稍有出入就会出现"莫名拦资源"。
+    CSP_POLICY = (
+        # default-src 兜底本站资源；图片/音视频放行外链
+        # （媒体缺 media-src 会回退 'self'，导致文章外链音视频无法播放）
+        "default-src 'self'; "
+        "img-src 'self' data: https:; "
+        "media-src 'self' https:; "
+        # 内联样式/脚本为当前模板依赖，如需收紧可改 nonce 方案
+        "style-src 'self' 'unsafe-inline'; "
+        "script-src 'self' 'unsafe-inline'; "
+        "font-src 'self' data:; "
+        "frame-ancestors 'self'"
+    )
+    # 防盗链保护的静态路径前缀（对齐原 nginx valid_referers：空 Referer 放行、
+    # 同源/白名单 Host 放行，其余 403）
+    HOTLINK_PROTECTED_PREFIXES: ClassVar[tuple[str, ...]] = ("/static/banner/", "/static/uploads/")
 
     # ── Session / Cookie ────────────────────────────────
     SESSION_COOKIE_HTTPONLY = True

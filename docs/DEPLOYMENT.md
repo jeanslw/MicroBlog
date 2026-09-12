@@ -329,7 +329,7 @@ The complete HTTPS configuration is **already written and commented out** in [ng
 4. Set `BLOG_COOKIE_SECURE=true` in `.env.docker` (`BLOG_PROXY_XPROTO=1` is already enabled by compose, so the app correctly detects HTTPS)
 5. Recreate: `docker compose --env-file .env.docker --profile full up -d`, then verify with `docker exec flask-blog-nginx nginx -t`
 
-> The 443 block includes TLS 1.2/1.3, modern cipher suites, session caching, and all security headers/hotlink-protection locations. The HSTS line stays commented by default — enable it only after the site is confirmed to work over HTTPS long-term.
+> The 443 block includes TLS 1.2/1.3, modern cipher suites, and session caching. Security headers (CSP/X-Frame-Options/nosniff/Referrer-Policy/HSTS), static asset caching, and hotlink protection are issued by the application layer (`app/__init__.py`); nginx only does plain proxying — do NOT duplicate `add_header` in nginx (browsers intersect multiple CSP headers).
 > When issuing/renewing Let's Encrypt certificates via HTTP-01, temporarily comment the port-80 301 redirect (or use DNS-01).
 
 In production **only expose 80/443**; do NOT expose 5000 (Flask) or 3306 (MySQL) to the public internet (the current compose already binds 5000 to loopback and does not publish 3306).

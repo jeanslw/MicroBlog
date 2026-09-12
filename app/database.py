@@ -12,7 +12,6 @@
 """
 
 import os
-import warnings
 
 from flask import current_app
 from sqlalchemy.exc import IntegrityError, OperationalError
@@ -207,9 +206,12 @@ def ensure_admin_exists():
         return  # 已有管理员
 
     if not admin_pwd:
-        warnings.warn(
-            "admin 表为空,但未设置 BLOG_INIT_ADMIN_PWD 环境变量,初始管理员未创建。请设置后重启。",
-            stacklevel=2,
+        # 不设置密码是完全正常的路径：首次安装通过 /admin/setup 引导页
+        # 在浏览器中创建管理员（无管理员时访问任意后台路由会自动跳转）。
+        # 此处仅记录说明性日志；设置密码则为无头部署（Docker/CI）自动建号。
+        log.info(
+            "admin 表为空且未设置 BLOG_INIT_ADMIN_PWD,跳过自动建号;"
+            "请访问 /admin/setup 引导页创建管理员(或设置该环境变量后重启自动创建)。"
         )
         return
 
