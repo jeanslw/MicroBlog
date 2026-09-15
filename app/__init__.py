@@ -100,9 +100,9 @@ def create_app(config_name: str | None = None):
     else:
         app.config.from_object(get_config())
 
-    # timedelta 形式的 PERMANENT_SESSION_LIFETIME
+    # timedelta 形式的 PERMANENT_SESSION_LIFETIME（默认 24 小时）
     app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(
-        seconds=int(app.config.get("PERMANENT_SESSION_LIFETIME", 60 * 60 * 12))
+        seconds=int(app.config.get("PERMANENT_SESSION_LIFETIME", 60 * 60 * 24))
     )
 
     # ── ProxyFix（信任反向代理头） ──────────────────────

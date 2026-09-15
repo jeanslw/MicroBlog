@@ -1,5 +1,14 @@
 """应用工厂与基础行为测试。"""
 
+from datetime import timedelta
+
+
+def test_session_lifetime_24h(app):
+    """Session 有效期应为 24 小时（timedelta 形式）"""
+    lifetime = app.config["PERMANENT_SESSION_LIFETIME"]
+    assert isinstance(lifetime, timedelta)
+    assert lifetime == timedelta(hours=24)
+
 
 def test_app_factory_testing(app):
     """create_app 应返回正确配置的 app"""

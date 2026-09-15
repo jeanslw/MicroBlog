@@ -1,5 +1,28 @@
 # MicroBlog Changelog
 
+## [v1.3.5] - 2026-09-16
+
+Ops & UI hardening: docker-compose pre-start guard, MySQL 8.4 upgrade with auth-plugin compatibility, configurable 24-hour session lifetime, mobile collapsed-navbar search layout, touch support fix for the theme switcher, and nginx version hiding.
+
+### Added
+
+- docker-compose pre-start guard `env-check` (profiles `mysql`/`full`): before `db` starts, a one-shot container verifies that `MySQL/init.sql` exists (prevents an empty bind-mount directory shadowing initialization) and that `MYSQL_ROOT_PASSWORD` / `MYSQL_PASSWORD` are non-empty and are neither the template placeholder nor the public test defaults; prints a security warning when `BLOG_SECRET_KEY` is still the public test key. `db` now depends on the guard completing successfully — misconfiguration aborts startup with bilingual guidance instead of a broken container.
+- Configurable session lifetime: `PERMANENT_SESSION_LIFETIME` is now driven by `BLOG_SESSION_LIFETIME` (seconds, default `86400` = 24 hours; previously hardcoded 12 hours). Exposed in docker-compose, `.env` examples and the deployment docs; covered by a new `test_session_lifetime_24h`.
+
+### Changed & Fixed
+
+- MySQL image upgraded 8.0 → 8.4 (guard image kept in sync): the `--default-authentication-plugin=mysql_native_password` flag — removed in 8.4 — was dropped and replaced with `--mysql-native-password=ON`, so legacy accounts on pre-existing 8.0 data volumes keep authenticating after the in-place upgrade (note: 8.0 → 8.4 is one-way; do not downgrade afterwards). Verified on a fresh 8.4 volume: container healthy, app account TCP auth passes (8.4 default `caching_sha2_password` is fully supported by PyMySQL 1.2.0 + cryptography — no app change needed).
+- Mobile collapsed navbar (<992px): the search row (search box + button + language switch) now renders at the **top** of the expanded menu, right-aligned with the search box capped at 210px — echoing the desktop top-right search position instead of spanning the full width under the category links. Desktop (≥992px) layout untouched.
+- Theme switcher works on touch devices again: `onPointerDown` no longer calls `e.preventDefault()` on `touchstart` — on touch screens that suppresses the browser-synthesized `click`, so tapping the palette button did nothing (desktop was unaffected because `mousedown` default-prevention does not block `click`). Scroll-blocking during drags is already handled by CSS `touch-action: none`; mouse/touch dragging and position memory are unchanged. Cache stamp bumped to `?v=20260916a`.
+- nginx config hides the version number: `server_tokens off` at the http level — the `Server` response header and default error pages now show plain `nginx` without the version, effective for both the HTTP(80) server and the commented HTTPS(443) template.
+
+### Tests & Docs
+
+- **241** tests passing (adds the session-lifetime test). Changelog EN/CN updated.
+
+---
+
+## [v1.3.4] - 2026-09-12
 ## [v1.3.4] - 2026-09-12
 
 Security responsibility migration: response headers / caching / hotlink protection moved from nginx config into the application layer; nginx is now plain proxying.

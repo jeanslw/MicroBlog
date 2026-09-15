@@ -132,7 +132,9 @@ class Config:
     SESSION_COOKIE_SAMESITE = "Lax"
     # 本地明文 HTTP 调试可显式设置 BLOG_COOKIE_SECURE=false；生产默认仍为 true。
     SESSION_COOKIE_SECURE = _env_bool("BLOG_COOKIE_SECURE", "false")
-    PERMANENT_SESSION_LIFETIME = 60 * 60 * 12  # 12 小时（秒）
+    # Session 有效期（秒，环境变量 BLOG_SESSION_LIFETIME）：
+    # 登录时 session.permanent = True，此配置决定管理后台登录态多久过期
+    PERMANENT_SESSION_LIFETIME = int(os.environ.get("BLOG_SESSION_LIFETIME", "86400"))  # 默认 24 小时
     PERMANENT_SESSION_LIFETIME_DELTA = None  # 由 __init__.py 转 timedelta
 
     # ── 静态文件 ────────────────────────────────────────

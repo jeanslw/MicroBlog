@@ -82,6 +82,7 @@ All configuration is injected via environment variables — **`config.py` does n
 | `BLOG_SQLITE_PATH` | `data/blog.db` | SQLite file path |
 | `BLOG_PAGE_SIZE` | `6` | Articles per page |
 | `BLOG_STATIC_MAX_AGE` | `0` | Static file cache seconds (compose template defaults to 43200) |
+| `BLOG_SESSION_LIFETIME` | `86400` | Session lifetime in seconds (default 24h; applies to the admin login session) |
 | `BLOG_INIT_ADMIN_USER` | `admin` | Admin username created on first startup |
 | `BLOG_INIT_ADMIN_PWD` | (none) | Auto-created admin password, takes effect only once when the admin table is empty; **leave empty and create the admin via the `/admin/setup` wizard on first visit** |
 

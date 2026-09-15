@@ -90,7 +90,10 @@
         startRight = pos.right;
         startBottom = pos.bottom;
         if (toggle) toggle.classList.add('sw-dragging');
-        e.preventDefault();
+        // 仅对鼠标事件调用 preventDefault。触摸设备上阻止 touchstart 的默认
+        // 行为会抑制浏览器后续合成的 click 事件，导致小屏点按无反应（面板
+        // 打不开）。触摸滚动冲突已由 CSS .theme-toggle 的 touch-action:none 阻止。
+        if (!e.touches) e.preventDefault();
     }
 
     function onPointerMove(e) {

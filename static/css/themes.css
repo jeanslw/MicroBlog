@@ -152,6 +152,29 @@ footer {
 .navbar .dropdown-divider {
     border-color: rgba(255, 255, 255, 0.40) !important;
 }
+/* ---------- 小屏（<lg）折叠菜单：搜索行置顶右对齐 ----------
+   折叠展开后搜索行默认排在栏目菜单下方；改为纵向 flex 并把
+   搜索行 order:-1 排到最前，视觉上贴右上角，与桌面端搜索位置呼应 */
+@media (max-width: 991.98px) {
+    .navbar-collapse.show,
+    .navbar-collapse.collapsing {
+        display: flex;
+        flex-direction: column;
+        /* 覆盖 Bootstrap .navbar-collapse 的 align-items:center：
+           纵向布局下它会让子项收缩居中，这里保持占满整行 */
+        align-items: stretch;
+    }
+    /* 搜索行（搜索框+按钮+语言切换）排到菜单最顶部，靠右 */
+    .navbar-collapse > .d-flex {
+        order: -1;
+        justify-content: flex-end;
+    }
+    /* .form-control 的 width:100% 会把搜索框撑满整行，这里限制宽度让它靠右 */
+    .navbar-collapse form[role="search"] {
+        flex: 0 1 auto;
+        max-width: 210px;
+    }
+}
 /* 所有卡片/面板/表格统一半透明玻璃 —— 用 background-color 显式声明而非 background shorthand，
    并把每个属性都加 !important，避免被更高优先级选择器（含 inline <style>）覆盖。 */
 .card,
