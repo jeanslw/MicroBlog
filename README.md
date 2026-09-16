@@ -89,7 +89,7 @@ Built-in out-of-the-box guarantees:
 - **Login works over plain HTTP**: the bundled Nginx serves HTTP (port 80) only, so `BLOG_COOKIE_SECURE=false` by default; set it to `true` once you enable HTTPS.
 - **Proxy headers preconfigured**: `BLOG_PROXY_XFOR=1`, `BLOG_PROXY_XPROTO=1`, `BLOG_PROXY_XHOST=0`.
 - The default secret key and database passwords are for local testing only — **for any public deployment, change** `BLOG_SECRET_KEY`, `MYSQL_ROOT_PASSWORD`, and `MYSQL_PASSWORD`.
-- Persistence: SQLite in `./data`, uploads in `./static`, MySQL in the named volume `flask-blog-mysql-data`.
+- Persistence: SQLite in `./data`, uploads in `./static`, MySQL in the named volume `microblog-mysql-data`.
 
 Common operations:
 

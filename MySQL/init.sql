@@ -214,7 +214,7 @@ VALUES (1, 'My Blog', 'static/favicon.ico', '', 'bg1', '', '', NULL, '', '', '',
 -- 请用以下任一方式创建管理员：
 --
 -- 方式 A：用 Python 生成哈希后 INSERT
---   docker exec -it flask-blog-web python -c "from werkzeug.security import generate_password_hash as g; print(g('你的密码'))"
+--   docker exec -it microblog-web python -c "from werkzeug.security import generate_password_hash as g; print(g('你的密码'))"
 --   mysql -uroot -p flask_blog -e "INSERT INTO admin (username, password) VALUES ('admin', '<上面输出的哈希>')"
 --
 -- 方式 B：用 SQLite 模式首次启动（设 BLOG_INIT_ADMIN_PWD），数据库自动建管理员后导出再导入 MySQL

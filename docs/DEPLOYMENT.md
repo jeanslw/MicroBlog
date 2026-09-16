@@ -317,7 +317,7 @@ docker compose --env-file .env.docker --profile full up -d
 | Health probe | `curl http://localhost/healthz` | `{"status":"ok"}` |
 | Home access | `curl -I http://localhost/` | `HTTP/1.1 200` |
 | Admin page | `curl -I http://localhost/admin/login` | `HTTP/1.1 200` (a 302 redirect to `/admin/setup` is also fine when no admin exists) |
-| Admin account | After creating the admin via `/admin/setup` in the browser: `docker exec -i flask-blog-db mysql -uroot -p<PASSWORD> flask_blog -e "SELECT count(*) FROM admin"` | `count(*) >= 1` (0 before setup is expected) |
+| Admin account | After creating the admin via `/admin/setup` in the browser: `docker exec -i microblog-db mysql -uroot -p<PASSWORD> flask_blog -e "SELECT count(*) FROM admin"` | `count(*) >= 1` (0 before setup is expected) |
 | Firewall | `sudo ufw status` | Only 80/443 allowed; 5000/3306 not exposed publicly |
 
 #### 2.6.8 Reverse Proxy Domain & HTTPS
@@ -328,7 +328,7 @@ The complete HTTPS configuration is **already written and commented out** in [ng
 2. In the nginx service of `docker-compose.yml`, uncomment `#- "443:443"` and `#- ./nginx/certs:/etc/nginx/certs:ro`
 3. In `nginx/nginx.conf`, uncomment the whole 443 server block at the bottom, change its `server_name` to your real domain, and uncomment `#return 301 https://$host$request_uri;` in the port-80 server (HTTP→HTTPS redirect)
 4. Set `BLOG_COOKIE_SECURE=true` in `.env.docker` (`BLOG_PROXY_XPROTO=1` is already enabled by compose, so the app correctly detects HTTPS)
-5. Recreate: `docker compose --env-file .env.docker --profile full up -d`, then verify with `docker exec flask-blog-nginx nginx -t`
+5. Recreate: `docker compose --env-file .env.docker --profile full up -d`, then verify with `docker exec microblog-nginx nginx -t`
 
 > The 443 block includes TLS 1.2/1.3, modern cipher suites, and session caching. Security headers (CSP/X-Frame-Options/nosniff/Referrer-Policy/HSTS), static asset caching, and hotlink protection are issued by the application layer (`app/__init__.py`); nginx only does plain proxying — do NOT duplicate `add_header` in nginx (browsers intersect multiple CSP headers).
 > When issuing/renewing Let's Encrypt certificates via HTTP-01, temporarily comment the port-80 301 redirect (or use DNS-01).

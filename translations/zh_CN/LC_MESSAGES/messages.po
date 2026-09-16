@@ -228,7 +228,7 @@ msgstr "账号"
 msgid "密码"
 msgstr "密码"
 
-#: templates/admin/login.html:46
+#: templates/admin/login.html:46 templates/blog/detail.html:98
 msgid "返回首页"
 msgstr "返回首页"
 
@@ -374,10 +374,6 @@ msgstr "添加分类"
 #: templates/blog/detail.html:95
 msgid "点赞"
 msgstr "点赞"
-
-#: templates/blog/detail.html:98
-msgid "返回首页"
-msgstr "返回首页"
 
 #: templates/blog/detail.html:103
 #, python-format
@@ -1232,4 +1228,7 @@ msgstr "开启评论（关闭后全站禁止新评论与回复）"
 
 msgid "评论已关闭"
 msgstr "评论已关闭"
+
+msgid "（镜像已内置 mysqldump/mysql，备份与恢复开箱即用）"
+msgstr "（镜像已内置 mysqldump/mysql，备份与恢复开箱即用）"
 

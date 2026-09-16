@@ -15,12 +15,15 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # 安装系统依赖（gcc 给 pymysql 编译用；curl 用于健康检查；
-# gosu 用于入口脚本从 root 降权到 appuser）
+# gosu 用于入口脚本从 root 降权到 appuser；
+# default-mysql-client 提供 mysqldump/mysql，供管理后台数据库备份与恢复调用，
+# 无需依赖宿主机安装客户端）
 RUN apt-get update && apt-get install -y --no-install-recommends \
         gcc \
         curl \
         gosu \
         tzdata \
+        default-mysql-client \
     && rm -rf /var/lib/apt/lists/*
 
 # 先装依赖（利用 Docker 层缓存）

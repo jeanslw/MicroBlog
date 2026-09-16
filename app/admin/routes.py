@@ -611,6 +611,9 @@ def _create_backup(backup_dir, tag=""):
         # --single-transaction:InnoDB 一致性快照,备份不阻塞业务
         # --skip-add-locks:dump 内不生成 LOCK TABLES,恢复端不会因元数据锁(MDL)等待挂起
         # --default-character-set=utf8mb4:避免中文数据乱码
+        # --skip-ssl:镜像内 default-mysql-client 是 MariaDB 客户端,默认尝试 TLS,
+        # 对 MySQL 8.4 的自签证书会报 2026 self-signed certificate,内网链路禁用 TLS
+        # --no-tablespaces:业务账号无 PROCESS 权限,dump 表空间语句会报错(仅警告但污染 stderr)
         # 注:mysqldump 不支持 --connect-timeout（exit 7 unknown variable），
         # 连接失败由子进程 timeout=120 兜底
         cmd = [
@@ -618,6 +621,8 @@ def _create_backup(backup_dir, tag=""):
             "--single-transaction",
             "--skip-add-locks",
             "--default-character-set=utf8mb4",
+            "--skip-ssl",
+            "--no-tablespaces",
             "-h",
             c["host"],
             "-u",

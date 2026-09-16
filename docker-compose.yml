@@ -29,8 +29,8 @@ services:
   # ──────────────────────────────────────────────────────────
   web:
     build: .
-    image: flask-blog:latest
-    container_name: flask-blog-web
+    image: microblog:latest
+    container_name: microblog-web
     restart: unless-stopped
     environment:
       # ─ 安全 ─
@@ -184,7 +184,7 @@ services:
   # ──────────────────────────────────────────────────────────
   db:
     image: mysql:8.4
-    container_name: flask-blog-db
+    container_name: microblog-db
     restart: unless-stopped
     depends_on:
       # 先跑 env-check 预检守卫（口令缺失/仍为默认值时中止，db 不会启动）
@@ -210,7 +210,7 @@ services:
       - --sql-mode=STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION
       - --mysql-native-password=ON
     volumes:
-      - blog-mysql-data:/var/lib/mysql
+      - microblog-mysql-data:/var/lib/mysql
       # 首次启动自动导入建表 SQL
       - ./MySQL/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
@@ -232,7 +232,7 @@ services:
   # ──────────────────────────────────────────────────────────
   nginx:
     image: nginx:1.27-alpine
-    container_name: flask-blog-nginx
+    container_name: microblog-nginx
     restart: unless-stopped
     ports:
       - "80:80"
@@ -259,13 +259,13 @@ services:
 # 持久化卷
 # ──────────────────────────────────────────────────────────
 volumes:
-  blog-mysql-data:
-    name: flask-blog-mysql-data
+  microblog-mysql-data:
+    name: microblog-mysql-data
 
 # ──────────────────────────────────────────────────────────
 # 内部网络
 # ──────────────────────────────────────────────────────────
 networks:
   blog-net:
-    name: flask-blog-net
+    name: blog-net
     driver: bridge

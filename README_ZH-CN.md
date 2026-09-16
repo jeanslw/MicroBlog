@@ -89,7 +89,7 @@ docker compose --env-file .env.docker --profile full up -d
 - **HTTP 可直接登录**：内置 Nginx 仅提供明文 HTTP(80)，默认 `BLOG_COOKIE_SECURE=false`；自行配置 HTTPS 后置为 `true`
 - **反代头已配好**：默认 `BLOG_PROXY_XFOR=1`、`BLOG_PROXY_XPROTO=1`、`BLOG_PROXY_XHOST=0`
 - 默认密钥与默认数据库密码仅供本机测试，**公网部署务必修改** `BLOG_SECRET_KEY`、`MYSQL_ROOT_PASSWORD`、`MYSQL_PASSWORD`
-- 数据持久化：SQLite 在 `./data`、上传图片在 `./static`、MySQL 在命名卷 `flask-blog-mysql-data`
+- 数据持久化：SQLite 在 `./data`、上传图片在 `./static`、MySQL 在命名卷 `microblog-mysql-data`
 
 常用运维命令：
 

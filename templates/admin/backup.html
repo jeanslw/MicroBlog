@@ -17,7 +17,7 @@
     </div>
     <p class="text-muted small mb-3">
         {{ _('当前数据库类型') }}：<span class="badge bg-secondary">{{ db_type }}</span>
-        {% if db_type == 'mysql' %}{{ _('（备份依赖服务器已安装 mysqldump）') }}{% endif %}
+        {% if db_type == 'mysql' %}{{ _('（镜像已内置 mysqldump/mysql，备份与恢复开箱即用）') }}{% endif %}
     </p>
 
     <div class="alert alert-warning border border-warning-subtle alert-dismissible fade show mb-3" role="alert">
