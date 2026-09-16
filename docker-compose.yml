@@ -251,6 +251,14 @@ services:
       # 等 web 健康检查（/healthz）通过后再接入流量
       web:
         condition: service_healthy
+    healthcheck:
+      # 探测 nginx 自身（/nginx-health 不经过反代、不依赖后端）：
+      # web 故障时 nginx 仍算 healthy（否则 /healthz 会 502 造成误判）
+      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/nginx-health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     profiles: ["full"]
     networks:
       - blog-net
