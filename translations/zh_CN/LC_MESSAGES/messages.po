@@ -1232,3 +1232,9 @@ msgstr "评论已关闭"
 msgid "（镜像已内置 mysqldump/mysql，备份与恢复开箱即用）"
 msgstr "（镜像已内置 mysqldump/mysql，备份与恢复开箱即用）"
 
+msgid "恢复失败：该备份为 SQLite（.db）格式，无法恢复到 MySQL 数据库；如需迁移数据请手动处理"
+msgstr ""
+
+msgid "恢复失败：该备份为 MySQL（.sql）格式，无法恢复到 SQLite 数据库；如需迁移数据请手动处理"
+msgstr ""
+

@@ -555,10 +555,15 @@ def _mysql_creds():
 
 
 def _safe_backup_name(name):
-    """防路径穿越：仅允许 backup_*.zip / backup_*.db / backup_*.sql 纯文件名。"""
+    """防路径穿越：仅允许 mysql_backup_*/sqlite_backup_*/backup_* 纯文件名。
+
+    兼容旧版 backup_*.zip/.db/.sql；新版带数据库类型前缀，便于区分备份来源。
+    """
     if not name or name != os.path.basename(name) or name.startswith("."):
         return False
-    return name.startswith("backup_") and name.endswith((".zip", ".db", ".sql"))
+    return name.startswith(("backup_", "mysql_backup_", "sqlite_backup_")) and name.endswith(
+        (".zip", ".db", ".sql")
+    )
 
 
 def _resolved_backup_path(name):
@@ -600,9 +605,12 @@ def _create_backup(backup_dir, tag=""):
     tag: 文件名标记。恢复前自动备份传 "_snapshot",与手动备份在列表中一眼区分。
     """
     # 文件名精确到毫秒：同一秒内的手动备份与恢复前自动备份不再重名
+    # 带数据库类型前缀（mysql_/sqlite_）：混用两种数据库模式时备份来源一眼可辨，
+    # 防止误把 MySQL 备份恢复到 SQLite（反之亦然，恢复端另有类型校验兜底）
     now = datetime.now()
     timestamp = now.strftime("%Y%m%d_%H%M%S") + f"_{now.microsecond // 1000:03d}"
-    zip_name = f"backup_{timestamp}{tag}.zip"
+    db_prefix = "mysql" if _db_type() == "mysql" else "sqlite"
+    zip_name = f"{db_prefix}_backup_{timestamp}{tag}.zip"
     zip_path = os.path.join(backup_dir, zip_name)
     if _db_type() == "mysql":
         c = _mysql_creds()
@@ -629,13 +637,13 @@ def _create_backup(backup_dir, tag=""):
             c["user"],
             c["db"],
         ]
-        inner_name = f"backup_{timestamp}.sql"
+        inner_name = f"{db_prefix}_backup_{timestamp}.sql"
         result = subprocess.run(cmd, capture_output=True, check=True, env=env, timeout=120)
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
             zf.writestr(inner_name, result.stdout)
         return zip_name
     # SQLite:用 VACUUM INTO 生成一致性快照,避免热拷贝损坏
-    inner_name = f"backup_{timestamp}.db"
+    inner_name = f"{db_prefix}_backup_{timestamp}.db"
     snapshot_path = os.path.join(backup_dir, f".snapshot_{timestamp}.db")
     try:
         with db.engine.begin() as conn:
@@ -727,6 +735,24 @@ def backup_restore(name):
         return redirect(url_for("admin.backup"))
     try:
         data, _kind = _backup_payload(path)
+        # ── 备份类型校验：按 zip 内实际内容（.sql/.db）判断，与文件名无关 ──
+        # 防止跨类型误恢复（MySQL 备份恢复到 SQLite 或反之）破坏当前数据库
+        if _db_type() == "mysql" and _kind != "sql":
+            flash(
+                _(
+                    "恢复失败：该备份为 SQLite（.db）格式，无法恢复到 MySQL 数据库；如需迁移数据请手动处理"
+                ),
+                "danger",
+            )
+            return redirect(url_for("admin.backup"))
+        if _db_type() == "sqlite" and _kind != "db":
+            flash(
+                _(
+                    "恢复失败：该备份为 MySQL（.sql）格式，无法恢复到 SQLite 数据库；如需迁移数据请手动处理"
+                ),
+                "danger",
+            )
+            return redirect(url_for("admin.backup"))
         if _db_type() == "mysql":
             # 过滤 dump 中的 LOCK/UNLOCK TABLES 语句：恢复是单连接顺序执行，表锁没有意义，
             # 旧格式备份的 LOCK TABLES 反而可能被并发请求持有的元数据锁(MDL)阻塞,
@@ -754,6 +780,10 @@ def backup_restore(name):
                 "mysql",
                 "--default-character-set=utf8mb4",
                 "--connect-timeout=10",
+                # --skip-ssl:镜像内 default-mysql-client 是 MariaDB 客户端,默认尝试 TLS,
+                # 对 MySQL 8.4 的自签证书会报 2026 self-signed certificate,内网链路禁用 TLS
+                # (与上方 mysqldump 备份命令保持一致)
+                "--skip-ssl",
                 "-h",
                 c["host"],
                 "-u",
