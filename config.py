@@ -193,10 +193,8 @@ class Config:
 
 class DevelopmentConfig(Config):
     DEBUG = True
-    SQLALCHEMY_DATABASE_URI = os.environ.get(
-        "BLOG_SQLITE_PATH",
-        "data/blog.db",
-    ) and "sqlite:///" + os.path.abspath(os.environ.get("BLOG_SQLITE_PATH", "data/blog.db"))
+    # SQLALCHEMY_DATABASE_URI 由下方 _resolve_db_uri_for_class 按 BLOG_DB_TYPE 统一解析，
+    # 此处不再内联赋值，避免与 MySQL/sqlite 分支逻辑重复。
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 

@@ -5,7 +5,7 @@
 # 快速开始（MySQL）：
 #   1. cp .env.docker.example .env.docker
 #   2. 填写 .env.docker 中的 MYSQL_ROOT_PASSWORD / MYSQL_PASSWORD
-#      （BLOG_DB_TYPE=mysql 为默认值，其余变量均可保持默认）
+#      （.env.docker 已设置 BLOG_DB_TYPE=mysql，其余变量均可保持默认）
 #      ⚠️ 守卫提示：两个密码若仍是模板占位符（请替换为强密码）或公开默认值，
 #      env-check 预检会中止启动，防止带着弱口令上生产
 #   3. docker compose --env-file .env.docker --profile full up -d
@@ -52,7 +52,9 @@ services:
 
       # ─ 数据库类型：sqlite 或 mysql ─
       # 用 mysql 时下方 BLOG_MYSQL_* 生效；用 sqlite 时 BLOG_SQLITE_PATH 生效
-      BLOG_DB_TYPE: ${BLOG_DB_TYPE:-mysql}
+      # 默认 sqlite，使 `docker compose up -d web`（SQLite 快速启动）无需任何 env 文件；
+      # MySQL 模式靠 --env-file .env.docker（其中 BLOG_DB_TYPE=mysql）显式开启。
+      BLOG_DB_TYPE: ${BLOG_DB_TYPE:-sqlite}
 
       # ─ MySQL 连接（指向同 compose 的 db 服务） ─
       # 默认密码与 db 服务保持一致，仅本机测试用；生产在 .env.docker 覆盖
