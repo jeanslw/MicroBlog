@@ -10,7 +10,7 @@ MicroBlog/
 ├── Dockerfile                     # Docker image build
 ├── docker-compose.yml             # Multi-container orchestration (web + db + nginx)
 ├── .dockerignore
-├── .env.example                   # Bare-metal env vars template
+├── app.env.example                # Bare-metal env vars template (app side; runtime file: app.env)
 ├── .env.docker.example            # Docker Compose vars template
 ├── config.py                      # Config (secret key / db type / debug / i18n)
 ├── requirements.txt               # Python dependencies

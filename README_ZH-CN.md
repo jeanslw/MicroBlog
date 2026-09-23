@@ -109,7 +109,7 @@ source venv/bin/activate
 venv\Scripts\activate
 pip install -r requirements.txt
 
-cp .env.example .env     # 编辑 BLOG_SECRET_KEY、BLOG_DB_TYPE、数据库账号等
+cp app.env.example app.env     # 应用侧变量模板；编辑 BLOG_SECRET_KEY、BLOG_DB_TYPE、数据库账号等
 
 # Linux / WSL2（gunicorn 多 worker）
 gunicorn -w 4 -b 127.0.0.1:5000 --access-logfile - --error-logfile - "app:create_app()"
@@ -118,7 +118,7 @@ gunicorn -w 4 -b 127.0.0.1:5000 --access-logfile - --error-logfile - "app:create
 waitress-serve --listen=127.0.0.1:5000 wsgi:application
 ```
 
-访问 `http://127.0.0.1:5000`。经 Nginx 反代时可直接使用 [nginx/nginx.conf](nginx/nginx.conf)（须转发 `Host` 与 `X-Forwarded-*` 头，并在 `.env` 设置 `BLOG_PROXY_XFOR=1`、`BLOG_PROXY_XPROTO=1`；明文 HTTP 调试需 `BLOG_COOKIE_SECURE=false`）。裸机部署与 HTTPS 完整步骤见[部署文档](docs/部署文档.md)。
+访问 `http://127.0.0.1:5000`。经 Nginx 反代时可直接使用 [nginx/nginx.conf](nginx/nginx.conf)（须转发 `Host` 与 `X-Forwarded-*` 头，并在 `app.env` 设置 `BLOG_PROXY_XFOR=1`、`BLOG_PROXY_XPROTO=1`；明文 HTTP 调试需 `BLOG_COOKIE_SECURE=false`）。裸机部署与 HTTPS 完整步骤见[部署文档](docs/部署文档.md)。
 
 ## 4. 组件依赖
 
@@ -138,7 +138,7 @@ waitress-serve --listen=127.0.0.1:5000 wsgi:application
 | cryptography | 43.0.1 | PyMySQL 依赖的加密库 |
 | gunicorn | 23.0.0 | WSGI 服务器（Docker / Linux 生产） |
 | waitress | 3.0.2 | WSGI 服务器（Windows 本地运行，gunicorn 不支持 Windows） |
-| python-dotenv | 1.2.1 | 从 `.env` 文件读取环境变量 |
+| python-dotenv | 1.2.1 | 从 `app.env` 读取环境变量（兼容旧 `.env`） |
 | Pillow | 10.4.0 | 图片处理（缩放/压缩/格式转换/解压炸弹防护） |
 | nh3 | 0.2.18 | HTML 净化（防 XSS，Rust ammonia 绑定） |
 | pytest | 8.3.3 | 测试框架 |
@@ -183,7 +183,7 @@ waitress-serve --listen=127.0.0.1:5000 wsgi:application
 **首次登录步骤（二选一）：**
 
 - 方式一（推荐）：不预设密码，启动服务后访问 `http://your-server/admin/login`，检测到无管理员时会自动跳转 `/admin/setup` 引导页，在页面上创建账号
-- 方式二：在 `.env` / `.env.docker` 设置 `BLOG_INIT_ADMIN_PWD`，首次启动自动创建，用 `admin` / 你设置的密码登录
+- 方式二：在 `app.env` / `.env.docker` 设置 `BLOG_INIT_ADMIN_PWD`，首次启动自动创建，用 `admin` / 你设置的密码登录
 
 **登录后立即在「改密码」页面修改为强密码。**
 

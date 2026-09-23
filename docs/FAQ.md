@@ -51,6 +51,13 @@ The app enforces a Host allowlist to prevent Host header injection. Add the host
 **Q: Permission denied when uploading images or writing SQLite in the container?**
 On native Linux Docker, bind-mounted directories are owned by root by default, while the container runs as a non-root user. The image entrypoint [docker-entrypoint.sh](../docker-entrypoint.sh) automatically fixes ownership of `data/`, `static/banner`, `static/uploads`, and `backups/` at startup — rebuild with the latest image. If you customize the image, do not bypass this entrypoint.
 
+**Q: What is the config file called, and what should I watch out for?**
+- **Bare metal / local runs**: the app-side config file is `app.env` (template `app.env.example`, `cp app.env.example app.env`), loaded by python-dotenv at startup; it is listed in `.gitignore` and never committed
+- **Backward compatibility**: the legacy `.env` is read only when `app.env` is absent, together with a migration warning (`mv .env app.env`); if both exist, `app.env` wins
+- **Docker**: in-container variables are injected by `docker-compose.yml`, and the orchestration-side file is `.env.docker` (template `.env.docker.example`); neither `app.env` nor `.env` enters the image, so editing them has no effect on containers
+- The file is read **once at process startup** — restart the service after editing (Docker: `docker compose --env-file .env.docker --profile full up -d`)
+- Without python-dotenv installed the file is ignored; a startup warning tells you so
+
 **Q: How to apply code changes?**
 - Bare-metal: restart the service (`gunicorn` / `python run.py`)
 - Docker: `docker compose build web && docker compose --env-file .env.docker --profile full up -d`
@@ -58,7 +65,7 @@ On native Linux Docker, bind-mounted directories are owned by root by default, w
 
 **Q: `docker compose` startup fails with a missing-variable / interpolation error?**
 The current compose provides test defaults for the secret key and passwords, so after `cp .env.docker.example .env.docker` you **only need to set `MYSQL_ROOT_PASSWORD` and `MYSQL_PASSWORD`** to start (and SQLite mode `docker compose up -d web` doesn't even need that file). If errors persist, note:
-- `docker compose` implicitly reads the root-level `.env`; leftover vars such as `BLOG_DB_TYPE=mysql` in it affect SQLite mode — pass `--env-file` explicitly to override
+- `docker compose` implicitly reads the root-level `.env`, but the app-side config file is now `app.env` and is **not read by compose**; only a leftover legacy `.env` (e.g. with `BLOG_DB_TYPE=mysql`) can affect SQLite mode — delete it or pass `--env-file` explicitly
 - The health-based dependency conditions require Docker Compose **v2.20+**; upgrade older versions (the app-level 90s MySQL wait still works as a fallback)
 
 **Q: First startup is slow?**

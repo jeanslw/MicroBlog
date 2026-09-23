@@ -1,7 +1,7 @@
 """邮件发送工具（找回密码）。
 
 使用 stdlib smtplib + email.message，不引入第三方依赖。
-SMTP 配置从 app.config 读取（对应 .env 的 BLOG_MAIL_*），
+SMTP 配置从 app.config 读取（对应 app.env 的 BLOG_MAIL_*），
 未配置或发送失败抛 MailError，由调用方捕获后提示用户。
 """
 
@@ -22,7 +22,7 @@ def send_mail(to: str, subject: str, body: str) -> None:
     """发送纯文本邮件。SMTP 未配置或发送失败抛 MailError。
 
     优先使用后台保存的 SMTP 配置（site_config.mail_host 非空即视为已配置），
-    否则回退到环境变量（.env 的 BLOG_MAIL_*）。
+    否则回退到环境变量（app.env 的 BLOG_MAIL_*）。
     """
     cfg = current_app.config
 

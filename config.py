@@ -11,25 +11,42 @@
 
 import os
 import secrets
+import warnings
 from typing import ClassVar
 
-# 优先加载项目根目录 .env（若存在），不强制依赖 python-dotenv
+# ── 应用侧环境变量文件（裸机 / 本地运行） ──────────────────────────
+# 约定：项目根目录 app.env 为应用侧配置文件（不入库；模板 app.env.example）。
+# 兼容：仅当 app.env 不存在时回退读取旧版 .env，并提示迁移。
+# 与 Docker 分离：容器内变量由 docker-compose 注入（编排侧用 .env.docker），
+# 两个文件互不影响，详见 docs/部署文档.md。
+_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+APP_ENV_FILE = os.path.join(_BASE_DIR, "app.env")
+LEGACY_ENV_FILE = os.path.join(_BASE_DIR, ".env")
+
 try:
     from dotenv import load_dotenv
 
-    load_dotenv()
-except ImportError:
-    # python-dotenv 未安装时 .env 会被静默忽略,多 worker 下还会因随机
-    # SECRET_KEY 导致登录/CSRF 随机失败。若根目录存在 .env 则明确告警,
-    # 避免这种"配置写了却没生效"的隐蔽故障。
-    import warnings
-
-    if os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")):
+    # override=False：已存在的进程环境变量优先（与 export / Docker 行为一致）
+    if os.path.exists(APP_ENV_FILE):
+        load_dotenv(APP_ENV_FILE)
+    elif os.path.exists(LEGACY_ENV_FILE):
+        load_dotenv(LEGACY_ENV_FILE)
         warnings.warn(
-            "检测到 .env 文件但未安装 python-dotenv,该文件不会被加载。"
-            "请执行 pip install python-dotenv 后重启服务。",
+            "检测到旧版 .env,已按兼容模式加载。应用侧配置已改用 app.env,"
+            "建议执行 mv .env app.env（Windows: Move-Item .env app.env）完成迁移。",
             stacklevel=2,
         )
+except ImportError:
+    # python-dotenv 未安装时 app.env/.env 会被静默忽略,多 worker 下还会因随机
+    # SECRET_KEY 导致登录/CSRF 随机失败。若根目录存在配置文件则明确告警,
+    # 避免这种"配置写了却没生效"的隐蔽故障。
+    for _env_path in (APP_ENV_FILE, LEGACY_ENV_FILE):
+        if os.path.exists(_env_path):
+            warnings.warn(
+                f"检测到 {os.path.basename(_env_path)} 文件但未安装 python-dotenv,"
+                "该文件不会被加载。请执行 pip install python-dotenv 后重启服务。",
+                stacklevel=2,
+            )
 
 
 def _env_bool(name: str, default: str = "false") -> bool:
@@ -56,7 +73,7 @@ def _normalize_trusted_host(entry: str) -> str:
 
 # ── 业务常量（不随环境变化，直接定义供模块导入） ───────────
 # 应用版本（SemVer）。发布新版本时更新，须与 Git Tag 保持一致。
-APP_VERSION = "1.3.4"
+APP_VERSION = "1.3.5"
 
 PAGE_SIZE = int(os.environ.get("BLOG_PAGE_SIZE", "6"))
 
@@ -236,7 +253,7 @@ class TestingConfig(Config):
     WTF_CSRF_ENABLED = False  # 测试关闭 CSRF 方便 test_client
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    # 测试环境封闭：不受开发者 .env 的 Host 白名单影响
+    # 测试环境封闭：不受开发者 app.env 的 Host 白名单影响
     HOST_WHITELIST: ClassVar[list[str]] = []
     CANONICAL_URL = ""
     # 测试密钥由 tests/conftest.py 通过 BLOG_SECRET_KEY 环境变量注入,

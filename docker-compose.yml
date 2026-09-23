@@ -14,8 +14,9 @@
 # SQLite（无需数据库账号，也无需 .env.docker）：
 #   docker compose up -d web
 #   访问 http://127.0.0.1:5000
-#   注：compose 会隐式读取项目根 .env；若其中含 BLOG_DB_TYPE=mysql，
-#   改用 --env-file 指向仅含 BLOG_DB_TYPE=sqlite 的文件即可。
+#   注：compose 会隐式读取项目根 .env（应用侧配置文件已更名为 app.env，
+#   compose 不再读取它）；仅当目录残留旧版 .env 且其中含 BLOG_DB_TYPE=mysql 时
+#   才会影响该模式默认值，此时用 --env-file 指向仅含 BLOG_DB_TYPE=sqlite 的文件即可。
 #
 # profile 说明：
 #   （无）            docker compose up -d web        仅 web（SQLite）

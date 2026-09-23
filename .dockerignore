@@ -22,7 +22,9 @@ venv
 # 环境变量（绝不打入镜像）
 .env
 .env.*
-!.env.example
+app.env
+# 应用侧变量模板（app.env.example）不含密钥，保留在镜像内便于查阅配置项
+!app.env.example
 
 # 本地数据（容器内自建或挂载卷）
 data/

@@ -66,7 +66,16 @@ pip install -r requirements.txt
 
 ### 2.3 Configuration (via Environment Variables)
 
-All configuration is injected via environment variables — **`config.py` does not need editing**. Common variables:
+All configuration is injected via environment variables — **`config.py` does not need editing**. On bare metal / local runs, put them in the app-side config file `app.env` (loaded by python-dotenv):
+
+```bash
+cp app.env.example app.env     # then edit the entries (Windows: Copy-Item app.env.example app.env)
+```
+
+> The legacy file name `.env` is still read for backward compatibility (only when `app.env` is absent, with a migration warning); use `app.env` for new deployments.
+> Docker deployments use the **orchestration-side** `.env.docker` instead — the two files are fully independent, see [2.6.2 Prepare the Variables File](#262-prepare-the-variables-file).
+
+Common variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -241,7 +250,7 @@ docker compose --env-file .env.docker --profile mysql up -d
 docker compose up -d web
 ```
 - Access: `http://127.0.0.1:5000`; the database file lives in `./data/blog.db` on the host
-- Note: compose implicitly reads a root-level `.env`. If it contains `BLOG_DB_TYPE=mysql`, pass `--env-file` pointing to a file containing only `BLOG_DB_TYPE=sqlite`
+- Note: compose implicitly reads a root-level `.env`, but the app-side config file is now `app.env` and is **never read by compose**. Only a leftover legacy `.env` (e.g. containing `BLOG_DB_TYPE=mysql`) can still skew this mode — delete it, or pass `--env-file` pointing to a file containing only `BLOG_DB_TYPE=sqlite`
 
 #### 2.6.4 Container Architecture
 

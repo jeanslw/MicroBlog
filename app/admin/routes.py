@@ -480,7 +480,7 @@ def account():
 @admin_bp.route("/mail_setting", methods=["GET", "POST"])
 @admin_required
 def mail_setting():
-    """SMTP 邮件配置：存 site_config，保存后优先于 .env 的 BLOG_MAIL_* 生效。
+    """SMTP 邮件配置：存 site_config，保存后优先于 app.env 的 BLOG_MAIL_* 生效。
 
     GET 一律跳转到合并后的「账户邮件设置」页（兼容旧书签/旧链接）。
     """

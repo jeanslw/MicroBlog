@@ -3,7 +3,7 @@
 `site_config.mail_password` 等敏感字段以 Fernet 对称加密后落库，
 密钥由 `SECRET_KEY` 经 SHA-256 派生（不新增独立密钥管理负担）。
 
-注意：`SECRET_KEY` 必须持久化（写入 .env 的 `BLOG_SECRET_KEY`），
+注意：`SECRET_KEY` 必须持久化（写入 app.env 的 `BLOG_SECRET_KEY`），
 否则每次进程重启密钥变化，将无法解出已加密的字段。
 """
 

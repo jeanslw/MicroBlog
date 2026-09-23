@@ -147,7 +147,7 @@ CREATE TABLE `site_config` (
   `about_github` varchar(200) DEFAULT '' COMMENT '「关于我」GitHub 链接',
   `about_homepage` varchar(200) DEFAULT '' COMMENT '「关于我」个人主页链接',
   `about_nickname` varchar(100) DEFAULT '' COMMENT '「关于我」昵称（文章详情页署名）',
-  `mail_host` varchar(200) DEFAULT '' COMMENT 'SMTP 服务器（后台配置优先于 .env）',
+  `mail_host` varchar(200) DEFAULT '' COMMENT 'SMTP 服务器（后台配置优先于 app.env）',
   `mail_port` int DEFAULT 587 COMMENT 'SMTP 端口',
   `mail_user` varchar(200) DEFAULT '' COMMENT 'SMTP 用户名',
   `mail_password` varchar(200) DEFAULT '' COMMENT 'SMTP 密码/授权码',

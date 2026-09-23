@@ -109,7 +109,7 @@ source venv/bin/activate
 venv\Scripts\activate
 pip install -r requirements.txt
 
-cp .env.example .env     # edit BLOG_SECRET_KEY, BLOG_DB_TYPE, DB credentials, etc.
+cp app.env.example app.env     # app-side vars template; edit BLOG_SECRET_KEY, BLOG_DB_TYPE, DB credentials, etc.
 
 # Linux / WSL2 (gunicorn, multiple workers)
 gunicorn -w 4 -b 127.0.0.1:5000 --access-logfile - --error-logfile - "app:create_app()"
@@ -118,7 +118,7 @@ gunicorn -w 4 -b 127.0.0.1:5000 --access-logfile - --error-logfile - "app:create
 waitress-serve --listen=127.0.0.1:5000 wsgi:application
 ```
 
-Open `http://127.0.0.1:5000`. When running behind Nginx you can reuse [nginx/nginx.conf](nginx/nginx.conf) (it forwards the `Host` and `X-Forwarded-*` headers; set `BLOG_PROXY_XFOR=1` and `BLOG_PROXY_XPROTO=1` in `.env`, and `BLOG_COOKIE_SECURE=false` for plain-HTTP testing). For bare-metal and HTTPS setups see the [Deployment Guide](docs/DEPLOYMENT.md).
+Open `http://127.0.0.1:5000`. When running behind Nginx you can reuse [nginx/nginx.conf](nginx/nginx.conf) (it forwards the `Host` and `X-Forwarded-*` headers; set `BLOG_PROXY_XFOR=1` and `BLOG_PROXY_XPROTO=1` in `app.env`, and `BLOG_COOKIE_SECURE=false` for plain-HTTP testing). For bare-metal and HTTPS setups see the [Deployment Guide](docs/DEPLOYMENT.md).
 
 ## 4. Dependencies
 
@@ -138,7 +138,7 @@ Open `http://127.0.0.1:5000`. When running behind Nginx you can reuse [nginx/ngi
 | cryptography | 43.0.1 | Cryptography library (PyMySQL dependency) |
 | gunicorn | 23.0.0 | WSGI server (Docker / Linux production) |
 | waitress | 3.0.2 | WSGI server for local runs on Windows (gunicorn doesn't support Windows) |
-| python-dotenv | 1.2.1 | Loads `.env` files |
+| python-dotenv | 1.2.1 | Loads the `app.env` file (legacy `.env` still honored) |
 | Pillow | 10.4.0 | Image processing (resize/compress/format/protection) |
 | nh3 | 0.2.18 | HTML sanitization (XSS prevention, Rust ammonia binding) |
 | pytest | 8.3.3 | Testing framework |
@@ -183,7 +183,7 @@ All JS/CSS files are localized. **No CDN is required after deployment**, fully u
 **First login (choose one):**
 
 - Option 1 (recommended): leave the password unset. After starting the service, visit `http://your-server/admin/login` — when no admin exists you are redirected to the `/admin/setup` wizard to create the account in the browser.
-- Option 2: set `BLOG_INIT_ADMIN_PWD` in `.env` / `.env.docker`; the admin is auto-created on first startup. Log in with `admin` / the password you set.
+- Option 2: set `BLOG_INIT_ADMIN_PWD` in `app.env` / `.env.docker`; the admin is auto-created on first startup. Log in with `admin` / the password you set.
 
 **Immediately change to a strong password on the "Change Password" page after logging in.**
 

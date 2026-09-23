@@ -128,7 +128,7 @@ class SiteConfig(db.Model):
     about_homepage = Column(String(200), default="")
     # 「关于我」昵称：作为作者署名显示在文章详情页与「关于我」页面
     about_nickname = Column(String(100), default="")
-    # SMTP 邮件设置（后台可配置，优先于 .env 的 BLOG_MAIL_*；用于密码找回等邮件发送）
+    # SMTP 邮件设置（后台可配置，优先于 app.env 的 BLOG_MAIL_*；用于密码找回等邮件发送）
     mail_host = Column(String(200), default="")
     mail_port = Column(Integer, default=587)
     mail_user = Column(String(200), default="")

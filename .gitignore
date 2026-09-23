@@ -9,8 +9,13 @@ copilot-instructions.md
 *.bat
 
 # 环境变量与本地数据，禁止入库
+# 注意：.gitignore 不支持行尾注释，每行必须是纯模式，注释单独成行
+# .env             旧版应用侧配置（兼容回退，建议迁移到 app.env）
 .env
+# .env.docker      docker compose --env-file 用（模板 .env.docker.example）
 .env.docker
+# app.env          应用侧配置（模板 app.env.example）
+app.env
 /data/
 /backups/
 # SSL 证书/私钥禁止入库（启用 HTTPS 时放入 nginx/certs/）

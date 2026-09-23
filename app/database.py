@@ -156,7 +156,7 @@ def _migrate_site_config():
                 conn.execute(db.text("ALTER TABLE site_config ADD COLUMN about_homepage VARCHAR(200) DEFAULT ''"))
             if "about_nickname" not in cols:
                 conn.execute(db.text("ALTER TABLE site_config ADD COLUMN about_nickname VARCHAR(100) DEFAULT ''"))
-            # SMTP 邮件设置（后台配置优先于 .env）
+            # SMTP 邮件设置（后台配置优先于 app.env）
             if "mail_host" not in cols:
                 conn.execute(db.text("ALTER TABLE site_config ADD COLUMN mail_host VARCHAR(200) DEFAULT ''"))
             if "mail_port" not in cols:

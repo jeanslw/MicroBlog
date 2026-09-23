@@ -37,7 +37,7 @@
   python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
   ```
 - 运行 `pip install -r requirements.txt` 安装依赖。
-- 复制 `.env.example` 为 `.env`，根据本地环境修改配置。
+- 复制 `app.env.example` 为 `app.env`，根据本地环境修改配置。
 - 使用 `python run.py` 启动开发服务器（默认 SQLite，生产环境可选 MySQL）。
 
 ### 3. 编写代码
@@ -47,7 +47,7 @@
 - **文档**：你的贡献必须包含或更新相关文档，包括：
     - 更新 `README.md` / `README_ZH-CN.md` 中的使用说明。
     - 如果新增界面文案，请同步更新 `messages.pot` 与 `translations/` 下的 `.po` 文件。
-    - 如果引入新的配置项，请更新 `.env.example` 和管理员手册。
+    - 如果引入新的配置项，请更新 `app.env.example` 和管理员手册。
 
 ### 4. 提交代码（Commit Message）
 

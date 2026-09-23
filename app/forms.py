@@ -78,7 +78,7 @@ class AccountForm(FlaskForm):
 
 
 class MailSettingForm(FlaskForm):
-    """SMTP 邮件设置：数据存 site_config，保存后优先于 .env 的 BLOG_MAIL_* 生效。"""
+    """SMTP 邮件设置：数据存 site_config，保存后优先于 app.env 的 BLOG_MAIL_* 生效。"""
 
     mail_host = StringField("SMTP 服务器", validators=[Optional(), Length(max=200)])
     mail_port = IntegerField("端口", validators=[Optional(), NumberRange(min=1, max=65535)], default=587)

@@ -37,7 +37,7 @@ If you plan to implement a major feature or refactor, please **discuss it in an 
   python3 -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
   ```
 - Run `pip install -r requirements.txt` to install dependencies.
-- Copy `.env.example` to `.env` and modify the configuration according to your local environment.
+- Copy `app.env.example` to `app.env` and modify the configuration according to your local environment.
 - Start the dev server with `python run.py` (SQLite by default; MySQL is optional for production).
 
 ### 3. Write Code
@@ -47,7 +47,7 @@ If you plan to implement a major feature or refactor, please **discuss it in an 
 - **Documentation**: Your contribution must include or update relevant documentation. This includes:
     - Updating usage instructions in `README.md` / `README_ZH-CN.md`.
     - If you add new UI strings, update `messages.pot` and the `.po` files under `translations/`.
-    - If new configuration items are introduced, update `.env.example` and the administrator manual.
+    - If new configuration items are introduced, update `app.env.example` and the administrator manual.
 
 ### 4. Commit Message
 
