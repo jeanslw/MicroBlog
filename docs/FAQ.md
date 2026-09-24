@@ -90,6 +90,12 @@ waitress-serve --listen=127.0.0.1:5000 wsgi:application
 ```
 On Linux / WSL2 / inside Docker keep using gunicorn: `gunicorn -w 4 -b 127.0.0.1:5000 "app:create_app()"`.
 
+**Q: "Database backup" fails with `returned non-zero exit status 2`?**
+Exit code 2 means the mysql/mysqldump client rejected the command during **option parsing** (typically `unknown option '--xxx'`) — it **never even connected to the database**, so this is not a corrupt database or a data problem. For backups the classic cause is a client-version difference: `--skip-ssl` only exists in MariaDB / MySQL ≤8.0 clients, and **MySQL 8.4's `mysqldump` has removed it** (the `mysql` client in the same 8.4 package still accepts it, which is why "restore" may work while "backup" always fails). The current version now **probes which "disable TLS" spelling the client supports** (prefers `--skip-ssl`, falls back to `--ssl-mode=DISABLED`, and otherwise leaves the client default alone), caches the result, and on failure shows the client's raw stderr on the page instead of only an exit code. If the page shows a different message, act on that text:
+- `Can't connect to MySQL server` / `Access denied`: wrong host, account, or `BLOG_MYSQL_*` values
+- `Unknown database 'flask_blog'`: the target database does not exist — create it or switch to SQLite
+- `[WinError 2]` / `command not found`: no client installed on the host — bare-metal runs need the MySQL/MariaDB client with its `bin` on `PATH` (container images bundle it, so they are unaffected)
+
 **Q: Language switch not working?**
 Confirm `.mo` compiled files exist in `translations/`. If `.po` files were modified, run `pybabel compile -d translations` to recompile.
 
