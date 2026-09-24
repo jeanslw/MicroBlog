@@ -123,3 +123,15 @@ def test_about_setting_invalid_email_rejected(login_admin, db):
     )
     assert rv.status_code == 200
     assert db.session.get(SiteConfig, 1).about_email == "old@example.com"
+
+
+def test_about_avatar_falls_back_when_file_missing(client, db, monkeypatch, tmp_path):
+    """跨机恢复后头像文件缺失（库里仍有 URL）：渲染占位图标，不出现破图与 alt 文本"""
+    import app.utils as utils
+
+    monkeypatch.setattr(utils, "project_root", lambda: str(tmp_path))  # static 目录为空
+    _update_site(db, about_avatar="/static/uploads/avatar/gone.png")
+    html = client.get("/about").get_data(as_text=True)
+    assert "gone.png" not in html
+    assert "about-avatar-empty" in html
+

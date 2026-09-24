@@ -194,14 +194,42 @@ def test_site_logo_invalid_rejected(login_admin, db):
     assert s.logo_path == old_logo
 
 
-def test_homepage_renders_navbar_logo(login_admin, db):
-    """设置 Logo 后首页导航栏应输出 <img class="navbar-logo">"""
+def test_homepage_renders_navbar_logo(login_admin, db, monkeypatch, tmp_path):
+    """设置 Logo（且文件确实存在）后首页导航栏应输出 <img class="navbar-logo">"""
+    import app.utils as utils
+
+    monkeypatch.setattr(utils, "project_root", lambda: str(tmp_path))
+    logo_dir = tmp_path / "static" / "uploads" / "logo"
+    logo_dir.mkdir(parents=True)
+    (logo_dir / "test-logo.png").write_bytes(b"x")
     s = db.session.get(SiteConfig, 1)
     s.logo_path = "/static/uploads/logo/test-logo.png"
     db.session.commit()
     html = login_admin.get("/").get_data(as_text=True)
     assert 'class="navbar-logo"' in html
     assert "/static/uploads/logo/test-logo.png" in html
+
+
+def test_navbar_logo_falls_back_when_file_missing(login_admin, db, monkeypatch, tmp_path):
+    """跨机恢复后 Logo 文件缺失（库里仍有 URL）：导航栏回落内置图标
+
+    回归：Logo 缺失时浏览器会把 ``<img alt="站点名">`` 的 alt 文本画出来，
+    与紧随其后的 ``<span>站点名</span>`` 叠加，页面上看起来就是
+    「My Blog My Blog」——像是数据库里的站点名被写了两遍。
+    """
+    import app.utils as utils
+
+    monkeypatch.setattr(utils, "project_root", lambda: str(tmp_path))  # static 目录为空
+    s = db.session.get(SiteConfig, 1)
+    s.logo_path = "/static/uploads/logo/gone.png"
+    s.site_name = "My Blog"
+    db.session.commit()
+    html = login_admin.get("/").get_data(as_text=True)
+    assert 'class="navbar-logo"' not in html
+    assert "gone.png" not in html
+    assert "bi-journal-text" in html  # 回落内置图标
+    assert "My Blog My Blog" not in html
+
 
 
 def test_background_assets_complete():

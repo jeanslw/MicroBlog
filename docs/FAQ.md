@@ -90,11 +90,20 @@ waitress-serve --listen=127.0.0.1:5000 wsgi:application
 ```
 On Linux / WSL2 / inside Docker keep using gunicorn: `gunicorn -w 4 -b 127.0.0.1:5000 "app:create_app()"`.
 
-**Q: "Database backup" fails with `returned non-zero exit status 2`?**
-Exit code 2 means the mysql/mysqldump client rejected the command during **option parsing** (typically `unknown option '--xxx'`) — it **never even connected to the database**, so this is not a corrupt database or a data problem. For backups the classic cause is a client-version difference: `--skip-ssl` only exists in MariaDB / MySQL ≤8.0 clients, and **MySQL 8.4's `mysqldump` has removed it** (the `mysql` client in the same 8.4 package still accepts it, which is why "restore" may work while "backup" always fails). The current version now **probes which "disable TLS" spelling the client supports** (prefers `--skip-ssl`, falls back to `--ssl-mode=DISABLED`, and otherwise leaves the client default alone), caches the result, and on failure shows the client's raw stderr on the page instead of only an exit code. If the page shows a different message, act on that text:
+**Q: "Database backup/restore" fails with `returned non-zero exit status 2`?**
+Exit code 2 means the mysql/mysqldump client rejected the command during **option parsing** (typically `unknown option '--xxx'`) — it **never even connected to the database**, so this is not a corrupt database or a data problem. The classic cause is a client-version difference: `--skip-ssl` only exists in MariaDB / MySQL ≤8.0 clients, and **MySQL 8.4 clients have removed that spelling** (they only accept `--ssl-mode=DISABLED`), so both backup and restore can fail. The app is now **behaviour-driven**: it first runs with `--skip-ssl`, and if the client reports an unknown option it automatically retries with `--ssl-mode=DISABLED` (an unknown option fails during parsing, so nothing connects and nothing is written), finally dropping the flag to keep the client default; whichever spelling worked is cached. Note that **`--version` probing cannot be trusted**: `mysql --skip-ssl --version` prints the version and exits 0 (that client returns early on `--version` without validating the remaining options) while `mysqldump --skip-ssl --version` does report the error — the same flag is validated at different moments in the two clients. On failure the client's raw stderr is shown on the page instead of only an exit code. If the page shows a different message, act on that text:
 - `Can't connect to MySQL server` / `Access denied`: wrong host, account, or `BLOG_MYSQL_*` values
 - `Unknown database 'flask_blog'`: the target database does not exist — create it or switch to SQLite
 - `[WinError 2]` / `command not found`: no client installed on the host — bare-metal runs need the MySQL/MariaDB client with its `bin` on `PATH` (container images bundle it, so they are unaffected)
+
+**Q: After restoring a Windows backup into a Linux container the blog name reads "My Blog My Blog" (or images are broken)?**
+A backup contains **only the database**, not the uploaded files under `static/uploads/` (site logo, avatar, custom background, images embedded in articles). After a restore the URLs in the database still point at those files, but the files are not on the new machine, so the browser renders broken images; the navbar logo's `alt` happens to be the site name, so the broken image paints that alt text right next to the real site name — it looks as if the site name were stored twice. The app now checks whether the file exists before rendering: when the logo/avatar is missing it falls back to the built-in icon and placeholder avatar, so no broken images or duplicated text appear (the URL in the database is left untouched and display recovers as soon as the file is back). For a full migration, copy the uploads directory along with the backup file:
+
+```bash
+tar -czf uploads.tar.gz static/uploads           # on the old machine (for Docker, run it in the bind-mounted dir)
+tar -xzf uploads.tar.gz -C /path/to/MicroBlog    # on the new machine, into the project root
+```
+Re-uploading the logo, avatar and background from "Site Settings" / "About" also works; images inside article bodies must be re-inserted or copied as above.
 
 **Q: Language switch not working?**
 Confirm `.mo` compiled files exist in `translations/`. If `.po` files were modified, run `pybabel compile -d translations` to recompile.

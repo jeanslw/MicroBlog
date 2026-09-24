@@ -28,7 +28,7 @@ from app.blog.queries import (
 from app.extensions import admin_required, db, flash_form_errors, log
 from app.forms import ArticleForm, CategoryForm
 from app.models import Admin, Article, Category, Comment, Reply, SiteConfig
-from app.utils import collect_static_upload_urls, remove_static_upload, strip_html
+from app.utils import collect_static_upload_urls, remove_static_upload, static_url_exists, strip_html
 
 TITLE_MAX_LEN = 500
 
@@ -504,6 +504,9 @@ def about():
     """「关于我」公开页面：展示后台站点设置里填写的头像/简介/邮箱/GitHub/个人主页"""
     site = db.session.get(SiteConfig, 1)
     avatar = (site.about_avatar or "") if site else ""
+    # 头像文件不随数据库备份迁移：文件缺失时回落为空，页面渲染占位图标而不是破图 + alt 文本
+    if not static_url_exists(avatar):
+        avatar = ""
     bio = (site.about_bio or "").strip() if site else ""
     email = (site.about_email or "").strip() if site else ""
     github = (site.about_github or "").strip() if site else ""

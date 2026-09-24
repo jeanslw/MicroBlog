@@ -13,6 +13,7 @@ import subprocess
 import threading
 import zipfile
 from datetime import datetime
+from functools import partial
 
 from flask import (
     abort,
@@ -554,55 +555,66 @@ def _mysql_creds():
     }
 
 
-# 「禁用 TLS」参数名随客户端实现不同：MariaDB 客户端（镜像内 default-mysql-client）
-# 与 MySQL ≤8.0 用 --skip-ssl；MySQL 8.4 客户端已移除 --skip-ssl，仅认 --ssl-mode=DISABLED。
-# 硬编码任一写法都会让客户端以 exit 2（unknown option）直接失败（本地 Windows + Laragon
-# 的 mysqldump 8.4 即因此备份完全不可用）。故按二进制探测一次并缓存，调用点不关心版本差异。
-_mysql_client_tls_args_cache = {}
+# 「禁用 TLS」的写法随客户端实现不同：MariaDB 客户端（镜像内 default-mysql-client）
+# 与 MySQL ≤8.0 用 --skip-ssl；MySQL 8.4 客户端（含 Laragon 自带的 8.4.3）已移除该选项，
+# 仅认 --ssl-mode=DISABLED。硬编码任一写法都会让另一侧以 exit 2（unknown option）直接失败。
+# 下面的候选按优先级排列，以「空参数」收尾（两种写法都不支持时交回客户端默认行为）。
+_TLS_DISABLE_CANDIDATES = (("--skip-ssl",), ("--ssl-mode=DISABLED",), ())
+# binary -> 上一次真正跑通的参数（空元组表示该客户端两种写法都不支持）
+_tls_args_cache = {}
+
+# 客户端「不认识该参数」的报错特征（MySQL: unknown option / MariaDB: unknown variable）
+_UNKNOWN_OPTION_MARKERS = ("unknown option", "unknown variable", "unrecognized option")
 
 
-def _mysql_client_tls_args(binary):
-    """探测 binary 支持的「禁用 TLS」参数，返回 []/["--skip-ssl"]/["--ssl-mode=DISABLED"]。
+def _is_unknown_option_error(stderr):
+    """客户端是否因「不认识该参数」而失败（如 MySQL 8.4: unknown option '--skip-ssl'）"""
+    low = stderr.lower()
+    return any(marker in low for marker in _UNKNOWN_OPTION_MARKERS)
 
-    内网链路无需 TLS：MariaDB 客户端默认尝试 TLS，对 MySQL 8.4 的自签证书会报
-    2026 self-signed certificate，故尽量禁用以与旧版行为保持一致。
 
-    探测方式 `<binary> <flag> --version` 只解析参数并打印版本、不建立连接；客户端
-    不认识该选项时以 exit 2 退出，据此判定支持与否。两者都不支持时返回 []，交回客户端
-    默认行为（MySQL 8.4 默认 ssl-mode=PREFERRED，不校验证书，可正常连接）。
+def _tls_args_candidates(binary):
+    """本次要依次尝试的「禁用 TLS」参数列表；已确认过的客户端只试那一种。"""
+    if binary in _tls_args_cache:
+        return [_tls_args_cache[binary]]
+    return list(_TLS_DISABLE_CANDIDATES)
+
+
+def _run_db_client(build_cmd, binary, env, **kwargs):
+    """执行 mysql/mysqldump 子进程，返回 CompletedProcess；失败抛带客户端 stderr 的 RuntimeError。
+
+    build_cmd(tls_args) -> list[str]：用给定的「禁用 TLS」参数拼出完整命令行。
+
+    为什么不能「探测」客户端支持哪种写法：`mysql --skip-ssl --version` 会**打印版本并以 0
+    退出**（mysql 客户端对 --version 提前返回，不再校验其余选项），于是 --skip-ssl 被误判成
+    可用，直到真正恢复时才以 exit 2 失败；而 `mysqldump --skip-ssl --version` 却会正常报错——
+    同名参数在两个客户端里的校验时机不一致，探测结论不可信。故改为行为驱动：先用首选参数
+    真跑一次，客户端报「未知选项」就换下一个候选重试。未知选项在参数解析阶段即失败，
+    不建连接、不写库、不产生任何副作用，因此重试是安全的（含恢复时携带的 dump 数据）。
+    跑通后把结论缓存，后续调用不再试错。
     """
-    if binary not in _mysql_client_tls_args_cache:
-        args = []
-        for flag in ("--skip-ssl", "--ssl-mode=DISABLED"):
-            try:
-                probe = subprocess.run([binary, flag, "--version"], capture_output=True, timeout=30)
-            except (OSError, subprocess.SubprocessError):
-                # 二进制不存在/不可执行：保持空结果,由真正的备份/恢复调用给出报错
-                break
-            if probe.returncode == 0:
-                args = [flag]
-                break
-        _mysql_client_tls_args_cache[binary] = args
-    return _mysql_client_tls_args_cache[binary]
-
-
-def _run_db_client(cmd, binary, env, **kwargs):
-    """执行 mysql/mysqldump 子进程；失败时抛出带客户端 stderr 的 RuntimeError。
-
-    不使用 check=True：CalledProcessError 只带退出码、丢掉 stderr，现场只剩
-    「returned non-zero exit status 2」这种无从下手的报错（未知选项/密码错误/
-    权限不足都无法区分）。
-    """
-    try:
-        result = subprocess.run(cmd, capture_output=True, env=env, **kwargs)
-    except FileNotFoundError:
-        raise RuntimeError(f"未找到 {binary} 客户端，请先安装 MySQL/MariaDB 客户端（容器镜像已内置）") from None
-    if result.returncode != 0:
-        # 透出客户端 stderr,便于定位（未知选项/密码错误/表不存在等）
-        raise RuntimeError(
-            result.stderr.decode("utf-8", errors="replace").strip() or f"{binary} exited with code {result.returncode}"
-        )
-    return result
+    for tls_args in _tls_args_candidates(binary):
+        cmd = build_cmd(tls_args)
+        try:
+            result = subprocess.run(cmd, capture_output=True, env=env, **kwargs)
+        except FileNotFoundError:
+            raise RuntimeError(
+                f"未找到 {binary} 客户端，请先安装 MySQL/MariaDB 客户端（容器镜像已内置）"
+            ) from None
+        if result.returncode == 0:
+            _tls_args_cache[binary] = tls_args
+            return result
+        # 不使用 check=True：CalledProcessError 只带退出码、丢掉 stderr，现场只剩
+        # 「returned non-zero exit status 2」这种无从下手的报错（未知选项/密码错误/
+        # 权限不足都无法区分）。
+        stderr = result.stderr.decode("utf-8", errors="replace").strip()
+        if tls_args and _is_unknown_option_error(stderr):
+            log.warning("%s 客户端不支持 %s，改用下一个候选参数重试", binary, " ".join(tls_args))
+            continue
+        raise RuntimeError(stderr or f"{binary} exited with code {result.returncode}")
+    # 候选列表以「空参数」收尾，空参数不会再触发 unknown option，故此处理论不可达；
+    # 保留兜底，避免将来调整候选列表时静默返回 None。
+    raise RuntimeError(f"未找到 {binary} 可用的参数组合，请检查客户端版本")
 
 
 def _safe_backup_name(name):
@@ -647,6 +659,46 @@ def _list_backups(backup_dir):
     return files
 
 
+def _mysqldump_cmd(creds, tls_args):
+    """拼 mysqldump 命令行；tls_args 为「禁用 TLS」参数，由 _run_db_client 试错决定。
+
+    --single-transaction:InnoDB 一致性快照,备份不阻塞业务
+    --skip-add-locks:dump 内不生成 LOCK TABLES,恢复端不会因元数据锁(MDL)等待挂起
+    --default-character-set=utf8mb4:避免中文数据乱码
+    --no-tablespaces:业务账号无 PROCESS 权限,dump 表空间语句会报错(仅警告但污染 stderr)
+    注:mysqldump 不支持 --connect-timeout（exit 7 unknown variable），
+    连接失败由子进程 timeout=120 兜底；口令走 MYSQL_PWD 环境变量，不进命令行
+    """
+    return [
+        "mysqldump",
+        "--single-transaction",
+        "--skip-add-locks",
+        "--default-character-set=utf8mb4",
+        *tls_args,
+        "--no-tablespaces",
+        "-h",
+        creds["host"],
+        "-u",
+        creds["user"],
+        creds["db"],
+    ]
+
+
+def _mysql_restore_cmd(creds, tls_args):
+    """拼 mysql 恢复命令行（dump 内容从 stdin 喂入）；tls_args 语义同 _mysqldump_cmd。"""
+    return [
+        "mysql",
+        "--default-character-set=utf8mb4",
+        "--connect-timeout=10",
+        *tls_args,
+        "-h",
+        creds["host"],
+        "-u",
+        creds["user"],
+        creds["db"],
+    ]
+
+
 def _create_backup(backup_dir, tag=""):
     """备份打包为 zip：内含 .db（SQLite）或 .sql（MySQL）单个文件。
 
@@ -670,26 +722,14 @@ def _create_backup(backup_dir, tag=""):
         # --single-transaction:InnoDB 一致性快照,备份不阻塞业务
         # --skip-add-locks:dump 内不生成 LOCK TABLES,恢复端不会因元数据锁(MDL)等待挂起
         # --default-character-set=utf8mb4:避免中文数据乱码
-        # _mysql_client_tls_args:内网链路禁用 TLS（MariaDB 客户端对 MySQL 8.4 的自签证书会报
-        # 2026 self-signed certificate）；参数名随客户端版本不同,由探测决定,勿硬编码
         # --no-tablespaces:业务账号无 PROCESS 权限,dump 表空间语句会报错(仅警告但污染 stderr)
         # 注:mysqldump 不支持 --connect-timeout（exit 7 unknown variable），
         # 连接失败由子进程 timeout=120 兜底
-        cmd = [
-            "mysqldump",
-            "--single-transaction",
-            "--skip-add-locks",
-            "--default-character-set=utf8mb4",
-            *_mysql_client_tls_args("mysqldump"),
-            "--no-tablespaces",
-            "-h",
-            c["host"],
-            "-u",
-            c["user"],
-            c["db"],
-        ]
+        # 「禁用 TLS」参数由 _run_db_client 按客户端实际行为自适应：内网链路无需 TLS，
+        # MariaDB 客户端对 MySQL 8.4 的自签证书会报 2026 self-signed certificate，
+        # 故尽量禁用；写法（--skip-ssl / --ssl-mode=DISABLED）随客户端版本不同，勿硬编码
         inner_name = f"{db_prefix}_backup_{timestamp}.sql"
-        result = _run_db_client(cmd, "mysqldump", env, timeout=120)
+        result = _run_db_client(partial(_mysqldump_cmd, c), "mysqldump", env, timeout=120)
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
             zf.writestr(inner_name, result.stdout)
         return zip_name
@@ -827,21 +867,10 @@ def backup_restore(name):
             # session.remove() 归还请求自身占用的连接,dispose() 清空池中其余连接。
             db.session.remove()
             db.engine.dispose()
-            cmd = [
-                "mysql",
-                "--default-character-set=utf8mb4",
-                "--connect-timeout=10",
-                # 禁用 TLS 的参数名随客户端版本不同（与上方 mysqldump 备份命令同一套探测逻辑）
-                *_mysql_client_tls_args("mysql"),
-                "-h",
-                c["host"],
-                "-u",
-                c["user"],
-                c["db"],
-            ]
+            # 「禁用 TLS」参数与上方备份命令共用同一套自适应逻辑（见 _run_db_client）
             # 加 timeout 避免 mysql 客户端因等待输入而永久挂起
             # （如密码错误进入交互提示符会卡住请求）；失败时内部透出客户端 stderr
-            _run_db_client(cmd, "mysql", env, input=data, timeout=120)
+            _run_db_client(partial(_mysql_restore_cmd, c), "mysql", env, input=data, timeout=120)
             # 丢弃恢复前留下的旧连接缓存，确保后续请求读到恢复后的数据
             db.engine.dispose()
             # 恢复完整性校验：admin 表是 dump 中首张建表且必含 INSERT,

@@ -7,6 +7,7 @@ from app.utils import (
     configure_pillow,
     process_and_save_image,
     project_root,
+    static_url_exists,
     to_abs_url_path,
     upload_dir,
 )
@@ -177,3 +178,28 @@ def test_remove_static_upload(tmp_path):
         assert not (tmp_path / "evil.txt").exists()
     finally:
         utils.project_root = orig_root
+
+
+def test_static_url_exists(tmp_path, monkeypatch):
+    """站内静态资源存在性判断（跨机恢复后 uploads 缺失的渲染兜底依据）"""
+    import app.utils as utils
+
+    monkeypatch.setattr(utils, "project_root", lambda: str(tmp_path))
+    f = tmp_path / "static" / "uploads" / "logo" / "a.png"
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_bytes(b"x")
+    assert static_url_exists("/static/uploads/logo/a.png") is True
+    # 兼容 favicon 那种不带前导斜杠的写法与带查询串的 URL
+    assert static_url_exists("static/uploads/logo/a.png") is True
+    assert static_url_exists("/static/uploads/logo/a.png?v=1") is True
+    assert static_url_exists("/static/uploads/logo/missing.png") is False
+    # 外部 URL 无法本地校验，视为存在（交浏览器处理）
+    assert static_url_exists("https://example.com/x.png") is True
+    assert static_url_exists("http://example.com/x.png") is True
+    # 空值 / 其他形式
+    assert static_url_exists("") is False
+    assert static_url_exists(None) is False
+    assert static_url_exists("data:image/png;base64,AAAA") is False
+    # 路径穿越不外溢到 static 目录之外
+    assert static_url_exists("/static/../app/__init__.py") is False
+

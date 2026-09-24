@@ -290,3 +290,34 @@ def to_abs_url_path(abs_path: str) -> str:
     if path.startswith(root):
         return path[len(root) :]
     return path
+
+
+# ── 站内静态资源是否存在（跨机恢复后 uploads 可能缺失） ──────
+def static_url_exists(url: str | None) -> bool:
+    """判断站点静态资源 URL 指向的文件在本地是否真实存在。
+
+    用途是「渲染前兜底」：数据库备份不含 ``static/uploads/`` 下的上传文件
+    （Logo / 头像 / 背景图 / 正文插图），把备份恢复到另一台机器或容器后，
+    库里记录的 URL 仍在、文件却已丢失，浏览器会渲染成破图；而带 alt 的
+    ``<img>`` 还会把 alt 文本画出来——导航栏 Logo 的 alt 正是站点名，
+    于是页面上出现「My Blog My Blog」这种像是数据错乱的现象。
+
+    - 外部 http(s) URL：无法本地校验，一律视为存在（交浏览器处理）
+    - ``/static/...`` 或 ``static/...``：映射到项目 static 目录校验文件
+    - 空值 / 其他形式（``data:`` 等）：False
+    """
+    if not url:
+        return False
+    if url.startswith(("http://", "https://")):
+        return True
+    if "/static/" in url:
+        rel = url.split("/static/", 1)[1]
+    elif url.startswith("static/"):
+        rel = url[len("static/") :]
+    else:
+        return False
+    static_root = os.path.abspath(os.path.join(project_root(), "static"))
+    abs_path = os.path.abspath(os.path.join(static_root, rel.split("?", 1)[0]))
+    if not abs_path.startswith(static_root + os.sep):
+        return False
+    return os.path.isfile(abs_path)
