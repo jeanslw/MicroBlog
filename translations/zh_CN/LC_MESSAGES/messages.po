@@ -1238,3 +1238,35 @@ msgstr ""
 msgid "恢复失败：该备份为 MySQL（.sql）格式，无法恢复到 SQLite 数据库；如需迁移数据请手动处理"
 msgstr ""
 
+#: templates/blog/manage_articles.html app/blog/routes.py
+msgid "评论管理"
+msgstr ""
+
+#: templates/blog/manage_comments.html
+msgid "查看文章"
+msgstr ""
+
+#: templates/blog/manage_comments.html
+msgid "返回文章列表"
+msgstr ""
+
+#: templates/blog/manage_comments.html
+msgid "暂无评论"
+msgstr ""
+
+#: templates/blog/manage_comments.html
+msgid "确认删除该评论？其下的回复将一并删除"
+msgstr ""
+
+#: templates/blog/manage_comments.html
+msgid "确认删除该回复？"
+msgstr ""
+
+#: app/blog/routes.py
+msgid "评论已删除"
+msgstr ""
+
+#: app/blog/routes.py
+msgid "回复已删除"
+msgstr ""
+

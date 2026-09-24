@@ -43,6 +43,8 @@ docker compose --env-file .env.docker --profile full up -d
 # Health:  http://localhost/healthz
 ```
 
+> A pre-start `env-check` guard runs first: it **aborts startup** when the two passwords are still the template placeholder (`请替换为强密码`) or explicitly set to the public test passwords — inspect the reason with `docker compose --profile full logs env-check` (`up -d` does not print that container's output). With no `.env.docker` at all it only warns and passes, reusing the built-in test passwords of the `db` service for local trials.
+
 > Just want the fastest trial without MySQL: `docker compose up -d web` (SQLite, zero config, no .env.docker needed) and open `http://127.0.0.1:5000`.
 
 ## 2. Detailed Deployment

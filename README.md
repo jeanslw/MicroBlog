@@ -1,6 +1,6 @@
 # Blog System Deployment Documentation
 
-Version: v1.3.4
+Version: v1.3.5
 
 Built with Flask 3.1, it features article publishing and management, Markdown uploads, code highlighting, image uploads, comments and likes, article categories, a banner carousel, and bilingual support (Chinese/English). 
 The UI rocks a glassmorphism transparent style with awesome dynamic backgrounds (aurora / starry sky / flowing light / bubbles / classic). There's a floating color palette button at the bottom right to switch styles with one click, and your choice is saved in localStorage. 
@@ -88,6 +88,7 @@ Built-in out-of-the-box guarantees:
 - **Auto schema & admin**: MySQL auto-imports [MySQL/init.sql](MySQL/init.sql) on first boot. If no initial admin password is configured, visit `/admin/setup` and follow the wizard — or set `BLOG_INIT_ADMIN_PWD` in `.env.docker` to auto-create one.
 - **Login works over plain HTTP**: the bundled Nginx serves HTTP (port 80) only, so `BLOG_COOKIE_SECURE=false` by default; set it to `true` once you enable HTTPS.
 - **Proxy headers preconfigured**: `BLOG_PROXY_XFOR=1`, `BLOG_PROXY_XPROTO=1`, `BLOG_PROXY_XHOST=0`.
+- **Pre-start guard**: before `db` starts, `env-check` validates `MySQL/init.sql` and the database passwords — template placeholders or explicitly configured public test passwords abort startup (see `docker compose --profile full logs env-check`); with no `.env.docker` at all it only warns and passes, using the built-in test passwords for local trials.
 - The default secret key and database passwords are for local testing only — **for any public deployment, change** `BLOG_SECRET_KEY`, `MYSQL_ROOT_PASSWORD`, and `MYSQL_PASSWORD`.
 - Persistence: SQLite in `./data`, uploads in `./static`, MySQL in the named volume `microblog-mysql-data`.
 
@@ -175,6 +176,8 @@ All JS/CSS files are localized. **No CDN is required after deployment**, fully u
 | Home | `/` | Article list page |
 | New Article | `/article/new` | Login required (Markdown editor) |
 | Drafts | `/drafts` | Login required, manage drafts |
+| Article List | `/article/manage` | Login required, recall/delete published articles, comment management entry |
+| Comment Management | `/comment/manage/<article id>` | Login required, delete comments/replies under an article |
 | Site Settings | `/admin/site_setting` | Login required, change site name |
 | Change Password | `/admin/change_pwd` | Login required |
 | Banner Management | `/banner/list` | Login required, manage banners |

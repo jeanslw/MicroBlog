@@ -224,3 +224,102 @@ def test_comments_displayed_on_detail(client, article, db):
     assert rv.status_code == 200
     assert "访客甲".encode() in rv.data
     assert "看完了".encode() in rv.data
+
+
+# ── 后台评论管理（删除评论/回复） ────────────────────────
+def test_comment_manage_requires_login(client, article):
+    """未登录访问评论管理应跳转登录页"""
+    rv = client.get(f"/comment/manage/{article.id}", follow_redirects=False)
+    assert rv.status_code == 302
+    assert "/admin/login" in rv.headers["Location"]
+
+
+def test_comment_manage_lists_comments_and_replies(login_admin, article, db):
+    """评论管理页应列出该文章的评论与回复"""
+    c = Comment(article_id=article.id, username="访客甲", content="待删除评论", create_time="2026-01-01 00:00:00")
+    db.session.add(c)
+    db.session.commit()
+    db.session.add(
+        Reply(comment_id=c.id, username="访客乙", content="待删除回复", create_time="2026-01-01 00:00:01")
+    )
+    db.session.commit()
+
+    rv = login_admin.get(f"/comment/manage/{article.id}")
+    assert rv.status_code == 200
+    assert "访客甲".encode() in rv.data
+    assert "待删除评论".encode() in rv.data
+    assert "访客乙".encode() in rv.data
+    assert "待删除回复".encode() in rv.data
+    # 删除按钮指向评论删除接口（带二次确认）
+    assert f'action="/comment/del/{c.id}"'.encode() in rv.data
+
+
+def test_comment_manage_nonexistent_article(login_admin):
+    """不存在的文章应提示并回到文章列表"""
+    rv = login_admin.get("/comment/manage/99999", follow_redirects=False)
+    assert rv.status_code == 302
+    assert "/article/manage" in rv.headers["Location"]
+
+
+def test_comment_delete_cascades_replies(login_admin, article, db):
+    """删除评论时其下的回复应一并删除，并回到该文章的评论管理页"""
+    c = Comment(article_id=article.id, username="u", content="c", create_time="2026-01-01 00:00:00")
+    db.session.add(c)
+    db.session.commit()
+    db.session.add(Reply(comment_id=c.id, username="r", content="r", create_time="2026-01-01 00:00:01"))
+    db.session.commit()
+    cid = c.id
+
+    rv = login_admin.post(f"/comment/del/{cid}", follow_redirects=False)
+    assert rv.status_code == 302
+    assert f"/comment/manage/{article.id}" in rv.headers["Location"]
+    assert db.session.get(Comment, cid) is None
+    assert db.session.scalar(db.select(db.func.count(Reply.id)).where(Reply.comment_id == cid)) == 0
+
+
+def test_reply_delete_keeps_comment(login_admin, article, db):
+    """删除单条回复不应影响其所属评论"""
+    c = Comment(article_id=article.id, username="u", content="c", create_time="2026-01-01 00:00:00")
+    db.session.add(c)
+    db.session.commit()
+    r = Reply(comment_id=c.id, username="r", content="r", create_time="2026-01-01 00:00:01")
+    db.session.add(r)
+    db.session.commit()
+    rid = r.id
+
+    rv = login_admin.post(f"/reply/del/{rid}", follow_redirects=False)
+    assert rv.status_code == 302
+    assert f"/comment/manage/{article.id}" in rv.headers["Location"]
+    assert db.session.get(Reply, rid) is None
+    assert db.session.get(Comment, c.id) is not None
+
+
+def test_comment_delete_requires_login(client, article, db):
+    """未登录不能删除评论"""
+    c = Comment(article_id=article.id, username="u", content="c", create_time="2026-01-01 00:00:00")
+    db.session.add(c)
+    db.session.commit()
+    cid = c.id
+
+    rv = client.post(f"/comment/del/{cid}", follow_redirects=False)
+    assert rv.status_code == 302
+    assert db.session.get(Comment, cid) is not None
+
+
+def test_comment_delete_nonexistent(login_admin):
+    """删除不存在的评论应提示并回到文章列表"""
+    rv = login_admin.post("/comment/del/99999", follow_redirects=False)
+    assert rv.status_code == 302
+    assert "/article/manage" in rv.headers["Location"]
+
+
+def test_article_manage_shows_comment_count_and_entry(login_admin, article, db):
+    """文章列表应显示评论数，并提供「评论管理」入口"""
+    db.session.add(Comment(article_id=article.id, username="u", content="c", create_time="2026-01-01 00:00:00"))
+    db.session.commit()
+
+    rv = login_admin.get("/article/manage")
+    assert rv.status_code == 200
+    body = rv.data.decode("utf-8")
+    assert '<span class="badge bg-info-subtle text-dark">1</span>' in body
+    assert f'href="/comment/manage/{article.id}"' in body

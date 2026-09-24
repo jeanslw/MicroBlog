@@ -68,6 +68,18 @@ The current compose provides test defaults for the secret key and passwords, so 
 - `docker compose` implicitly reads the root-level `.env`, but the app-side config file is now `app.env` and is **not read by compose**; only a leftover legacy `.env` (e.g. with `BLOG_DB_TYPE=mysql`) can affect SQLite mode — delete it or pass `--env-file` explicitly
 - The health-based dependency conditions require Docker Compose **v2.20+**; upgrade older versions (the app-level 90s MySQL wait still works as a fallback)
 
+**Q: `microblog-env-check-1` errors with `service "env-check" didn't complete successfully: exit 1`?**
+That is the pre-start guard blocking startup (it passes silently when everything is fine). `up -d` prints only this one-line verdict and **not the guard's explanation**, so read the log first:
+
+```bash
+docker compose --profile full logs env-check
+```
+
+- `[ABORT] ... is still the template placeholder`: `.env.docker` was copied from the template but the passwords were never changed — replace both `请替换为强密码` values with strong passwords (`openssl rand -base64 24`)
+- `[ABORT] ... explicitly set to a public default password`: you literally set `MYSQL_ROOT_PASSWORD` / `MYSQL_PASSWORD` to the publicly documented test passwords — use strong ones instead
+- `[ABORT] Missing MySQL/init.sql`: the host file is gone and the bind mount turned it into an empty directory — restore it from git
+- Only `[SECURITY WARNING]` lines and no `[ABORT]`: nothing to fix. Without `.env.docker` the stack starts with the built-in test passwords of the `db` service, which is local-trial only — set `MYSQL_ROOT_PASSWORD`, `MYSQL_PASSWORD` and `BLOG_SECRET_KEY` before any public deployment
+
 **Q: First startup is slow?**
 MySQL initial setup takes 30–60s. Orchestration waits for the `db` container to become `healthy` before starting `web`, and web also probes the database on startup (every 3s, up to 90s) before creating tables. This is expected. Watch progress with `docker compose logs -f db` and `docker compose logs -f web`.
 

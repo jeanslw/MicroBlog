@@ -2,6 +2,7 @@
 {% block title %}{% if article %}{{ _('编辑文章') }}{% else %}{{ _('新建文章') }}{% endif %} - {{ site_name }}{% endblock %}
 
 {% block breadcrumb %}
+<li class="breadcrumb-item">{{ _('文章管理') }}</li>
 <li class="breadcrumb-item active" aria-current="page">{% if article %}{{ _('编辑文章') }}{% else %}{{ _('新建文章') }}{% endif %}</li>
 {% endblock %}
 

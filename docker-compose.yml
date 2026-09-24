@@ -6,8 +6,10 @@
 #   1. cp .env.docker.example .env.docker
 #   2. 填写 .env.docker 中的 MYSQL_ROOT_PASSWORD / MYSQL_PASSWORD
 #      （.env.docker 已设置 BLOG_DB_TYPE=mysql，其余变量均可保持默认）
-#      ⚠️ 守卫提示：两个密码若仍是模板占位符（请替换为强密码）或公开默认值，
-#      env-check 预检会中止启动，防止带着弱口令上生产
+#      ⚠️ env-check 预检规则：密码仍是模板占位符（请替换为强密码）或被显式
+#      设成公开默认口令 → 中止启动；完全没建 .env.docker → 警告放行，用 db
+#      内置测试口令本机试用（不可公网）。预检详情（up -d 不打印其输出）：
+#      docker compose --profile full logs env-check
 #   3. docker compose --env-file .env.docker --profile full up -d
 #   4. 访问 http://localhost（经 nginx）；首访 /admin/setup 创建管理员
 #
@@ -120,9 +122,15 @@ services:
 
   # ──────────────────────────────────────────────────────────
   # 启动前环境变量预检守卫（一次性容器，复用 db 的 mysql 镜像不增加额外下载）：
-  # MySQL 口令缺失/仍为占位符或公开默认值时输出中英双语指引并以非零码退出，
-  # db 因依赖关系不会启动（web 在 MySQL 模式下等 db 健康，也随之不接入）。
+  #   1) MySQL/init.sql 缺失 → 中止（bind mount 会变成空目录，初始化必然失败）
+  #   2) 口令填成模板占位符「请替换为强密码」 → 中止（复制模板后忘改）
+  #   3) 口令被显式设为公开默认值（root123456-change-me / blog123456-change-me）→ 中止
+  #   4) 未提供口令（没建 .env.docker）→ 警告放行，db 用内置测试口令，
+  #      保证 `docker compose --profile full up -d` 本机开箱即用，不静默阻断
+  #   5) 口令是强口令 → 静默通过
+  # 中止时 db 因依赖关系不启动（web 在 MySQL 模式下也随之不接入）。
   # SQLite 模式（仅 docker compose up -d web）不经过本守卫，无需任何密码。
+  # ⚠️ up -d 不打印本容器输出，失败原因看：docker compose --profile full logs env-check
   # 不用 ${VAR:?} 插值守卫——那种报错带 compose 固定英文前缀（required variable ... is missing），无法定制。
   # ──────────────────────────────────────────────────────────
   env-check:
@@ -137,6 +145,10 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-}
+      # 是否由用户显式提供（${VAR:+1}：已设置且非空才为 1）——
+      # 用于区分「未配置（走本机测试口令）」与「显式填了弱口令（必须中止）」
+      MYSQL_ROOT_PASSWORD_SET: ${MYSQL_ROOT_PASSWORD:+1}
+      MYSQL_PASSWORD_SET: ${MYSQL_PASSWORD:+1}
       # 与下方 web 服务保持同一默认值：未设置时守卫能看到公开默认密钥并告警
       BLOG_SECRET_KEY: ${BLOG_SECRET_KEY:-insecure-compose-default-key-CHANGE-ME-0123456789abcdef}
     command:
@@ -148,24 +160,28 @@ services:
           echo "[ABORT] Missing MySQL/init.sql: make sure the file exists in the repo (a missing host file makes the bind mount an empty directory and breaks first-time initialization)"
           fail=1
         fi
-        if [ -z "$$MYSQL_ROOT_PASSWORD" ]; then
-          echo "[启动中止] 缺少 MySQL 管理员口令：请在 .env.docker 设置 MYSQL_ROOT_PASSWORD（建议 openssl rand -base64 24）"
-          echo "[ABORT] Missing MySQL administrator password: set MYSQL_ROOT_PASSWORD in .env.docker (suggested: openssl rand -base64 24)"
-          fail=1
-        elif [ "$$MYSQL_ROOT_PASSWORD" = "请替换为强密码" ] || [ "$$MYSQL_ROOT_PASSWORD" = "root123456-change-me" ]; then
-          echo "[启动中止] MYSQL_ROOT_PASSWORD 仍是占位符/公开默认值：请在 .env.docker 中改为强密码（建议 openssl rand -base64 24），切勿用默认密码上公网"
-          echo "[ABORT] MYSQL_ROOT_PASSWORD is still a placeholder/public default: set a strong password in .env.docker (suggested: openssl rand -base64 24); never expose defaults publicly"
-          fail=1
-        fi
-        if [ -z "$$MYSQL_PASSWORD" ]; then
-          echo "[启动中止] 缺少数据库业务账号口令：请在 .env.docker 设置 MYSQL_PASSWORD（业务账号博客应用连库口令，建议 openssl rand -base64 24）"
-          echo "[ABORT] Missing database application password: set MYSQL_PASSWORD in .env.docker (password for the application account; suggested: openssl rand -base64 24)"
-          fail=1
-        elif [ "$$MYSQL_PASSWORD" = "请替换为强密码" ] || [ "$$MYSQL_PASSWORD" = "blog123456-change-me" ]; then
-          echo "[启动中止] MYSQL_PASSWORD 仍是占位符/公开默认值：请在 .env.docker 中改为强密码（建议 openssl rand -base64 24），切勿用默认密码上公网"
-          echo "[ABORT] MYSQL_PASSWORD is still a placeholder/public default: set a strong password in .env.docker (suggested: openssl rand -base64 24); never expose defaults publicly"
-          fail=1
-        fi
+        # check_pwd <变量名> <值> <是否显式设置> <用途说明>
+        check_pwd() {
+          pname="$1"
+          pvalue="$2"
+          pset="$3"
+          prole="$4"
+          if [ "$$pvalue" = "请替换为强密码" ]; then
+            echo "[启动中止] $$pname 仍是模板占位符：请在 .env.docker 中改为强密码（建议 openssl rand -base64 24）"
+            echo "[ABORT] $$pname is still the template placeholder: set a strong password in .env.docker (suggested: openssl rand -base64 24)"
+            fail=1
+          elif [ -n "$$pset" ] && { [ "$$pvalue" = "root123456-change-me" ] || [ "$$pvalue" = "blog123456-change-me" ]; }; then
+            echo "[启动中止] $$pname 被显式设为公开默认口令：该值公开在仓库里，任何人都能连库。请改为强密码（建议 openssl rand -base64 24）后重试"
+            echo "[ABORT] $$pname is explicitly set to a public default password: it is published in the repo. Set a strong password (suggested: openssl rand -base64 24) and retry"
+            fail=1
+          elif [ -z "$$pset" ]; then
+            echo "[安全警告] 未在 .env.docker 提供 $$pname（$$prole）：将使用 db 内置的公开测试口令，且 db 端口不对宿主机暴露，仅适合本机试用。公网部署前请执行 cp .env.docker.example .env.docker 并填写强密码"
+            echo "[SECURITY WARNING] $$pname ($$prole) not provided in .env.docker: falling back to the built-in public test password of the db service, with no host port exposed - local trial only. Before public deployment run: cp .env.docker.example .env.docker and set strong passwords"
+            warn=1
+          fi
+        }
+        check_pwd MYSQL_ROOT_PASSWORD "$$MYSQL_ROOT_PASSWORD" "$$MYSQL_ROOT_PASSWORD_SET" "MySQL 管理员口令 / MySQL administrator password"
+        check_pwd MYSQL_PASSWORD "$$MYSQL_PASSWORD" "$$MYSQL_PASSWORD_SET" "业务账号 blog 的连库口令 / application account password"
         if [ "$$BLOG_SECRET_KEY" = "insecure-compose-default-key-CHANGE-ME-0123456789abcdef" ]; then
           echo "[安全警告] BLOG_SECRET_KEY 仍为公开测试默认密钥：本机测试可用；公网部署必须在 .env.docker 设置随机值（python -c \"import secrets;print(secrets.token_hex(32))\"）"
           echo "[SECURITY WARNING] BLOG_SECRET_KEY is the public test default: fine for local testing; for public deployment set a random value in .env.docker (python -c \"import secrets;print(secrets.token_hex(32))\")"
@@ -173,13 +189,17 @@ services:
         fi
         if [ "$$fail" = "1" ]; then
           echo "------------------------------------------------------------------------"
-          echo "请补全 .env.docker 后重新执行 / Fill in .env.docker, then run again: docker compose --env-file .env.docker --profile full up -d"
+          echo "上方的检查说明指出了需要修复的项 / The checks above explain what to fix."
+          echo "  1) 看详情 / details : docker compose --profile full logs env-check"
+          echo "  2) 备配置 / prepare : cp .env.docker.example .env.docker   (Windows: Copy-Item .env.docker.example .env.docker)"
+          echo "  3) 再启动 / restart : docker compose --env-file .env.docker --profile full up -d"
           exit 1
         fi
         if [ "$$warn" = "1" ]; then
-          echo "[预检通过（含警告）/ PASS (with warnings)] 数据库必填环境变量已配置 / Required database environment variables are set"
+          echo "[预检通过（含警告）/ PASS (with warnings)] 允许启动，公网部署前请按上面的警告加固 / startup allowed - harden the warnings above before going public"
+          echo "[提示 / TIP] 查看本预检的完整输出 / full pre-check output: docker compose --profile full logs env-check"
         else
-          echo "[预检通过 / PASS] 数据库必填环境变量已配置 / Required database environment variables are set"
+          echo "[预检通过 / PASS] 环境变量检查通过 / environment variables OK"
         fi
 
   # ──────────────────────────────────────────────────────────
@@ -190,7 +210,8 @@ services:
     container_name: microblog-db
     restart: unless-stopped
     depends_on:
-      # 先跑 env-check 预检守卫（口令缺失/仍为默认值时中止，db 不会启动）
+      # 先跑 env-check 预检守卫（占位符口令 / 显式弱口令 / init.sql 缺失时中止；
+      # 完全未提供口令只告警放行，见上方守卫说明）
       env-check:
         condition: service_completed_successfully
     environment:

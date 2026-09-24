@@ -84,3 +84,13 @@ def test_chinese_translation_loaded(app):
         from flask_babel import _
 
         assert _("首页") == "首页"
+
+
+def test_comment_manage_translations_loaded(app):
+    """评论管理相关新增词条应已编译进英文 .mo"""
+    with app.test_request_context("/", headers={"Accept-Language": "en"}):
+        from flask_babel import _
+
+        assert _("评论管理") == "Comment Management"
+        assert _("暂无评论") == "No comments yet"
+        assert _("确认删除该回复？") == "Delete this reply?"

@@ -68,6 +68,30 @@ def get_article_list(offset: int, limit: int, cid: int | None = None):
     return articles, total_page
 
 
+def get_article_comments(aid: int, newest_first: bool = False):
+    """获取某篇文章的全部评论 + 回复（批量查询避免 N+1）。
+
+    newest_first=True 按评论时间倒序（后台「评论管理」用），默认按时间正序（前台详情页用）。
+    每条评论的回复挂到非映射属性 reply_list，供模板直接遍历。
+    """
+    order_by = Comment.create_time.desc() if newest_first else Comment.create_time
+    comments = db.session.scalars(select(Comment).where(Comment.article_id == aid).order_by(order_by)).all()
+    if not comments:
+        return []
+
+    # 一次性查出所有回复,再按 comment_id 分组,避免逐条查询回复
+    replies = db.session.scalars(
+        select(Reply).where(Reply.comment_id.in_([c.id for c in comments])).order_by(Reply.create_time)
+    ).all()
+    reply_map = {}
+    for r in replies:
+        reply_map.setdefault(r.comment_id, []).append(r)
+    for c in comments:
+        c.reply_list = reply_map.get(c.id, [])
+
+    return comments
+
+
 def get_article_detail(aid: int):
     """获取文章详情 + 评论 + 回复（批量查询避免 N+1）
 
@@ -83,26 +107,8 @@ def get_article_detail(aid: int):
     # 不修改 mapped 的 content 列，避免每次详情页访问都触发一条 UPDATE。
     article.safe_content = sanitize_html(article.content)
 
-    # 一次性查出所有评论
-    comments = db.session.scalars(select(Comment).where(Comment.article_id == aid).order_by(Comment.create_time)).all()
-
-    if not comments:
-        return article, []
-
-    # 一次性查出所有回复
-    comment_ids = [c.id for c in comments]
-    replies = db.session.scalars(
-        select(Reply).where(Reply.comment_id.in_(comment_ids)).order_by(Reply.create_time)
-    ).all()
-
-    # 按 comment_id 分组
-    reply_map = {}
-    for r in replies:
-        reply_map.setdefault(r.comment_id, []).append(r)
-    for c in comments:
-        c.reply_list = reply_map.get(c.id, [])
-
-    return article, comments
+    # 评论 + 回复（批量查询避免 N+1；前台详情页按时间正序展示）
+    return article, get_article_comments(aid)
 
 
 def search_articles(keyword: str, offset: int, limit: int):

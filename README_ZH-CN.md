@@ -1,6 +1,6 @@
 # 博客系统部署文档
 
-版本：v1.3.4
+版本：v1.3.5
 
 基于 Flask 3.1 框架，功能包括：文章发布与管理、Markdown文档上传、支持代码高亮与图片上传、评论与点赞、文章分类、Banner 轮播、中英双语 i18n。
 整体 UI 采用玻璃拟态透明风格，搭配动态炫酷背景（极光 / 星空 / 流光 / 气泡 / 经典），右下角悬浮调色盘按钮一键自由切换风格，选择记忆在 localStorage 中。
@@ -88,6 +88,7 @@ docker compose --env-file .env.docker --profile full up -d
 - **自动建表建号**：MySQL 首启自动导入 [MySQL/init.sql](MySQL/init.sql)；未配置初始管理员密码时，首访 `/admin/setup` 按引导创建管理员，也可在 `.env.docker` 设置 `BLOG_INIT_ADMIN_PWD` 自动创建
 - **HTTP 可直接登录**：内置 Nginx 仅提供明文 HTTP(80)，默认 `BLOG_COOKIE_SECURE=false`；自行配置 HTTPS 后置为 `true`
 - **反代头已配好**：默认 `BLOG_PROXY_XFOR=1`、`BLOG_PROXY_XPROTO=1`、`BLOG_PROXY_XHOST=0`
+- **启动前预检**：`env-check` 守卫在 `db` 启动前校验 `MySQL/init.sql` 与数据库口令——密码仍是模板占位符或被显式设为公开测试口令会中止启动（原因看 `docker compose --profile full logs env-check`）；完全未建 `.env.docker` 时只告警放行，用内置测试口令本机试用
 - 默认密钥与默认数据库密码仅供本机测试，**公网部署务必修改** `BLOG_SECRET_KEY`、`MYSQL_ROOT_PASSWORD`、`MYSQL_PASSWORD`
 - 数据持久化：SQLite 在 `./data`、上传图片在 `./static`、MySQL 在命名卷 `microblog-mysql-data`
 
@@ -175,6 +176,8 @@ waitress-serve --listen=127.0.0.1:5000 wsgi:application
 | 首页 | `/` | 文章列表页 |
 | 新建文章 | `/article/new` | 需登录（Markdown 编辑器） |
 | 草稿箱 | `/drafts` | 需登录，管理草稿 |
+| 文章列表 | `/article/manage` | 需登录，撤回/删除已发布文章，带评论管理入口 |
+| 评论管理 | `/comment/manage/<文章 ID>` | 需登录，删除文章下的评论与回复 |
 | 站点设置 | `/admin/site_setting` | 需登录，修改站点名称 |
 | 修改密码 | `/admin/change_pwd` | 需登录 |
 | 轮播图管理 | `/banner/list` | 需登录，管理 Banner |

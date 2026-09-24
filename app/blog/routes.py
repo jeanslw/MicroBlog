@@ -18,6 +18,7 @@ from sqlalchemy import func, update
 
 from app.blog import blog_bp
 from app.blog.queries import (
+    get_article_comments,
     get_article_detail,
     get_article_list,
     get_recent_articles,
@@ -26,7 +27,7 @@ from app.blog.queries import (
 )
 from app.extensions import admin_required, db, flash_form_errors, log
 from app.forms import ArticleForm, CategoryForm
-from app.models import Admin, Article, Category, SiteConfig
+from app.models import Admin, Article, Category, Comment, Reply, SiteConfig
 from app.utils import collect_static_upload_urls, remove_static_upload, strip_html
 
 TITLE_MAX_LEN = 500
@@ -320,12 +321,17 @@ def article_del(aid):
 @blog_bp.route("/article/manage")
 @admin_required
 def article_manage():
-    """已发布文章管理：列出 status="publish" 的文章，每条提供「撤回(→草稿)」与删除按钮。"""
+    """已发布文章管理：列出 status="publish" 的文章，每条提供「评论管理」「撤回(→草稿)」与删除按钮。"""
     articles = db.session.scalars(
         db.select(Article).where(Article.status == "publish").order_by(Article.update_time.desc())
     ).all()
+    # 各文章评论数：一次分组查询，避免逐篇 count 的 N+1
+    comment_counts = dict(
+        db.session.execute(db.select(Comment.article_id, func.count(Comment.id)).group_by(Comment.article_id)).all()
+    )
     for art in articles:
         art.brief = strip_html(art.content)
+        art.comment_num = comment_counts.get(art.id, 0)
     return render_template("blog/manage_articles.html", articles=articles)
 
 
@@ -358,6 +364,67 @@ def drafts():
     for art in draft_list:
         art.brief = strip_html(art.content)  # 草稿列表显示纯文本摘要,而非 HTML 源码
     return render_template("blog/drafts.html", drafts=draft_list)
+
+
+# ── 评论管理（后台） ────────────────────────────────────
+def _comment_redirect(aid):
+    """删除评论/回复后的回跳：文章仍在则回该文章的评论管理页,否则回文章列表"""
+    if aid and db.session.get(Article, aid):
+        return redirect(url_for("blog.comment_manage", aid=aid))
+    return redirect(url_for("blog.article_manage"))
+
+
+@blog_bp.route("/comment/manage/<int:aid>")
+@admin_required
+def comment_manage(aid):
+    """评论管理：列出指定文章的全部评论与回复（新评论在前），供管理员逐条删除。"""
+    article = db.session.get(Article, aid)
+    if not article:
+        flash(_("文章不存在"), "warning")
+        return redirect(url_for("blog.article_manage"))
+    comments = get_article_comments(aid, newest_first=True)
+    return render_template("blog/manage_comments.html", article=article, comments=comments)
+
+
+@blog_bp.route("/comment/del/<int:cid>", methods=["POST"])
+@admin_required
+def comment_del(cid):
+    """删除评论：其下回复按 ORM 级联（cascade="all, delete-orphan"）一并删除"""
+    comment = db.session.get(Comment, cid)
+    if not comment:
+        flash(_("评论不存在"), "warning")
+        return redirect(url_for("blog.article_manage"))
+    aid = comment.article_id
+    try:
+        db.session.delete(comment)
+        db.session.commit()
+        flash(_("评论已删除"), "success")
+    except Exception:
+        db.session.rollback()
+        log.error("删除评论失败 cid=%s", cid, exc_info=True)
+        flash(_("删除失败,请稍后重试"), "danger")
+    return _comment_redirect(aid)
+
+
+@blog_bp.route("/reply/del/<int:rid>", methods=["POST"])
+@admin_required
+def reply_del(rid):
+    """删除单条回复（不影响其所属评论）"""
+    reply = db.session.get(Reply, rid)
+    if not reply:
+        flash(_("评论不存在"), "warning")
+        return redirect(url_for("blog.article_manage"))
+    owner = db.session.get(Comment, reply.comment_id) if reply.comment_id else None
+    aid = owner.article_id if owner else None
+    try:
+        db.session.delete(reply)
+        db.session.commit()
+        flash(_("回复已删除"), "success")
+    except Exception:
+        db.session.rollback()
+        log.error("删除回复失败 rid=%s", rid, exc_info=True)
+        flash(_("删除失败,请稍后重试"), "danger")
+    return _comment_redirect(aid)
 
 
 @blog_bp.route("/category/add", methods=["POST"])
