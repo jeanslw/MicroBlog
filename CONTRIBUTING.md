@@ -100,7 +100,7 @@ v<major>.<minor>.<patch>[-<prerelease>]
 
 #### Release Steps
 
-1. Update `APP_VERSION` in `config.py`.
+1. Update `APP_VERSION` in `config.py` (and keep the `项目版本` / project version line in the `ruff.toml` header in sync).
 2. Add an entry at the top of `docs/CHANGELOG.md` (English) and `docs/更新日志.md` (Chinese), following the existing heading format:
    ```
    ## [X.X.X] - YYYY-MM-DD

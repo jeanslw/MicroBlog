@@ -100,7 +100,7 @@ v<主版本>.<次版本>.<补丁>[-<预发布标识>]
 
 #### 发布步骤
 
-1. 更新 `config.py` 中的 `APP_VERSION`。
+1. 更新 `config.py` 中的 `APP_VERSION`（并同步 `ruff.toml` 头部注释里的「项目版本」行）。
 2. 在 `docs/CHANGELOG.md`（英文）与 `docs/更新日志.md`（中文）顶部新增条目（沿用现有标题格式）：
    ```
    ## [X.X.X] - YYYY-MM-DD
