@@ -41,7 +41,7 @@
 - 使用 `python run.py` 启动开发服务器（默认 SQLite，生产环境可选 MySQL）。
 
 ### 3. 编写代码
-- **代码风格**：Python 代码遵循 **PEP 8**，并通过 **ruff** 检查。提交前请运行 `ruff check app config.py run.py tests`。
+- **代码风格**：Python 代码遵循 **PEP 8**，并通过 **ruff** 检查。提交前请运行 `ruff check app config.py run.py tests`。请务必在仓库根目录执行：规则集固定在随代码进版本库的 `ruff.toml` 中（E/F/I/UP/B/SIM/C4/RUF，行宽 120）。缺少该文件时 ruff 会静默退回其更宽泛的内置默认规则集（400+ 条），从而报出一堆与项目风格无关的错误。
 - **测试**：在 `tests/` 中为新功能或修复编写相应测试，并确保现有测试全部通过：`pytest`（135+ 项）。
 - **前端**：模板位于 `templates/`，静态资源位于 `static/`。新增 JS/CSS 必须本地化（不使用 CDN），并遵循现有的玻璃拟态主题体系（`static/css/themes.css`、`static/js/theme-switcher.js`）。
 - **文档**：你的贡献必须包含或更新相关文档，包括：

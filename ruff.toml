@@ -1,0 +1,29 @@
+# Ruff 静态检查配置（仓库级，随代码进版本库）
+#
+# 为什么单独放一个 ruff.toml：这些设置原本写在 pyproject.toml 的 [tool.ruff] 中，
+# 而 pyproject.toml 已从仓库移除（.gitignore 忽略该文件，见 commit 52fa373）。
+# 一旦磁盘上没有任何 ruff 配置，`ruff check` 就会退回 ruff **内置的宽泛默认规则集**
+# （0.16.x 默认启用 400+ 条规则，含 BLE001/DTZ/PLR/FURB/PLW 等），CI 立刻报出
+# 数十条与项目既定风格无关的错误。规则集必须显式声明在此文件里，避免再次漂移。
+#
+# 规则集刻意保持“高信号”：只挑真正反映缺陷或明显风格问题的规则族，
+# 与 CONTRIBUTING.md「代码风格」章节保持一致。
+# 使用方式（均在仓库根目录执行）：
+#     ruff check app config.py run.py tests
+
+target-version = "py311"
+line-length = 120
+
+[lint]
+# E 风格错误 / F 真实缺陷 / I 导入排序 / UP 语法现代化
+# B bugbear / SIM 简化 / C4 推导式 / RUF ruff 特有
+select = ["E", "F", "I", "UP", "B", "SIM", "C4", "RUF"]
+ignore = [
+    "E501",  # 行宽不统一（存在 200+ 字符长行），交给 formatter 单独处理
+    "B008",  # Flask 扩展（如 Flask-Login 的 user_loader 等）在默认参数中调用属标准用法
+    "RUF001", "RUF002", "RUF003",  # 中文注释/全角标点被误判为易混淆字符，禁用
+]
+
+[lint.per-file-ignores]
+"smoke_test.py" = ["E402"]        # 冒烟测试按轮次分组组织 import，非顶部导入是有意为之
+"tests/test_models.py" = ["S105"] # 测试中故意使用明文测试密码（启用 S 族后生效）

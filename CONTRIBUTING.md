@@ -41,7 +41,7 @@ If you plan to implement a major feature or refactor, please **discuss it in an 
 - Start the dev server with `python run.py` (SQLite by default; MySQL is optional for production).
 
 ### 3. Write Code
-- **Coding Style**: Python code must follow **PEP 8** and pass **ruff** checks. Run `ruff check app config.py run.py tests` before submitting.
+- **Coding Style**: Python code must follow **PEP 8** and pass **ruff** checks. Run `ruff check app config.py run.py tests` before submitting. Always run it from the repository root: the rule set lives in the committed `ruff.toml` (E/F/I/UP/B/SIM/C4/RUF, line length 120). Without that file ruff silently falls back to its much broader built-in default rules (400+), which is why an unconfigured `ruff check` reports unrelated errors.
 - **Testing**: Write appropriate tests for new features or fixes in `tests/`. Make sure all existing tests pass: `pytest` (135+ tests).
 - **Frontend**: Templates live in `templates/`, static assets in `static/`. New JS/CSS should be localized (no CDN) and follow the existing glassmorphism theme system (`static/css/themes.css`, `static/js/theme-switcher.js`).
 - **Documentation**: Your contribution must include or update relevant documentation. This includes:
