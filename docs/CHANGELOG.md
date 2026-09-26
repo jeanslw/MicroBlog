@@ -1,21 +1,5 @@
 # MicroBlog Changelog
 
-## [Unreleased]
-
-### Changed & Fixed
-
-- Fixed a serverless startup crash (Vercel / AWS Lambda): the default SQLite path `data/blog.db` lives inside the **read-only** function code directory (Vercel: `/var/task`; only `/tmp` is writable), so `os.makedirs` raised `OSError: [Errno 30] Read-only file system: '/var/task/data'` while importing `config`, which the deployment log reports as "cannot import wsgi.py / Python process exited with status 1" — an error that points nowhere near the real (configuration) cause. The new `config._prepare_sqlite_dir` creates the directory and then probes it with a real write (so an existing-but-read-only directory is caught too); on failure it raises an actionable configuration error suggesting an external MySQL (`BLOG_DB_TYPE=mysql` + `BLOG_MYSQL_*`) or, for demos only, an explicit `BLOG_SQLITE_PATH=/tmp/blog.db`. It deliberately does **not** silently relocate SQLite to a temp directory: on serverless platforms each instance has its own non-persistent `/tmp`, so a silent move would make admin-written articles/settings disappear after a cold start, and concurrent instances would not even share the same file.
-- Restored the ruff configuration that commit `52fa373` removed together with `pyproject.toml`: with no config file on disk, `ruff check` silently fell back to ruff's built-in default rule set (400+ rules in the 0.16 series, including `BLE001`/`DTZ`/`PLR`/`PLW`/`FURB`), so CI's "Ruff lint" step reported 62 errors while the project is clean under its own rule set. The settings now live in the committed `ruff.toml` (rule selection, `line-length = 120`, `target-version = py311`, and the two per-file ignores), so no source change was required. CI additionally pins the ruff version (`ruff==0.16.9`) instead of installing the newest release, so future upstream releases cannot turn the pipeline red on their own; verified clean with ruff 0.16.7 / 0.16.8 / 0.16.9 from the repository root. `ruff.toml` also records the project metadata in its header (project name, project version, Python range, ruff baseline) and enforces `required-version = ">=0.16.7"`, so an outdated ruff fails loudly instead of checking against a different rule set. Project name and version are not valid keys there — ruff rejects unknown fields with a TOML parse error — so they are kept as comments and synced by the release steps.
-- `wsgi.py` now also exposes `app = application`: Vercel's zero-configuration Flask entrypoint detection prefers an instance named `app`, and the alias points at the same object so a second `create_app()` (duplicate table/admin creation and DB connections) cannot happen.
-
-### Tests & Docs
-
-- New `tests/test_sqlite_dir.py` (5 tests): missing parent directory is created, a writable directory leaves no write-probe leftovers, a parent path occupied by a file yields the `BLOG_DB_TYPE=mysql` guidance, EROFS is reproduced and points at `/tmp/blog.db`, and the `sqlite:///` URI is absolute. **275** tests passing, ruff clean.
-- CONTRIBUTING (EN/CN) now states that the ruff rule set is pinned in the repo-root `ruff.toml` and that ruff must be run from the repository root so the file is picked up.
-- EN/CN deployment guides gained a "Deploying to Vercel (serverless, demo only)" section covering the three platform constraints (read-only code directory, non-persistent `/tmp`, no uploads/backups), the required environment variables, and the external-MySQL requirement; both FAQs gained a matching troubleshooting entry; the `BLOG_SQLITE_PATH` row in the variable table now states that the app refuses to start when the directory is not writable.
-
----
-
 ## [v1.3.5] - 2026-09-16
 
 Ops & UI hardening: docker-compose pre-start guard, MySQL 8.4 upgrade with auth-plugin compatibility, configurable 24-hour session lifetime, mobile collapsed-navbar search layout, touch support fix for the theme switcher, nginx version hiding, plus admin comment management and breadcrumb group fixes.
