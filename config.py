@@ -11,6 +11,7 @@
 
 import os
 import secrets
+import tempfile
 import warnings
 from typing import ClassVar
 
@@ -205,6 +206,43 @@ class ProductionConfig(Config):
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 
+def _prepare_sqlite_dir(abs_path: str) -> str:
+    """确保 SQLite 库文件的父目录存在且可写，返回最终的库文件绝对路径。
+
+    SQLite 引擎只创建库文件、不创建父目录，这里先补齐目录，避免全新部署
+    （data/ 缺失）时首启报 unable to open database file。
+
+    只读文件系统（Serverless 平台）必须显式报错而不是静默换位置：
+    Vercel/Lambda 的函数代码目录（Vercel 为 /var/task）是只读的，仅 /tmp 可写。
+    若仍按默认相对路径 data/blog.db 建库，会在 import config 阶段抛
+    `OSError: [Errno 30] Read-only file system: '/var/task/data'`，表现为
+    「无法导入 wsgi.py、进程退出状态 1」这类与真实原因无关的启动崩溃；
+    而把 SQLite 悄悄改写到 /tmp 同样危险——每个 Serverless 实例的 /tmp 互相
+    独立且非持久化，库文件会随实例回收消失（管理员写的文章/配置全部丢失），
+    且多实例并发时各实例看到的是不同的库。因此这里直接抛出可操作的配置错误。
+    """
+    directory = os.path.dirname(abs_path)
+    if not directory:
+        return abs_path
+    try:
+        os.makedirs(directory, exist_ok=True)
+        # 目录已存在时 makedirs 不校验可写性（只读挂载 / 只读代码目录都返回成功），
+        # 用一次真实写入探测，把故障挡在启动阶段而不是首个写请求。
+        with tempfile.NamedTemporaryFile(prefix=".sqlite_write_probe", dir=directory):
+            pass
+    except OSError as exc:
+        raise RuntimeError(
+            f"SQLite 库文件目录不可用: {directory}（{exc}）。"
+            "Serverless 平台（Vercel / AWS Lambda）的代码目录是只读的，仅 /tmp 可写，"
+            "无法按默认路径 data/blog.db 建库。请任选其一：\n"
+            "  1) 生产推荐：改用外部 MySQL —— 设置 BLOG_DB_TYPE=mysql 与 BLOG_MYSQL_HOST / "
+            "BLOG_MYSQL_USER / BLOG_MYSQL_PWD / BLOG_MYSQL_DB；\n"
+            "  2) 仅演示/试跑：设置 BLOG_SQLITE_PATH=/tmp/blog.db（临时目录非持久化，"
+            "实例重启或缩容后数据会丢失，多实例之间也不共享）。"
+        ) from exc
+    return abs_path
+
+
 # 在类外部预先计算并设置 SQLALCHEMY_DATABASE_URI（Flask-SQLAlchemy
 # 通过 from_object 读取类属性）。
 def _resolve_db_uri_for_class(cls):
@@ -232,11 +270,7 @@ def _resolve_db_uri_for_class(cls):
             },
         }
         return
-    path = os.environ.get("BLOG_SQLITE_PATH") or "data/blog.db"
-    abs_path = os.path.abspath(path)
-    # SQLite 引擎只创建库文件、不创建父目录，这里确保目录存在，
-    # 避免全新部署（data/ 缺失）时首启报 unable to open database file。
-    os.makedirs(os.path.dirname(abs_path), exist_ok=True)
+    abs_path = _prepare_sqlite_dir(os.path.abspath(os.environ.get("BLOG_SQLITE_PATH") or "data/blog.db"))
     cls.SQLALCHEMY_DATABASE_URI = "sqlite:///" + abs_path
     cls.SQLALCHEMY_ENGINE_OPTIONS = {}
 

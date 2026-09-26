@@ -90,7 +90,7 @@ Common variables:
 | `BLOG_PROXY_XFOR` / `BLOG_PROXY_XPROTO` / `BLOG_PROXY_XHOST` | `0` / `0` / `0` | Behind a reverse proxy set the first two to `1` (real IP/proto); keep `XHOST` at `0` because nginx forwards the Host header |
 | `BLOG_DB_TYPE` | `sqlite` | `sqlite` or `mysql`; when set to `mysql` with missing connection fields the app refuses to start (no silent fallback) |
 | `BLOG_MYSQL_HOST` / `BLOG_MYSQL_USER` / `BLOG_MYSQL_PWD` / `BLOG_MYSQL_DB` | - | MySQL connection info |
-| `BLOG_SQLITE_PATH` | `data/blog.db` | SQLite file path |
+| `BLOG_SQLITE_PATH` | `data/blog.db` | SQLite file path; the app refuses to start (with fix instructions) when its directory is not writable, e.g. a serverless read-only code dir — see [2.7 Deploying to Vercel](#27-deploying-to-vercel-serverless-demo-only) |
 | `BLOG_PAGE_SIZE` | `6` | Articles per page |
 | `BLOG_STATIC_MAX_AGE` | `0` | Static file cache seconds (compose template defaults to 43200) |
 | `BLOG_SESSION_LIFETIME` | `86400` | Session lifetime in seconds (default 24h; applies to the admin login session) |
@@ -345,6 +345,41 @@ The complete HTTPS configuration is **already written and commented out** in [ng
 > When issuing/renewing Let's Encrypt certificates via HTTP-01, temporarily comment the port-80 301 redirect (or use DNS-01).
 
 In production **only expose 80/443**; do NOT expose 5000 (Flask) or 3306 (MySQL) to the public internet (the current compose already binds 5000 to loopback and does not publish 3306).
+
+### 2.7 Deploying to Vercel (serverless, demo only)
+
+Vercel's Python runtime picks up `wsgi.py` at the repository root as the WSGI entrypoint with zero configuration
+(no `vercel.json` needed), but the serverless execution model conflicts with this project's
+"local disk is persistent" assumption in three ways — **read this before using it for anything real**:
+
+| Platform constraint | Impact on this project |
+|---------------------|------------------------|
+| Read-only code directory | Inside a function the code directory (Vercel: `/var/task`) is read-only; only `/tmp` is writable. SQLite defaults to `data/blog.db`, so startup fails with `OSError: [Errno 30] Read-only file system: '/var/task/data'` (logged as "cannot import wsgi.py / Python process exited with status 1"). An external MySQL is mandatory |
+| `/tmp` is not persistent | Each instance has its own `/tmp`, wiped when the instance is recycled. Keeping SQLite in `/tmp` is demo-only: articles/settings written by the admin vanish on the next cold start, and concurrent instances do not even share the same file |
+| Uploads/backups unavailable | Logo/avatar/background/article images are written to `static/uploads/`, which is not writable on Vercel (upload requests return 500); the admin "database backup/restore" feature needs local disk plus `mysqldump` and is equally unusable |
+
+Steps:
+
+1. Provision an **external MySQL** (Vercel does not host databases; any managed instance works as long as Vercel can reach it outbound). With `BLOG_DB_TYPE=mysql` the app never touches local disk
+2. In the Vercel project's **Settings → Environment Variables** set:
+
+```bash
+BLOG_ENV=production
+BLOG_SECRET_KEY=<generate with: python -c "import secrets;print(secrets.token_hex(32))">
+BLOG_DB_TYPE=mysql
+BLOG_MYSQL_HOST=<external MySQL host>
+BLOG_MYSQL_USER=<user>
+BLOG_MYSQL_PWD=<password>
+BLOG_MYSQL_DB=flask_blog
+BLOG_TRUSTED_HOSTS=<your Vercel domain, e.g. microblog.vercel.app>
+BLOG_CANONICAL_URL=https://<your Vercel domain>
+```
+
+3. Set Framework Preset to `Other` (or let it auto-detect) and keep Build Command / Output Directory at their defaults — the root `wsgi.py` is detected as the entrypoint
+4. After deploying, open `https://<domain>/healthz`; `{"status":"ok"}` means both the app and the database are reachable. Visit `/admin/setup` to create the first admin
+
+> Just want to try it out without a database? Set `BLOG_SQLITE_PATH=/tmp/blog.db` (data may be lost at any time — **never use this for a real site**).
+> Conclusion: Vercel fits a "read-only site + external MySQL" setup. If you need local image uploads, admin backup/restore, or dependency-free SQLite, use [2.6 Docker Compose](#26-docker-compose-deployment-recommended-for-production) or [2.5 Start the Service](#25-start-the-service).
 
 ---
 

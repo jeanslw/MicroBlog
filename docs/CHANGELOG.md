@@ -1,5 +1,19 @@
 # MicroBlog Changelog
 
+## [Unreleased]
+
+### Changed & Fixed
+
+- Fixed a serverless startup crash (Vercel / AWS Lambda): the default SQLite path `data/blog.db` lives inside the **read-only** function code directory (Vercel: `/var/task`; only `/tmp` is writable), so `os.makedirs` raised `OSError: [Errno 30] Read-only file system: '/var/task/data'` while importing `config`, which the deployment log reports as "cannot import wsgi.py / Python process exited with status 1" — an error that points nowhere near the real (configuration) cause. The new `config._prepare_sqlite_dir` creates the directory and then probes it with a real write (so an existing-but-read-only directory is caught too); on failure it raises an actionable configuration error suggesting an external MySQL (`BLOG_DB_TYPE=mysql` + `BLOG_MYSQL_*`) or, for demos only, an explicit `BLOG_SQLITE_PATH=/tmp/blog.db`. It deliberately does **not** silently relocate SQLite to a temp directory: on serverless platforms each instance has its own non-persistent `/tmp`, so a silent move would make admin-written articles/settings disappear after a cold start, and concurrent instances would not even share the same file.
+- `wsgi.py` now also exposes `app = application`: Vercel's zero-configuration Flask entrypoint detection prefers an instance named `app`, and the alias points at the same object so a second `create_app()` (duplicate table/admin creation and DB connections) cannot happen.
+
+### Tests & Docs
+
+- New `tests/test_sqlite_dir.py` (5 tests): missing parent directory is created, a writable directory leaves no write-probe leftovers, a parent path occupied by a file yields the `BLOG_DB_TYPE=mysql` guidance, EROFS is reproduced and points at `/tmp/blog.db`, and the `sqlite:///` URI is absolute. **275** tests passing, ruff clean.
+- EN/CN deployment guides gained a "Deploying to Vercel (serverless, demo only)" section covering the three platform constraints (read-only code directory, non-persistent `/tmp`, no uploads/backups), the required environment variables, and the external-MySQL requirement; both FAQs gained a matching troubleshooting entry; the `BLOG_SQLITE_PATH` row in the variable table now states that the app refuses to start when the directory is not writable.
+
+---
+
 ## [v1.3.5] - 2026-09-16
 
 Ops & UI hardening: docker-compose pre-start guard, MySQL 8.4 upgrade with auth-plugin compatibility, configurable 24-hour session lifetime, mobile collapsed-navbar search layout, touch support fix for the theme switcher, nginx version hiding, plus admin comment management and breadcrumb group fixes.

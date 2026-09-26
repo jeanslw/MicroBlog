@@ -108,6 +108,13 @@ Re-uploading the logo, avatar and background from "Site Settings" / "About" also
 **Q: Language switch not working?**
 Confirm `.mo` compiled files exist in `translations/`. If `.po` files were modified, run `pybabel compile -d translations` to recompile.
 
+**Q: Deploying to Vercel / serverless fails with `OSError: [Errno 30] Read-only file system: '/var/task/data'` (or repeated "cannot import wsgi.py")?**
+On serverless platforms (Vercel / AWS Lambda) the function's code directory is read-only (Vercel: `/var/task`) and only `/tmp` is writable, so SQLite cannot create the default `data/blog.db`. The app now raises a configuration error with fix instructions instead of crashing with a bare `OSError`. Pick one:
+- **Recommended for production**: use an external MySQL — set `BLOG_DB_TYPE=mysql` plus `BLOG_MYSQL_HOST` / `BLOG_MYSQL_USER` / `BLOG_MYSQL_PWD` / `BLOG_MYSQL_DB` (configure them under Settings → Environment Variables in Vercel; the database must be reachable from Vercel outbound)
+- **Demo only**: set `BLOG_SQLITE_PATH=/tmp/blog.db` (`/tmp` is not persistent — data is lost when instances restart or scale down, and instances do not share it; never use this for a real site)
+
+On Vercel you must also set `BLOG_ENV=production`, `BLOG_SECRET_KEY` (otherwise the app refuses to start) and `BLOG_TRUSTED_HOSTS=<your domain>` (otherwise requests return 400). Note that `static/uploads/` is not writable on Vercel (uploads fail) and the admin backup/restore feature is unusable. See [Deployment Guide 2.7](DEPLOYMENT.md#27-deploying-to-vercel-serverless-demo-only).
+
 ---
 
 Related: [README](../README.md) · [Deployment Guide](DEPLOYMENT.md) · [Project Architecture](ARCHITECTURE.md)
