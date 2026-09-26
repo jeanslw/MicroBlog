@@ -7,6 +7,7 @@
 /app/__pycache__/*
 copilot-instructions.md
 *.bat
+pyproject.toml
 
 # 环境变量与本地数据，禁止入库
 # 注意：.gitignore 不支持行尾注释，每行必须是纯模式，注释单独成行
