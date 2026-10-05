@@ -46,6 +46,7 @@ from app.extensions import (
     log,
     rate_limit,
     record_login_fail,
+    safe_redirect_path,
 )
 from app.forms import (
     AboutForm,
@@ -116,19 +117,8 @@ def login():
             session.permanent = True
             clear_login_fail(ip, username)
             flash(_("登录成功"), "success")
-            next_url = request.args.get("next") or url_for("admin.panel")
-            # 防止开放重定向:仅放行站内相对路径,拦截 //evil.com 与 /\evil.com（反斜杠绕过）
-            from urllib.parse import urlsplit
-
-            parts = urlsplit(next_url)
-            if (
-                parts.scheme
-                or parts.netloc
-                or not next_url.startswith("/")
-                or next_url.startswith("//")
-                or "\\" in next_url
-            ):
-                next_url = url_for("admin.panel")
+            # 防止开放重定向:仅放行站内相对路径（含 //evil.com、/\evil.com 等绕过变体）
+            next_url = safe_redirect_path(request.args.get("next")) or url_for("admin.panel")
             return redirect(next_url)
 
         fails = record_login_fail(ip, username)

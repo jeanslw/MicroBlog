@@ -1,5 +1,8 @@
 """安全相关测试：CSRF、XSS 净化、URL 安全、文件名安全。"""
 
+import re
+from urllib.parse import urlparse
+
 from app.extensions import safe_url
 from app.utils import build_safe_filename, sanitize_html, strip_html
 
@@ -24,7 +27,11 @@ def test_sanitize_html_keeps_safe_links():
     """http/https 链接应保留"""
     raw = '<a href="https://example.com">link</a>'
     out = sanitize_html(raw)
-    assert "https://example.com" in out
+    m = re.search(r'href="([^"]*)"', out)
+    assert m, "链接的 href 属性应保留"
+    parsed = urlparse(m.group(1))
+    assert parsed.scheme == "https"
+    assert parsed.hostname == "example.com"
 
 
 def test_sanitize_html_empty_input():

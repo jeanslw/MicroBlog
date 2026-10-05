@@ -9,14 +9,13 @@
 """
 
 from datetime import datetime
-from urllib.parse import urlsplit
 
 from flask import flash, redirect, request, url_for
 from flask_babel import _
 from sqlalchemy.exc import IntegrityError
 
 from app.comment import comment_bp
-from app.extensions import db, flash_form_errors, get_client_ip, rate_limit
+from app.extensions import db, flash_form_errors, get_client_ip, rate_limit, safe_redirect_path
 from app.forms import CommentForm, ReplyForm
 from app.models import Article, Comment, Reply, VoteLog
 
@@ -42,18 +41,7 @@ def _comments_enabled() -> bool:
 
 def _vote_return_to(aid: int) -> str:
     """点赞后的跳转目标：next 合法（站内相对路径）则返回 next,否则回文章详情页"""
-    nxt = (request.form.get("next") or "").strip()
-    if nxt:
-        parts = urlsplit(nxt)
-        if (
-            not parts.scheme
-            and not parts.netloc
-            and parts.path.startswith("/")
-            and not parts.path.startswith("//")
-            and "\\" not in nxt
-        ):
-            return nxt
-    return url_for("blog.article_detail", aid=aid)
+    return safe_redirect_path(request.form.get("next")) or url_for("blog.article_detail", aid=aid)
 
 
 @comment_bp.route("/vote/<int:aid>", methods=["POST"])

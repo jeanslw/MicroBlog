@@ -8,7 +8,7 @@ import logging
 import time
 from datetime import datetime
 from functools import wraps
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlsplit
 
 from flask import flash, redirect, request, url_for
 from flask_babel import _
@@ -243,6 +243,33 @@ def safe_url(url: str) -> str:
     return ""
 
 
+def safe_redirect_path(target: str | None) -> str | None:
+    """把用户可控的跳转目标（next 参数 / Referer）收敛为站内相对路径。
+
+    返回值保证以常量 "/" 开头、不含 scheme/netloc/反斜杠，可直接用于
+    redirect() 而不会跳出本站；输入不可用（空/外站）时返回 None。
+    用户输入只作为常量前缀 "/" 的右操作数参与拼接，绝不构成 URL 前缀。
+    """
+    if not target or not target.strip():
+        return None
+    try:
+        parts = urlsplit(target.strip())
+    except ValueError:
+        return None
+    # 拒绝带非 http(s) scheme 的伪协议（如 javascript:、data:）
+    if parts.scheme and parts.scheme not in ("http", "https"):
+        return None
+    # 带主机名的完整 URL 仅放行同源
+    if parts.netloc and parts.netloc != request.host:
+        return None
+    # 剥掉全部前导斜杠/反斜杠，由下方常量前缀统一补回，杜绝 //evil.com、/\evil.com
+    # （路径为空时视为回首页 "/"，如 next="/?page=2" 的列表分页场景）
+    safe = "/" + parts.path.lstrip("/\\").replace("\\", "/")
+    if parts.query:
+        safe += "?" + parts.query
+    return safe
+
+
 # ── 表单错误 i18n 化（避免把英文字段名直接 flash 给用户） ──────
 # 字段名 → 翻译键的映射；用 lazy_gettext 在请求时翻译。
 _FIELD_LABEL_KEYS = {
@@ -331,15 +358,8 @@ def rate_limit(action: str, limit: int = 10, window_seconds: int = 300):
             ip = get_client_ip()
             if not check_and_record_rate_limit(action, ip, limit, window_seconds):
                 flash(_("操作过于频繁，请 %(min)s 分钟后再试", min=max(1, window_seconds // 60)), "warning")
-                # 回退到 Referer（同源）或首页
-                ref = request.referrer
-                if ref:
-                    from urllib.parse import urlparse as _up
-
-                    r = _up(ref)
-                    if r.netloc == request.host:
-                        return redirect(ref)
-                return redirect(url_for("blog.index"))
+                # 回退到来源页（仅站内相对路径）或首页
+                return redirect(safe_redirect_path(request.referrer) or url_for("blog.index"))
             return f(*args, **kwargs)
 
         return decorated

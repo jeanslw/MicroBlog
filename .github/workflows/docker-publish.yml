@@ -27,7 +27,7 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Validate tag format
         run: |
@@ -59,7 +59,7 @@ jobs:
 
       - name: Extract metadata for GHCR
         id: meta_ghcr
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY_GHCR }}/${{ env.IMAGE_NAME }}
           tags: |
@@ -68,7 +68,7 @@ jobs:
 
       - name: Extract metadata for Docker Hub
         id: meta_dockerhub
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.REGISTRY_DOCKER }}/${{ env.IMAGE_NAME }}
           tags: |
@@ -76,7 +76,7 @@ jobs:
             type=raw,value=latest,enable=${{ !contains(inputs.tag || github.ref_name, '-') && (github.ref_type == 'tag' || inputs.tag != '') }}
 
       - name: Build and Push to GHCR
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           platforms: linux/amd64,linux/arm64
@@ -87,7 +87,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Build and Push to Docker Hub
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           platforms: linux/amd64,linux/arm64
