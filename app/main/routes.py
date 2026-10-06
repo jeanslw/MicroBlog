@@ -5,7 +5,8 @@
 
 import os
 
-from flask import Response, abort, jsonify, redirect, request, send_from_directory, session, url_for
+from flask import Response, abort, jsonify, redirect, request, send_file, session, url_for
+from werkzeug.utils import safe_join
 
 from app.extensions import db, external_url_for, safe_redirect_path
 from app.main import main_bp
@@ -16,14 +17,19 @@ from app.utils import UPLOAD_CATEGORIES, project_root
 def uploaded_file(category: str, filename: str):
     """上传文件服务（uploads/ 位于 static/ 之外，不走 Flask 内置 static 路由）。
 
-    category 白名单限定为 banner / image；send_from_directory 内部
-    safe_join 会阻断 ../ 路径穿越（命中时返回 404）。缓存策略由
-    after_request 与 /static/ 统一处理（BLOG_STATIC_MAX_AGE）。
+    category 白名单限定为 banner / image；werkzeug 的 safe_join 显式净化
+    filename（命中 ../、绝对路径等穿越时返回 None → 404，不直接拼进文件系统
+    调用）。缓存策略由 after_request 与 /static/ 统一处理
+    （BLOG_STATIC_MAX_AGE + immutable）。
     """
     if category not in UPLOAD_CATEGORIES:
         abort(404)
-    directory = os.path.join(project_root(), "uploads", category)
-    return send_from_directory(directory, filename)
+    directory = safe_join(project_root(), "uploads", category)
+    full_path = safe_join(directory, filename)
+    if full_path is None or not os.path.isfile(full_path):
+        abort(404)
+    # conditional=True：支持 ETag/Range；缓存头由 after_request 按端点统一下发
+    return send_file(full_path, conditional=True)
 
 
 # 旧版上传 URL 兼容：目录从 static/ 迁移到 uploads/ 后，存量数据库记录

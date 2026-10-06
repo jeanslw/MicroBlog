@@ -292,12 +292,18 @@ def collect_upload_urls(html: str) -> set[str]:
 
 
 def _parse_upload_url(url: str | None) -> tuple[str, str] | None:
-    """把上传资源 URL 解析为 (category, 相对路径)；非上传 URL 返回 None"""
-    if not url:
+    """把上传资源 URL 解析为 (category, 相对路径)；非上传 URL 返回 None。
+
+    仅接受站内相对路径（以 "/" 开头）：外部 http(s) 图片 URL（如自定义背景）
+    不属于本站 uploads，绝不能因为其路径里"恰好包含" /uploads/image/ 段
+    （例：https://evil.com/x/uploads/image/a.png）而被当作本地文件处理。
+    前缀一律用 startswith 常量匹配，不用 `prefix in url` 子串判断。
+    """
+    if not url or not url.startswith("/"):
         return None
     for prefix, category in _UPLOAD_URL_PREFIXES:
-        if prefix in url:
-            rel = url.split(prefix, 1)[1].split("?", 1)[0]
+        if url.startswith(prefix):
+            rel = url[len(prefix) :].split("?", 1)[0]
             return category, rel
     return None
 

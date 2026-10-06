@@ -165,7 +165,8 @@ def test_collect_upload_urls():
     assert "/uploads/banner/b.jpg" in urls
     assert "/static/uploads/c.jpg" in urls
     assert "/static/banner/d.png" in urls
-    assert not any("example.com" in u for u in urls)
+    # 收集结果必须全部是站内相对路径：不得混入外部 URL
+    assert all(u.startswith("/") and not u.startswith(("http://", "https://")) for u in urls)
     assert collect_upload_urls("") == set()
     assert collect_upload_urls("<p>no image</p>") == set()
 
@@ -193,6 +194,11 @@ def test_remove_uploaded_file(tmp_path):
         assert not f2.exists()
         # 外部 URL 不删
         assert remove_uploaded_file("https://evil.com/uploads/image/x.png") is False
+        # 外部 URL 的路径段里"嵌入"上传前缀同样不处理（不得误伤同名本地文件）
+        keep = tmp_path / "uploads" / "image" / "keep.png"
+        keep.write_bytes(b"x")
+        assert remove_uploaded_file("https://evil.com/p/uploads/image/keep.png") is False
+        assert keep.exists()  # 本地 keep.png 必须还在
         # 路径穿越被拒绝
         assert remove_uploaded_file("/uploads/image/../../evil.txt") is False
         assert not (tmp_path / "evil.txt").exists()
