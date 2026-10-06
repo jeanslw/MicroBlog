@@ -25,9 +25,10 @@ from app.blog.queries import (
     get_sidebar_tree,
     search_articles,
 )
+from app.database import get_site_config
 from app.extensions import admin_required, db, flash_form_errors, log
 from app.forms import ArticleForm, CategoryForm
-from app.models import Admin, Article, Category, Comment, Reply, SiteConfig
+from app.models import Admin, Article, Category, Comment, Reply
 from app.utils import asset_url_exists, collect_upload_urls, remove_uploaded_file, strip_html
 
 TITLE_MAX_LEN = 500
@@ -180,7 +181,8 @@ def article_detail(aid):
     if m:
         article.og_image = m.group(1)
     # 作者署名：昵称未设置时回退为管理员用户名
-    author_name = db.session.scalar(db.select(SiteConfig.about_nickname)) or ""
+    site = get_site_config()
+    author_name = (site.about_nickname or "") if site else ""
     if not author_name:
         author_name = db.session.scalar(db.select(Admin.username).order_by(Admin.id).limit(1)) or ""
     category_map, archive = get_sidebar_tree()
@@ -502,7 +504,7 @@ def edit_category(cid):
 @blog_bp.route("/about")
 def about():
     """「关于我」公开页面：展示后台站点设置里填写的头像/简介/邮箱/GitHub/个人主页"""
-    site = db.session.get(SiteConfig, 1)
+    site = get_site_config()
     avatar = (site.about_avatar or "") if site else ""
     # 头像文件不随数据库备份迁移：文件缺失时回落为空，页面渲染占位图标而不是破图 + alt 文本
     if not asset_url_exists(avatar):
@@ -535,7 +537,8 @@ def about():
 @blog_bp.route("/search")
 def search():
     """按关键词搜索已发布文章（标题/正文模糊匹配），支持分页"""
-    q = (request.args.get("q") or "").strip()
+    # 截断超长关键词：LIKE 模式长度直接决定扫描成本，且超长输入必然无结果
+    q = (request.args.get("q") or "").strip()[: current_app.config.get("SEARCH_KEYWORD_MAX_LEN", 100)]
     page = max(_safe_int(request.args.get("page", 1), 1), 1)
     if not q:
         return render_template("blog/search.html", articles=[], page=1, total_page=1, q="", total=0)
@@ -571,7 +574,8 @@ def _build_feed():
     from feedgen.feed import FeedGenerator
 
     articles = get_recent_articles()
-    site_name = db.session.scalar(db.select(SiteConfig.site_name)) or "博客"
+    site = get_site_config()
+    site_name = (site.site_name or "博客") if site else "博客"
     # 优先使用配置的 CANONICAL_URL,避免 Host 头注入导致订阅源链接被投毒
     base_url = (current_app.config.get("CANONICAL_URL") or request.host_url).rstrip("/")
     feed = FeedGenerator()

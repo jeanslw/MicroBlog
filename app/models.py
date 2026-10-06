@@ -7,7 +7,7 @@
 """
 
 from flask_login import UserMixin
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.mysql import MEDIUMTEXT
 from sqlalchemy.orm import relationship
 
@@ -171,10 +171,13 @@ class RateLimit(db.Model):
     """通用频率限制记录（按 IP + 动作），用于评论/回复/点赞/找回密码防刷。
 
     每次动作插入一条带时间戳的记录；统计窗口内的记录数判断是否超限。
-    窗口外的旧记录由 check_rate_limit 惰性清理，避免表无限膨胀。
+    窗口外的旧记录由 check_and_record_rate_limit 惰性清理，避免表无限膨胀。
     """
 
     __tablename__ = "rate_limit"
+    # 惰性清理按 (action, create_time) 过滤、计数按 (action, ip, create_time) 过滤，
+    # 复合索引让清理不再退化为全表扫描（与 MySQL/init.sql 的 idx_action_time 对齐）
+    __table_args__ = (Index("idx_action_time", "action", "create_time"),)
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     ip = Column(String(100), nullable=False, index=True)

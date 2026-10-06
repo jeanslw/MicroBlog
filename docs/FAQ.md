@@ -82,7 +82,7 @@ docker compose --profile full logs env-check
 - `[ABORT] ... is still the template placeholder`: `.env.docker` was copied from the template but the passwords were never changed — replace both `请替换为强密码` values with strong passwords (`openssl rand -base64 24`)
 - `[ABORT] ... explicitly set to a public default password`: you literally set `MYSQL_ROOT_PASSWORD` / `MYSQL_PASSWORD` to the publicly documented test passwords — use strong ones instead
 - `[ABORT] Missing MySQL/init.sql`: the host file is gone and the bind mount turned it into an empty directory — restore it from git
-- Only `[SECURITY WARNING]` lines and no `[ABORT]`: nothing to fix. Without `.env.docker` the stack starts with the built-in test passwords of the `db` service, which is local-trial only — set `MYSQL_ROOT_PASSWORD`, `MYSQL_PASSWORD` and `BLOG_SECRET_KEY` before any public deployment
+- Only `[SECURITY WARNING]` / `[SECURITY NOTE]` lines and no `[ABORT]`: nothing to fix. Without `.env.docker` the stack starts with the built-in test passwords of the `db` service, which is local-trial only — set `MYSQL_ROOT_PASSWORD` and `MYSQL_PASSWORD` before any public deployment (the session key needs no manual work: the web container generates one on first boot and persists it to `./data/.secret_key`)
 
 **Q: First startup is slow?**
 MySQL initial setup takes 30–60s. Orchestration waits for the `db` container to become `healthy` before starting `web`, and web also probes the database on startup (every 3s, up to 90s) before creating tables. This is expected. Watch progress with `docker compose logs -f db` and `docker compose logs -f web`.

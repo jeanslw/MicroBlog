@@ -3,9 +3,10 @@
 原 db.py 提供裸 SQL 连接管理 + 自建表 + DictCursor 适配层,
 重构后由 Flask-SQLAlchemy 统一负责连接池、ORM、schema 同步。
 本模块仅保留：
-- init_db(): 创建所有表
+- init_db(): 创建所有表 + 轻量幂等迁移
 - ensure_admin_exists(): 初始化管理员
 - ensure_site_config(): 初始化站点配置
+- get_site_config() / get_or_create_site_config(): 统一读取/创建站点配置行
 
 注：文件名从 db.py 改为 database.py，避免与 app.extensions.db 实例
 在 app 包命名空间中产生属性遮蔽（module shadowing）。
@@ -73,6 +74,7 @@ def init_db():
     _migrate_article()
     _migrate_site_config()
     _migrate_banner()
+    _migrate_rate_limit()
 
 
 def _migrate_admin():
@@ -252,3 +254,60 @@ def ensure_site_config():
             db.session.rollback()
             if not db.session.scalar(db.select(db.func.count(SiteConfig.id))):
                 raise
+
+
+def _migrate_rate_limit():
+    """为 rate_limit 补 (action, create_time) 复合索引（幂等）。
+
+    限流每次请求都会按 action + 时间窗口做一次 DELETE 清理，旧库若只有
+    (ip, action) 索引，清理条件里的 create_time 用不上索引，会退化为全表
+    扫描；表越大每次请求越慢。新库由模型 RateLimit.__table_args__ 直接建好，
+    这里兜住已有的旧库。失败只告警：缺索引不影响功能正确性。
+    """
+    try:
+        inspector = db.inspect(db.engine)
+        if "rate_limit" not in inspector.get_table_names():
+            return
+        names = {idx["name"] for idx in inspector.get_indexes("rate_limit")}
+        if "idx_action_time" in names:
+            return
+        with db.engine.begin() as conn:
+            conn.execute(db.text("CREATE INDEX idx_action_time ON rate_limit (action, create_time)"))
+        log.info("已为 rate_limit 创建复合索引 idx_action_time(action, create_time)")
+    except Exception as e:
+        log.warning("rate_limit 索引迁移失败（仅影响清理性能，不影响功能）: %s", e)
+
+
+def get_site_config():
+    """读取站点配置行：优先 id=1，兼容「只有一行但主键不是 1」的历史库。
+
+    站点配置全站只有一行。此前前台各模块用「取第一行」（SELECT ... LIMIT 1）
+    读取、后台用 db.session.get(SiteConfig, 1) 读取，两者在「唯一一行 id≠1」
+    的库上读到的不是同一行，表现为「后台改了站点名/背景，前台不生效」。
+    统一走本函数后，读与写（get_or_create_site_config）永远指向同一行。
+
+    无配置行时返回 None；数据库异常向上抛出，由调用方决定兜底策略。
+    """
+    from app.models import SiteConfig
+
+    site = db.session.get(SiteConfig, 1)
+    if site is None:
+        site = db.session.scalars(db.select(SiteConfig).order_by(SiteConfig.id).limit(1)).first()
+    return site
+
+
+def get_or_create_site_config():
+    """读取站点配置行，缺失时创建默认行（id=1）并提交，返回该行。
+
+    后台各设置页统一用它取行，避免每处各写一份「get(id=1) → 没有就新建」，
+    也避免在「唯一行 id≠1」的库上又插入第二行配置。
+    """
+    from app.models import SiteConfig
+
+    site = get_site_config()
+    if site is not None:
+        return site
+    site = SiteConfig(id=1, site_name="My Blog", favicon_path="static/favicon.ico")
+    db.session.add(site)
+    db.session.commit()
+    return site

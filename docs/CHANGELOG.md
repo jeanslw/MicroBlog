@@ -1,5 +1,30 @@
 # MicroBlog Changelog
 
+## [Unreleased]
+
+Security and correctness fixes: the session key no longer falls back to the repository's public default, SQLite restore now validates and atomically replaces the database file under a cross-process lock, site settings are read and written as a single row, and rate-limit cleanup is no longer rolled back.
+
+### Security
+
+- **Removed the public default session key**: docker-compose used to inject the `BLOG_SECRET_KEY` default that lives in the repository, which effectively meant "no key at all" — anyone with the repo could sign a valid cookie and impersonate the admin, and the existing "refuse to start without a key" check in `config.py` never fired because the variable *was* set. Now the web service injects no default; the container entrypoint generates a random 64-hex key on first boot (when none is given, or when the public default is passed) and persists it to `./data/.secret_key` on the host, handing it to the app via `BLOG_SECRET_KEY_FILE` (the secret never enters the environment, and sessions survive container recreation). `BLOG_SECRET_KEY_FILE` is now a supported config source, and production refuses to boot when it detects the public default key.
+- **`safe_url` rejects pseudo-schemes**: inputs that already carry a scheme outside the allow-list (`javascript:`, `data:`, `ftp:` …) used to be treated as bare hosts and prefixed into `https://javascript:alert(1)` (a dead link with the pseudo-scheme stored in the database); they now return an empty string, and a resolvable hostname is required after prefixing.
+
+### Changed & Fixed
+
+- **SQLite restore can no longer corrupt the live database**: restore is now "write a temp file → validate it with a dedicated engine (`PRAGMA integrity_check` plus a non-empty `admin` table) → `os.replace` atomically → ask gunicorn to restart gracefully (SIGHUP) so every worker reopens the database file". Previously the live file was overwritten in place with `"wb"`, which under `gunicorn -w 4` readily produced `database disk image is malformed`, and a corrupt or empty backup was reported as a successful restore.
+- **Restore mutual exclusion now spans processes**: a module-level `threading.Lock` only guards a single worker, so a `backups/.restore.lock` file lock (`O_CREAT|O_EXCL`, stale locks older than one hour can be taken over) was added — concurrent restores can no longer run truly in parallel.
+- **Site settings read and written as one row**: new `database.get_site_config()` / `get_or_create_site_config()` used by the front end (global template context, about page, feeds, comment switch) and the admin pages (site settings, about, account/mail), fixing "saving settings in the admin panel has no effect on the front end" when the single config row has a primary key other than 1; `fetch_global_context` now reads the site fields with one query instead of eight.
+- **Rate-limit rows stop growing forever**: the lazy cleanup of expired rows now commits on its own, so a rejected request still keeps the cleanup (the old `rollback()` threw it away as well); `rate_limit` gains an `(action, create_time)` index (`MySQL/init.sql`, the ORM model and an idempotent startup migration).
+- **Search keywords are matched literally**: `search_articles` now uses `contains(..., autoescape=True)`, so `%` and `_` no longer act as wildcards, and keywords are capped by `SEARCH_KEYWORD_MAX_LEN = 100`.
+- **`MySQL/init.sql` is idempotent**: tables use `CREATE TABLE IF NOT EXISTS` and seed data uses `INSERT IGNORE`, so re-running it against a live database no longer drops data (previous versions started with `DROP TABLE IF EXISTS`); `article.is_pinned` and `rate_limit.idx_action_time` were added.
+- **Dead config removed**: `PERMANENT_SESSION_LIFETIME_DELTA` was never read by any code and is gone.
+
+### Tests & Docs
+
+- 30 new regression tests: `test_secret_key.py` (including a case that executes the entrypoint's key block for real, covering generate / reuse / honour explicit value / ignore public default), `test_restore_lock.py` (lock contention, stale-lock takeover, corrupt backups never touching the live database), `test_site_config.py`, `test_rate_limit_cleanup.py`, `test_search_escape.py`, plus stricter `safe_url` assertions in `test_security.py` (301 → 331 passing, ruff clean).
+- Updated the session-key documentation across both READMEs, both deployment guides, both FAQs, `.env.docker.example` and the docker-compose comments.
+
+
 ## [v1.3.5] - 2026-09-16
 
 Ops & UI hardening: docker-compose pre-start guard, MySQL 8.4 upgrade with auth-plugin compatibility, configurable 24-hour session lifetime, mobile collapsed-navbar search layout, touch support fix for the theme switcher, nginx version hiding, plus admin comment management and breadcrumb group fixes.

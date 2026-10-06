@@ -8,12 +8,16 @@
 - 图片上传走 Pillow 安全流程（解压炸弹防护 + 缩放）
 """
 
+import contextlib
 import os
+import signal
 import subprocess
 import threading
+import time
 import zipfile
 from datetime import datetime
 from functools import partial
+from pathlib import Path
 
 from flask import (
     abort,
@@ -36,6 +40,7 @@ from werkzeug.utils import safe_join
 
 from app.admin import admin_bp
 from app.crypto import encrypt_secret
+from app.database import get_or_create_site_config
 from app.extensions import (
     admin_required,
     check_login_lock,
@@ -61,7 +66,7 @@ from app.forms import (
     UploadImageForm,
 )
 from app.mail import MailError, send_mail
-from app.models import Admin, SiteConfig
+from app.models import Admin
 from app.utils import (
     build_safe_filename,
     process_and_resize_logo,
@@ -174,11 +179,7 @@ def site_setting():
 @admin_required
 def about_setting():
     """「关于我」编辑页：头像/邮箱/GitHub/个人主页/简介,数据存 site_config.about_*"""
-    site = db.session.get(SiteConfig, 1)
-    if not site:
-        site = SiteConfig(id=1, site_name="My Blog", favicon_path="static/favicon.ico")
-        db.session.add(site)
-        db.session.commit()
+    site = get_or_create_site_config()
     form = AboutForm()
     # 头像输入框预填外链地址（本地上传的内部 URL 不回填,避免误改）
     if request.method == "GET" and site.about_avatar and site.about_avatar.startswith(("http://", "https://")):
@@ -224,11 +225,7 @@ def about_setting():
 
 def _site_setting_view(template):
     """站点设置公共视图：panel 首页与独立站点设置页共用"""
-    site = db.session.get(SiteConfig, 1)
-    if not site:
-        site = SiteConfig(id=1, site_name="My Blog", favicon_path="static/favicon.ico")
-        db.session.add(site)
-        db.session.commit()
+    site = get_or_create_site_config()
     form = SiteSettingForm(obj=site)
     if form.validate_on_submit():
         site.site_name = form.site_name.data.strip()
@@ -455,11 +452,7 @@ def account():
     两个表单各自提交到自己的端点（/account 与 /mail_setting），
     互不校验对方字段,避免单表单提交误触发另一表单的验证。
     """
-    site = db.session.get(SiteConfig, 1)
-    if not site:
-        site = SiteConfig(id=1, site_name="My Blog", favicon_path="static/favicon.ico")
-        db.session.add(site)
-        db.session.commit()
+    site = get_or_create_site_config()
     email_form = AccountForm()
     mail_form = MailSettingForm(obj=site)
     if request.method == "GET":
@@ -483,11 +476,7 @@ def mail_setting():
     """
     if request.method == "GET":
         return redirect(url_for("admin.account"))
-    site = db.session.get(SiteConfig, 1)
-    if not site:
-        site = SiteConfig(id=1, site_name="My Blog", favicon_path="static/favicon.ico")
-        db.session.add(site)
-        db.session.commit()
+    site = get_or_create_site_config()
     form = MailSettingForm(obj=site)
     if form.validate_on_submit():
         site.mail_host = (form.mail_host.data or "").strip()
@@ -536,10 +525,20 @@ def _db_type():
 
 
 def _sqlite_db_path():
-    uri = current_app.config.get("SQLALCHEMY_DATABASE_URI", "")
-    if uri.startswith("sqlite:///"):
-        return uri[len("sqlite:///"):]
-    return os.path.join(project_root(), "data", "blog.db")
+    """当前 SQLite 库文件绝对路径；非文件型 SQLite（内存库等）返回 None。
+
+    以 SQLAlchemy 真正使用的 URL 为准。此前按 `SQLALCHEMY_DATABASE_URI`
+    字符串手工切 `sqlite:///` 前缀：URI 带 query（?check_same_thread=false 等）
+    或使用 Windows 盘符路径时会切出错误路径，恢复就会写到别的文件（真库未变、
+    还多出一个垃圾文件），所以改为读引擎 URL。
+    """
+    url = db.engine.url
+    if url.get_backend_name() != "sqlite":
+        return None
+    database = url.database
+    if not database or database == ":memory:":
+        return None
+    return os.path.abspath(database)
 
 
 def _mysql_creds():
@@ -804,8 +803,176 @@ def backup_delete(name):
     return redirect(url_for("admin.backup"))
 
 
-# 模块级恢复锁：防止并发恢复（双击/多标签页）导致两个 mysql 进程 DDL 交错执行、损坏库表
+# ── 恢复互斥：进程内锁 + 跨进程文件锁 ─────────────────────
+# 并发恢复（双击/多标签页/两个 worker）会让两个 mysql 进程 DDL 交错执行，
+# 或让两个进程同时改写同一个 SQLite 文件，直接损坏库表。
+# 模块级 threading.Lock 只在单个进程内有效，gunicorn -w 4 时每个 worker
+# 各有一份，两个请求落到不同 worker 就完全挡不住 —— 因此必须再加跨进程锁。
 _restore_lock = threading.Lock()
+# 锁文件超过该秒数视为残留（持锁进程被 kill -9 时不会执行释放逻辑）
+_RESTORE_LOCK_STALE_SECONDS = 3600
+# 本进程持有的锁文件句柄：(fd, path)；未持有时为 None
+_restore_lock_file = None
+
+
+def _acquire_restore_file_lock() -> bool:
+    """获取跨进程恢复锁（backups/.restore.lock，O_CREAT|O_EXCL 独占创建）。
+
+    返回 False 表示已有恢复在进行。目录不可写等异常下退化为「放行」：
+    进程内锁仍然生效，且宁可允许恢复也不能把功能彻底锁死。
+    """
+    global _restore_lock_file
+    path = os.path.join(_backup_dir(), ".restore.lock")
+    try:
+        fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
+        try:
+            stale = time.time() - os.path.getmtime(path) > _RESTORE_LOCK_STALE_SECONDS
+            if not stale:
+                return False
+            log.warning("发现残留恢复锁（超过 %ss），接管: %s", _RESTORE_LOCK_STALE_SECONDS, path)
+            os.remove(path)
+            fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        except OSError:
+            return False
+    except OSError as e:
+        log.warning("创建恢复锁文件失败，退化为进程内锁: %s", e)
+        _restore_lock_file = None
+        return True
+    with contextlib.suppress(OSError):
+        os.write(fd, str(os.getpid()).encode("ascii"))
+    _restore_lock_file = (fd, path)
+    return True
+
+
+def _release_restore_file_lock():
+    """释放跨进程恢复锁（关闭句柄并删除锁文件）"""
+    global _restore_lock_file
+    if not _restore_lock_file:
+        return
+    fd, path = _restore_lock_file
+    _restore_lock_file = None
+    with contextlib.suppress(OSError):
+        os.close(fd)
+    with contextlib.suppress(OSError):
+        os.remove(path)
+
+
+def _request_worker_recycle() -> bool:
+    """请求 gunicorn 平滑重启（SIGHUP 给 master），让所有 worker 重新打开数据库。
+
+    恢复等于「换库文件 / 重建所有表」，但恢复请求只能归还自己 worker 的连接
+    （db.session.remove + engine.dispose）：其它 worker 仍持有指向旧库的连接，
+    会继续返回恢复前的数据，甚至把旧内容再写回去。
+    gunicorn master 收到 SIGHUP 会平滑重启全部 worker（在途请求先处理完），
+    新 worker 重新建连即可看到恢复后的数据；waitress/开发服务器是单进程，
+    父进程不是 gunicorn 时不做任何事。
+    """
+    if os.name != "posix":
+        return False
+    try:
+        with open(f"/proc/{os.getppid()}/cmdline", "rb") as f:
+            cmdline = f.read().decode("utf-8", "replace")
+    except OSError:
+        return False
+    if "gunicorn" not in cmdline:
+        return False
+    try:
+        os.kill(os.getppid(), signal.SIGHUP)
+    except OSError as e:
+        log.warning("向 gunicorn 发送 SIGHUP 失败，请手动重启服务: %s", e)
+        return False
+    log.info("已请求 gunicorn 平滑重启，确保所有 worker 重新打开恢复后的数据库")
+    return True
+
+
+def _verify_sqlite_backup_file(path: str):
+    """校验待恢复的 SQLite 备份文件：结构完好 + admin 表存在且有数据。
+
+    在「替换线上库之前」对临时文件校验：损坏或空白的备份绝不允许覆盖线上库，
+    否则会出现「提示恢复成功，但从此无法登录后台、只能靠快照回滚」的最坏结果。
+    使用独立引擎（不复用应用连接池），校验过程完全不碰线上库。
+    """
+    from sqlalchemy import create_engine
+
+    engine = create_engine(f"sqlite:///{Path(path).as_posix()}")
+    try:
+        try:
+            with engine.connect() as conn:
+                status = conn.execute(db.text("PRAGMA integrity_check")).scalar()
+                if str(status).strip().lower() != "ok":
+                    raise RuntimeError(
+                        _("恢复失败：备份文件已损坏（SQLite integrity_check: %(status)s）", status=status)
+                    )
+                tables = {
+                    row[0]
+                    for row in conn.execute(db.text("SELECT name FROM sqlite_master WHERE type='table'"))
+                }
+                if "admin" not in tables:
+                    raise RuntimeError(_("恢复不完整：备份中缺少 admin 表，请确认该文件是本博客的数据库备份"))
+                admin_count = conn.execute(db.text("SELECT COUNT(*) FROM admin")).scalar()
+            if not admin_count:
+                raise RuntimeError(_("恢复不完整：admin 表为空，恢复后无法登录后台，请重新执行恢复"))
+        except RuntimeError:
+            raise
+        except Exception as e:
+            # 例如把 .sql / 文本文件当 .db 恢复：SQLite 报 "file is not a database"
+            raise RuntimeError(_("恢复失败：备份文件不是有效的 SQLite 数据库（%(err)s）", err=e)) from e
+    finally:
+        engine.dispose()
+
+
+def _restore_sqlite_database(data: bytes) -> bool:
+    """用备份内容替换当前 SQLite 库文件；返回是否需要人工重启服务。
+
+    步骤：写临时文件 → 校验该临时文件 → os.replace 原子替换 → 请求 worker 回收。
+    - 原子替换：其它 worker 若正在读旧库，看到的仍是替换前完整的旧 inode
+      （数据稍旧但一致），绝不会读到写了一半的文件 —— 旧实现以 "wb" 直接覆盖
+      活动库文件，多 worker 下极易产生 "database disk image is malformed"。
+    - 先校验后替换：损坏/空白的备份不会碰到线上库。
+    - 仅 Windows 上库文件被独占打开、无法原子替换时才退化为就地覆盖，此时如又
+      无法触发 worker 回收，就必须提示人工重启（返回 True）。
+    """
+    path = _sqlite_db_path()
+    if not path:
+        raise RuntimeError(
+            _(
+                "当前数据库不是文件型 SQLite（如内存库），无法从备份恢复；"
+                "请改用 MySQL，或设置 BLOG_SQLITE_PATH 指向库文件后重试"
+            )
+        )
+    # 先归还本请求持有的连接并清空连接池：否则 Windows 上文件被占用无法替换
+    db.session.remove()
+    db.engine.dispose()
+    tmp_path = f"{path}.restore-{os.getpid()}.tmp"
+    try:
+        with open(tmp_path, "wb") as f:
+            f.write(data)
+            f.flush()
+            os.fsync(f.fileno())
+        _verify_sqlite_backup_file(tmp_path)
+        atomic = True
+        try:
+            os.replace(tmp_path, path)
+        except OSError as e:
+            atomic = False
+            log.warning("原子替换 SQLite 库失败（%s），退化为就地覆盖: %s", e, path)
+            with open(path, "wb") as f:
+                f.write(data)
+                f.flush()
+                os.fsync(f.fileno())
+    finally:
+        try:
+            if os.path.exists(tmp_path):
+                os.remove(tmp_path)
+        except OSError:
+            pass
+    # 丢弃恢复前的连接缓存，让后续请求读到新文件
+    db.engine.dispose()
+    recycled = _request_worker_recycle()
+    if not atomic:
+        log.warning("SQLite 恢复使用了非原子覆盖，如站点异常请重启服务")
+    return (not atomic) and not recycled
 
 
 @admin_bp.route("/backup/restore/<name>", methods=["POST"])
@@ -821,6 +988,10 @@ def backup_restore(name):
         flash(_("已有恢复任务进行中，请勿重复提交"), "warning")
         return redirect(url_for("admin.backup"))
     try:
+        # 跨进程锁：模块级 Lock 只覆盖单个 worker（见 _acquire_restore_file_lock）
+        if not _acquire_restore_file_lock():
+            flash(_("已有恢复任务进行中（可能来自其他进程或标签页），请稍后重试"), "warning")
+            return redirect(url_for("admin.backup"))
         data, _kind = _backup_payload(path)
         # ── 备份类型校验：按 zip 内实际内容（.sql/.db）判断，与文件名无关 ──
         # 防止跨类型误恢复（MySQL 备份恢复到 SQLite 或反之）破坏当前数据库
@@ -851,6 +1022,8 @@ def backup_restore(name):
             )
         # 恢复前先自动做一次即时备份（文件名带 _snapshot 标记），便于回滚
         _create_backup(_backup_dir(), tag="_snapshot")
+        # SQLite 分支据其返回值判断是否需要提示人工重启（见 _restore_sqlite_database）
+        restart_needed = False
         if _db_type() == "mysql":
             c = _mysql_creds()
             env = os.environ.copy()
@@ -887,12 +1060,22 @@ def backup_restore(name):
                 raise RuntimeError(
                     _("恢复不完整：admin 表缺失或无数据，请直接重新执行一次恢复")
                 )
+            # 其它 worker 的连接池在恢复期间未归还，仍指向旧的库/表结构：
+            # 请求 gunicorn 平滑重启，让它们重新建连（单进程部署下为空操作）
+            _request_worker_recycle()
         else:
-            db.session.remove()
-            db.engine.dispose()
-            with open(_sqlite_db_path(), "wb") as f:
-                f.write(data)
+            # SQLite：原子替换库文件 + integrity_check/admin 表校验，
+            # 返回值表示是否必须人工重启服务（非原子覆盖且未能触发平滑重启）
+            restart_needed = _restore_sqlite_database(data)
         flash(_("恢复成功"), "success")
+        if restart_needed:
+            flash(
+                _(
+                    "提示：本次恢复无法自动重载（未使用原子替换且未能触发服务平滑重启），"
+                    "请重启一次服务（gunicorn/容器）后再使用，否则其它进程可能仍读到旧数据"
+                ),
+                "warning",
+            )
     except subprocess.TimeoutExpired:
         log.error("MySQL 恢复超时", exc_info=True)
         flash(
@@ -903,5 +1086,6 @@ def backup_restore(name):
         log.error("恢复失败: %s", e, exc_info=True)
         flash(_("恢复失败：%(err)s", err=e), "danger")
     finally:
+        _release_restore_file_lock()
         _restore_lock.release()
     return redirect(url_for("admin.backup"))

@@ -167,7 +167,8 @@ def fetch_global_context():
     使用 current_app.app_context() 内的 db.session,
     DB 异常时返回默认值避免页面整页崩溃。
     """
-    from app.models import Article, Banner, Category, SiteConfig
+    from app.database import get_site_config
+    from app.models import Article, Banner, Category
 
     try:
         cats = db.session.execute(
@@ -186,24 +187,26 @@ def fetch_global_context():
         banner_list = db.session.execute(
             db.select(Banner).filter(Banner.is_active.is_(True)).order_by(Banner.sort.desc())
         ).scalars().all()
-        site_name = db.session.scalar(db.select(SiteConfig.site_name)) or "博客"
-        site_logo = db.session.scalar(db.select(SiteConfig.logo_path)) or ""
+        # 站点配置只有一行：一次读取（此前按字段拆成 8 条 SELECT，且分散读取
+        # 有「读到另一行」的风险，见 database.get_site_config 的说明）
+        site = get_site_config()
+        site_name = (site.site_name or "博客") if site else "博客"
+        site_logo = (site.logo_path or "") if site else ""
         # 上传文件不随数据库备份迁移：文件缺失时回落为「无 Logo」，交给导航栏渲染图标。
         # 否则浏览器渲染破图，并把 <img alt="站点名"> 的 alt 文本画出来，
         # 导航栏看起来就成了「My Blog My Blog」（跨机恢复备份的典型现象）。
         if not asset_url_exists(site_logo):
             site_logo = ""
-        site_favicon = db.session.scalar(db.select(SiteConfig.favicon_path)) or ""
+        site_favicon = (site.favicon_path or "") if site else ""
         # favicon_path 存相对路径（如 static/favicon.ico）,转成可访问的 URL
         if site_favicon and not site_favicon.startswith(("http://", "https://")):
             site_favicon = "/" + site_favicon.lstrip("/")
-        about_nickname = db.session.scalar(db.select(SiteConfig.about_nickname)) or ""
-        bg_row = db.session.execute(db.select(SiteConfig.bg_style, SiteConfig.bg_custom)).first()
-        site_bg_style = (bg_row[0] or "bg1") if bg_row else "bg1"
-        site_bg_custom = bg_row[1] if bg_row else ""
-        comments_enabled = db.session.scalar(db.select(SiteConfig.comments_enabled))
-        comments_enabled = True if comments_enabled is None else bool(comments_enabled)
-        site_sidebar_style = db.session.scalar(db.select(SiteConfig.sidebar_style)) or "book"
+        about_nickname = (site.about_nickname or "") if site else ""
+        site_bg_style = (site.bg_style or "bg1") if site else "bg1"
+        site_bg_custom = (site.bg_custom or "") if site else ""
+        raw_comments_enabled = site.comments_enabled if site else None
+        comments_enabled = True if raw_comments_enabled is None else bool(raw_comments_enabled)
+        site_sidebar_style = (site.sidebar_style or "book") if site else "book"
     except Exception:
         log.error("全局模板上下文数据库报错", exc_info=True)
         cats, total_art, banner_list, site_name = [], 0, [], "博客"
@@ -228,19 +231,32 @@ def fetch_global_context():
 
 # ── 工具：URL 安全拼接（防止 link_url 注入 javascript:） ────
 def safe_url(url: str) -> str:
-    """对外链做协议白名单校验，非 http(s) 返回空串"""
+    """对外链做协议白名单校验：仅 http(s) 直通、无协议时补 https://，其余返回空串。
+
+    注意「已带协议但不在白名单」的输入必须返回空串：旧实现把它当作无协议域名
+    去补前缀，`javascript:alert(1)` 会变成 `https://javascript:alert(1)`
+    （虽不构成 XSS，因为 scheme 已是 https，但会存入一个指向错误域名的死链，
+    且把伪协议原样写进数据库）。同时校验补全后确实解析出了主机名。
+    """
     if not url:
         return ""
+    candidate = url.strip()
+    if not candidate:
+        return ""
     try:
-        parsed = urlparse(url.strip())
-        if parsed.scheme in ("http", "https"):
-            return url
+        parsed = urlparse(candidate)
     except ValueError:
-        pass
-    # 自动补全 https://
-    if url and not url.startswith(("http://", "https://")):
-        return "https://" + url
-    return ""
+        return ""
+    if parsed.scheme:
+        return candidate if parsed.scheme in ("http", "https") else ""
+    # 无协议（如 example.com / example.com/path）：补 https://，并要求能解析出主机名
+    try:
+        host = urlsplit("//" + candidate).hostname or ""
+    except ValueError:
+        return ""
+    if not host:
+        return ""
+    return "https://" + candidate
 
 
 def safe_redirect_path(target: str | None) -> str | None:
@@ -315,15 +331,21 @@ def check_and_record_rate_limit(action: str, ip: str, limit: int, window_seconds
 
     返回 True 表示允许（未超限），False 表示已超限。
     窗口内旧记录会被惰性清理。DB 异常时放行（不阻断业务）。
+
+    清理与判定分两次提交：旧实现把清理和插入放在同一事务里，超限时
+    `rollback()` 本意是「不写入本次计数」，却连清理一起回滚了 —— 于是
+    被限流的请求反而永远清理不掉过期记录，表只增不减（越限越慢）。
     """
     from app.models import RateLimit
 
     try:
         threshold = _rate_limit_window_str(window_seconds)
-        # 清理窗口外的旧记录（惰性清理，避免表膨胀）
+        # 清理窗口外的旧记录（惰性清理，避免表膨胀）；
+        # 立即提交，确保「本次被拒」时清理结果也保留
         db.session.execute(
             db.delete(RateLimit).where(RateLimit.action == action, RateLimit.create_time < threshold)
         )
+        db.session.commit()
         # 统计窗口内记录数
         count = db.session.scalar(
             db.select(db.func.count(RateLimit.id)).where(
@@ -333,7 +355,6 @@ def check_and_record_rate_limit(action: str, ip: str, limit: int, window_seconds
             )
         ) or 0
         if count >= limit:
-            db.session.rollback()  # 清理是只读意图，超限不写入
             return False
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         db.session.add(RateLimit(ip=ip, action=action, create_time=now))

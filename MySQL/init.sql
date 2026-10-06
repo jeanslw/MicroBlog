@@ -6,6 +6,11 @@
 --   mysql -uroot -p flask_blog < MySQL/init.sql
 --   或 Docker 容器首次启动自动执行（挂载到 /docker-entrypoint-initdb.d/）
 --
+-- ⚠️ 本脚本是**幂等**的：建表一律 CREATE TABLE IF NOT EXISTS，初始化数据用
+--   INSERT IGNORE，重复执行不会删除或覆盖任何已有数据（历史版本首行是
+--   DROP TABLE IF EXISTS，对在用库手工执行会清库）。已有库补列/补索引由应用
+--   启动时的幂等迁移（app/database.py 的 _migrate_*）负责。
+--
 -- 注意：本脚本不创建初始管理员账号（避免明文密码入库）
 --   请在启动后通过 docker exec 或应用界面设置，参考 Readme 4.7.5 节
 -- ============================================================
@@ -33,8 +38,7 @@ USE `flask_blog`;
 -- --------------------------------------------------------
 -- 表：admin（管理员）
 -- --------------------------------------------------------
-DROP TABLE IF EXISTS `admin`;
-CREATE TABLE `admin` (
+CREATE TABLE IF NOT EXISTS `admin` (
   `id` int NOT NULL AUTO_INCREMENT,
   `username` varchar(50) NOT NULL,
   -- Werkzeug 3.x pbkdf2:sha256:600000 哈希约 102 字符；预留 256 兼容未来 scrypt/argon2
@@ -48,8 +52,7 @@ CREATE TABLE `admin` (
 -- --------------------------------------------------------
 -- 表：article（文章）
 -- --------------------------------------------------------
-DROP TABLE IF EXISTS `article`;
-CREATE TABLE `article` (
+CREATE TABLE IF NOT EXISTS `article` (
   `id` int NOT NULL AUTO_INCREMENT,
   `title` varchar(500) NOT NULL,
   `content` mediumtext NOT NULL,
@@ -57,6 +60,7 @@ CREATE TABLE `article` (
   `create_time` varchar(50) DEFAULT NULL,
   `update_time` varchar(50) DEFAULT NULL,
   `vote_num` int DEFAULT '0',
+  `is_pinned` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否置顶（首页列表优先展示）',
   `category_id` int DEFAULT NULL COMMENT '所属栏目',
   `seo_description` varchar(300) NOT NULL DEFAULT '' COMMENT 'SEO 描述（留空自动生成）',
   `seo_keywords` varchar(300) NOT NULL DEFAULT '' COMMENT 'SEO 关键词（留空自动生成）',
@@ -71,8 +75,7 @@ CREATE TABLE `article` (
 -- --------------------------------------------------------
 -- 表：category（栏目分类）
 -- --------------------------------------------------------
-DROP TABLE IF EXISTS `category`;
-CREATE TABLE `category` (
+CREATE TABLE IF NOT EXISTS `category` (
   `id` int NOT NULL AUTO_INCREMENT,
   `cat_name` varchar(60) NOT NULL COMMENT '栏目名称',
   `tag_text` varchar(60) DEFAULT '' COMMENT '标签',
@@ -85,8 +88,7 @@ CREATE TABLE `category` (
 -- --------------------------------------------------------
 -- 表：comment（评论）
 -- --------------------------------------------------------
-DROP TABLE IF EXISTS `comment`;
-CREATE TABLE `comment` (
+CREATE TABLE IF NOT EXISTS `comment` (
   `id` int NOT NULL AUTO_INCREMENT,
   `article_id` int DEFAULT NULL,
   `username` varchar(50) DEFAULT '游客',
@@ -100,8 +102,7 @@ CREATE TABLE `comment` (
 -- --------------------------------------------------------
 -- 表：reply（回复）
 -- --------------------------------------------------------
-DROP TABLE IF EXISTS `reply`;
-CREATE TABLE `reply` (
+CREATE TABLE IF NOT EXISTS `reply` (
   `id` int NOT NULL AUTO_INCREMENT,
   `comment_id` int DEFAULT NULL,
   `username` varchar(50) DEFAULT '游客',
@@ -115,8 +116,7 @@ CREATE TABLE `reply` (
 -- --------------------------------------------------------
 -- 表：banner（轮播图）
 -- --------------------------------------------------------
-DROP TABLE IF EXISTS `banner`;
-CREATE TABLE `banner` (
+CREATE TABLE IF NOT EXISTS `banner` (
   `id` int NOT NULL AUTO_INCREMENT,
   -- UUID + secure_filename 后路径可能较长，扩到 500 防截断
   `img_path` varchar(500) NOT NULL COMMENT '图片存储路径',
@@ -133,8 +133,7 @@ CREATE TABLE `banner` (
 -- --------------------------------------------------------
 -- 表：site_config（站点配置）
 -- --------------------------------------------------------
-DROP TABLE IF EXISTS `site_config`;
-CREATE TABLE `site_config` (
+CREATE TABLE IF NOT EXISTS `site_config` (
   `id` int NOT NULL AUTO_INCREMENT,
   `site_name` varchar(100) NOT NULL DEFAULT 'My Blog',
   `favicon_path` varchar(200) DEFAULT 'static/favicon.ico',
@@ -163,8 +162,7 @@ CREATE TABLE `site_config` (
 -- --------------------------------------------------------
 -- 表：vote_log（点赞记录，防刷）
 -- --------------------------------------------------------
-DROP TABLE IF EXISTS `vote_log`;
-CREATE TABLE `vote_log` (
+CREATE TABLE IF NOT EXISTS `vote_log` (
   `id` int NOT NULL AUTO_INCREMENT,
   `article_id` int DEFAULT NULL,
   `ip` varchar(100) DEFAULT NULL,
@@ -177,8 +175,7 @@ CREATE TABLE `vote_log` (
 -- --------------------------------------------------------
 -- 表：login_attempt（登录失败计数，防爆破）
 -- --------------------------------------------------------
-DROP TABLE IF EXISTS `login_attempt`;
-CREATE TABLE `login_attempt` (
+CREATE TABLE IF NOT EXISTS `login_attempt` (
   `id` int NOT NULL AUTO_INCREMENT,
   `ip` varchar(100) NOT NULL,
   `username` varchar(100) NOT NULL,
@@ -192,22 +189,24 @@ CREATE TABLE `login_attempt` (
 -- --------------------------------------------------------
 -- 表：rate_limit（通用频率限制，评论/回复/点赞/找回密码防刷）
 -- --------------------------------------------------------
-DROP TABLE IF EXISTS `rate_limit`;
-CREATE TABLE `rate_limit` (
+CREATE TABLE IF NOT EXISTS `rate_limit` (
   `id` int NOT NULL AUTO_INCREMENT,
   `ip` varchar(100) NOT NULL,
   `action` varchar(50) NOT NULL,
   `create_time` varchar(50) NOT NULL,
   PRIMARY KEY (`id`),
-  KEY `idx_ip_action` (`ip`, `action`)
+  KEY `idx_ip_action` (`ip`, `action`),
+  -- 惰性清理按 (action, create_time) 过滤：无此索引时清理会退化为全表扫描
+  KEY `idx_action_time` (`action`, `create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 -- --------------------------------------------------------
 -- 初始化数据
 -- --------------------------------------------------------
--- 站点配置（仅一条）
-INSERT INTO `site_config` (`id`, `site_name`, `favicon_path`, `logo_path`, `bg_style`, `bg_custom`, `about_avatar`, `about_bio`, `about_email`, `about_github`, `about_homepage`, `about_nickname`)
+-- 站点配置（仅一条）。INSERT IGNORE：脚本现在可重复执行（建表为 IF NOT EXISTS），
+-- 重复导入不会因主键冲突中断，也不会覆盖已有配置
+INSERT IGNORE INTO `site_config` (`id`, `site_name`, `favicon_path`, `logo_path`, `bg_style`, `bg_custom`, `about_avatar`, `about_bio`, `about_email`, `about_github`, `about_homepage`, `about_nickname`)
 VALUES (1, 'My Blog', 'static/favicon.ico', '', 'bg1', '', '', NULL, '', '', '', '');
 
 -- ⚠️ 不在此插入初始管理员账号（避免明文密码）

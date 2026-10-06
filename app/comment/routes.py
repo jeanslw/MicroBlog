@@ -33,10 +33,10 @@ def _normalize_username(raw: str) -> str:
 
 def _comments_enabled() -> bool:
     """评论总开关是否开启（site_config.comments_enabled，未设置默认开启）。"""
-    from app.models import SiteConfig
+    from app.database import get_site_config
 
-    val = db.session.scalar(db.select(SiteConfig.comments_enabled))
-    return True if val is None else bool(val)
+    site = get_site_config()
+    return True if site is None or site.comments_enabled is None else bool(site.comments_enabled)
 
 
 def _vote_return_to(aid: int) -> str:

@@ -30,10 +30,9 @@ def send_mail(to: str, subject: str, body: str) -> None:
     db_host = ""
     site = None
     try:
-        from app.extensions import db
-        from app.models import SiteConfig
+        from app.database import get_site_config
 
-        site = db.session.get(SiteConfig, 1)
+        site = get_site_config()
         db_host = (site.mail_host or "").strip() if site else ""
     except Exception:
         site = None

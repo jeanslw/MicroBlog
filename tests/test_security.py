@@ -98,11 +98,26 @@ def test_safe_url_empty():
 
 
 def test_safe_url_rejects_javascript():
-    """javascript: URL 应被拒绝（返回空或不含 javascript）"""
-    out = safe_url("javascript:alert(1)")
-    # safe_url 实现只对 http/https 通过，其余补 https
-    # 这里 javascript: 应被处理为不直接保留原样
-    assert out != "javascript:alert(1)"
+    """javascript: 等伪协议必须返回空串。
+
+    旧实现会把它当成「无协议域名」补前缀，得到 `https://javascript:alert(1)`：
+    虽不构成 XSS（scheme 已是 https），但会把伪协议原样存库并渲染成死链。
+    """
+    assert safe_url("javascript:alert(1)") == ""
+    assert safe_url("JavaScript:alert(1)") == ""
+
+
+def test_safe_url_rejects_other_non_whitelisted_schemes():
+    assert safe_url("data:text/html,<script>alert(1)</script>") == ""
+    assert safe_url("ftp://example.com/pub") == ""
+    assert safe_url("file:///etc/passwd") == ""
+
+
+def test_safe_url_prepends_https_for_bare_host():
+    assert safe_url("example.com") == "https://example.com"
+    assert safe_url("example.com/path?q=1") == "https://example.com/path?q=1"
+    # 只有空白字符：视为空输入
+    assert safe_url("   ") == ""
 
 
 def test_build_safe_filename_uuid_prefix():

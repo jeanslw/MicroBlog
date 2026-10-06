@@ -31,8 +31,9 @@ Just copy the config template and set the two MySQL passwords — everything els
 # 1. Prepare variables
 cp .env.docker.example .env.docker
 # Edit .env.docker: only MYSQL_ROOT_PASSWORD / MYSQL_PASSWORD must be changed
-# (BLOG_SECRET_KEY and BLOG_INIT_ADMIN_PWD can stay empty:
-#  the former has a built-in test default, the latter is replaced by the setup wizard)
+# (BLOG_SECRET_KEY and BLOG_INIT_ADMIN_PWD can stay empty: the former is generated
+#  automatically on first boot and persisted to ./data/.secret_key,
+#  the latter is replaced by the setup wizard)
 
 # 2. Start (web + db + nginx)
 docker compose --env-file .env.docker --profile full up -d
@@ -81,7 +82,7 @@ Common variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `BLOG_SECRET_KEY` | (random) | Session/CSRF secret; **mandatory in production — the app refuses to start without it** |
+| `BLOG_SECRET_KEY` | (auto-generated in Docker) | Session/CSRF secret. In Docker just leave it empty: the entrypoint generates a random 64-hex key on first boot and persists it to `./data/.secret_key` on the host (passed to the app as `BLOG_SECRET_KEY_FILE`, so sessions survive container recreation). Bare-metal / serverless with `BLOG_ENV=production` must set it explicitly or the app refuses to start; the historical public default key is rejected in production as well |
 | `BLOG_ENV` | `development` | In `production`, Secure Cookie is enabled by default (override with `BLOG_COOKIE_SECURE`) |
 | `BLOG_DEBUG` | `False` | Debug mode (keep False in production) |
 | `BLOG_COOKIE_SECURE` | dev `false` / prod `true` | Whether the session cookie is HTTPS-only; **set `false` for plain-HTTP debugging / the bundled nginx**, set back to `true` once HTTPS is enabled |
@@ -224,7 +225,7 @@ Variables in `.env.docker` fall into three groups (**only the two MySQL password
 |-------|----------|-------------|
 | **Required** | `MYSQL_ROOT_PASSWORD` | MySQL root password — set a strong one |
 | **Required** | `MYSQL_PASSWORD` | Password for the `blog` app user — set a strong one (the app connection picks it up automatically) |
-| Recommended for public | `BLOG_SECRET_KEY` | Empty = built-in test default key (public, insecure); generate one with `python -c "import secrets;print(secrets.token_hex(32))"` before going public |
+| Optional (best left empty) | `BLOG_SECRET_KEY` | Leave it empty: the web container auto-generates a random 64-hex key on first boot and persists it to `./data/.secret_key` (the public default key injected by older compose files is ignored). Set it with `python -c "import secrets;print(secrets.token_hex(32))"` only when you need to share one key across instances |
 | Recommended for public | `BLOG_CANONICAL_URL` / `BLOG_TRUSTED_HOSTS` | Your real domain; prevents Host header injection |
 | Optional | `BLOG_DB_TYPE` | Defaults to `mysql`; set `sqlite` to run without the db service |
 | Optional | `BLOG_INIT_ADMIN_PWD` | Empty = create the admin via the `/admin/setup` wizard; a password auto-creates it on first boot (once only) |

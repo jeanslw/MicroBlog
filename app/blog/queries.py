@@ -115,11 +115,17 @@ def search_articles(keyword: str, offset: int, limit: int):
     """按关键词搜索已发布文章（标题/正文模糊匹配）。
 
     返回 (article_list, total_page, total)
+
+    autoescape=True：把用户输入中的 LIKE 通配符（% _ /）转义成普通字符。
+    旧实现直接拼接 `%{keyword}%`，于是搜索「%」会命中全部文章、搜索「a_」
+    会命中「ab」等，既不符合用户预期，也让构造出的模糊查询无法走索引。
     """
-    like = f"%{keyword}%"
     base_filter = db.and_(
         Article.status == "publish",
-        or_(Article.title.like(like), Article.content.like(like)),
+        or_(
+            Article.title.contains(keyword, autoescape=True),
+            Article.content.contains(keyword, autoescape=True),
+        ),
     )
     total = db.session.scalar(select(func.count(Article.id)).where(base_filter)) or 0
     total_page = max(math.ceil(total / limit) if limit > 0 else 1, 1)

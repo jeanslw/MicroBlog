@@ -89,7 +89,8 @@ docker compose --env-file .env.docker --profile full up -d
 - **HTTP 可直接登录**：内置 Nginx 仅提供明文 HTTP(80)，默认 `BLOG_COOKIE_SECURE=false`；自行配置 HTTPS 后置为 `true`
 - **反代头已配好**：默认 `BLOG_PROXY_XFOR=1`、`BLOG_PROXY_XPROTO=1`、`BLOG_PROXY_XHOST=0`
 - **启动前预检**：`env-check` 守卫在 `db` 启动前校验 `MySQL/init.sql` 与数据库口令——密码仍是模板占位符或被显式设为公开测试口令会中止启动（原因看 `docker compose --profile full logs env-check`）；完全未建 `.env.docker` 时只告警放行，用内置测试口令本机试用
-- 默认密钥与默认数据库密码仅供本机测试，**公网部署务必修改** `BLOG_SECRET_KEY`、`MYSQL_ROOT_PASSWORD`、`MYSQL_PASSWORD`
+- **会话密钥自动生成**：web 容器首次启动时由入口脚本生成 64 位随机密钥并写入宿主机 `./data/.secret_key`，以 `BLOG_SECRET_KEY_FILE` 传给应用（容器重建后登录态不失效）；旧版 compose 注入的公开默认密钥会被忽略，生产环境下应用也拒绝以它启动。仅在多实例共享同一密钥/迁移时才需显式设置 `BLOG_SECRET_KEY`
+- 默认数据库密码仅供本机测试，**公网部署务必修改** `MYSQL_ROOT_PASSWORD`、`MYSQL_PASSWORD`
 - 数据持久化：SQLite 在 `./data`、上传图片在 `./static`、MySQL 在命名卷 `microblog-mysql-data`
 
 常用运维命令：

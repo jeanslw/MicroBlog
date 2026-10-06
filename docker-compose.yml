@@ -10,6 +10,9 @@
 #      设成公开默认口令 → 中止启动；完全没建 .env.docker → 警告放行，用 db
 #      内置测试口令本机试用（不可公网）。预检详情（up -d 不打印其输出）：
 #      docker compose --profile full logs env-check
+#      ℹ️ 会话密钥无需手填：web 容器入口脚本首次启动即生成 64 位随机密钥并
+#      持久化到宿主机 ./data/.secret_key（以 BLOG_SECRET_KEY_FILE 传给应用），
+#      容器重建后登录态不失效；仅在多实例共享同一密钥时才需显式设置。
 #   3. docker compose --env-file .env.docker --profile full up -d
 #   4. 访问 http://localhost（经 nginx）；首访 /admin/setup 创建管理员
 #
@@ -38,9 +41,12 @@ services:
     environment:
       # ─ 安全 ─
       BLOG_ENV: production
-      # 留空时使用仅用于测试的内置默认密钥；公网部署必须在 .env.docker
-      # 中设置 BLOG_SECRET_KEY（python -c "import secrets;print(secrets.token_hex(32))"）
-      BLOG_SECRET_KEY: ${BLOG_SECRET_KEY:-insecure-compose-default-key-CHANGE-ME-0123456789abcdef}
+      # 留空即可：容器入口脚本（docker-entrypoint.sh）会在首次启动时生成随机密钥
+      # 并持久化到 ./data/.secret_key（以 BLOG_SECRET_KEY_FILE 传给应用，容器重建
+      # 后登录态不失效）。公网/多实例部署若需自行管理密钥，在 .env.docker 中设置
+      # BLOG_SECRET_KEY（python -c "import secrets;print(secrets.token_hex(32))"）；
+      # 显式设成仓库里的公开默认值会被入口脚本忽略并重新生成。
+      BLOG_SECRET_KEY: ${BLOG_SECRET_KEY:-}
       BLOG_DEBUG: "False"
       # 编排内置的 nginx 只提供明文 HTTP(80)，默认关闭 Secure，保证 HTTP 下登录正常；
       # 自行配置 HTTPS（443）后请在 .env.docker 中置为 true
@@ -151,7 +157,8 @@ services:
       # 用于区分「未配置（走本机测试口令）」与「显式填了弱口令（必须中止）」
       MYSQL_ROOT_PASSWORD_SET: ${MYSQL_ROOT_PASSWORD:+1}
       MYSQL_PASSWORD_SET: ${MYSQL_PASSWORD:+1}
-      # 与下方 web 服务保持同一默认值：未设置时守卫能看到公开默认密钥并告警
+      # 与 web 服务保持同一默认值：未显式提供密钥时守卫可识别出来并给出提示
+      # （web 容器入口脚本会自动生成随机密钥，故这里只是提示而非中止）
       BLOG_SECRET_KEY: ${BLOG_SECRET_KEY:-insecure-compose-default-key-CHANGE-ME-0123456789abcdef}
     command:
       - |
@@ -185,8 +192,8 @@ services:
         check_pwd MYSQL_ROOT_PASSWORD "$$MYSQL_ROOT_PASSWORD" "$$MYSQL_ROOT_PASSWORD_SET" "MySQL 管理员口令 / MySQL administrator password"
         check_pwd MYSQL_PASSWORD "$$MYSQL_PASSWORD" "$$MYSQL_PASSWORD_SET" "业务账号 blog 的连库口令 / application account password"
         if [ "$$BLOG_SECRET_KEY" = "insecure-compose-default-key-CHANGE-ME-0123456789abcdef" ]; then
-          echo "[安全警告] BLOG_SECRET_KEY 仍为公开测试默认密钥：本机测试可用；公网部署必须在 .env.docker 设置随机值（python -c \"import secrets;print(secrets.token_hex(32))\"）"
-          echo "[SECURITY WARNING] BLOG_SECRET_KEY is the public test default: fine for local testing; for public deployment set a random value in .env.docker (python -c \"import secrets;print(secrets.token_hex(32))\")"
+          echo "[安全提示] 未在 .env.docker 显式设置 BLOG_SECRET_KEY：web 容器入口脚本会自动生成 64 位随机密钥并持久化到宿主机 ./data/.secret_key（容器重建后登录态不失效；多实例部署或迁移需共享同一密钥时请显式设置，生成命令见下）（python -c \"import secrets;print(secrets.token_hex(32))\"）"
+          echo "[SECURITY NOTE] BLOG_SECRET_KEY not set in .env.docker: the web entrypoint generates a random 64-hex key persisted to ./data/.secret_key on the host (survives container recreation; set it explicitly to share one key across instances) (python -c \"import secrets;print(secrets.token_hex(32))\")"
           warn=1
         fi
         if [ "$$fail" = "1" ]; then

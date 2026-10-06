@@ -89,7 +89,8 @@ Built-in out-of-the-box guarantees:
 - **Login works over plain HTTP**: the bundled Nginx serves HTTP (port 80) only, so `BLOG_COOKIE_SECURE=false` by default; set it to `true` once you enable HTTPS.
 - **Proxy headers preconfigured**: `BLOG_PROXY_XFOR=1`, `BLOG_PROXY_XPROTO=1`, `BLOG_PROXY_XHOST=0`.
 - **Pre-start guard**: before `db` starts, `env-check` validates `MySQL/init.sql` and the database passwords — template placeholders or explicitly configured public test passwords abort startup (see `docker compose --profile full logs env-check`); with no `.env.docker` at all it only warns and passes, using the built-in test passwords for local trials.
-- The default secret key and database passwords are for local testing only — **for any public deployment, change** `BLOG_SECRET_KEY`, `MYSQL_ROOT_PASSWORD`, and `MYSQL_PASSWORD`.
+- **Session key is generated for you**: on first start the `web` container entrypoint writes a random 64-hex key to `./data/.secret_key` on the host and passes it to the app as `BLOG_SECRET_KEY_FILE` (sessions survive container recreation). The publicly known default key from older compose files is ignored, and production refuses to boot with it. Set `BLOG_SECRET_KEY` explicitly only when you need to share one key across instances or migrations.
+- Database passwords are for local testing only — **for any public deployment, change** `MYSQL_ROOT_PASSWORD` and `MYSQL_PASSWORD`.
 - Persistence: SQLite in `./data`, uploads in `./static`, MySQL in the named volume `microblog-mysql-data`.
 
 Common operations:

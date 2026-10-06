@@ -97,11 +97,49 @@ BANNER_MAX_WIDTH = 1920
 PIL_MAX_IMAGE_PIXELS = 50_000_000  # Pillow 解压炸弹防护
 
 
+# ── 会话密钥（SECRET_KEY）解析 ──────────────────────────────
+# 优先级：BLOG_SECRET_KEY 环境变量 > BLOG_SECRET_KEY_FILE 指向的密钥文件 > 随机值（仅开发）。
+# 文件方式供容器/密钥管理使用（Docker secrets、K8s Secret 挂载、compose 入口脚本
+# 自动生成的 ./data/.secret_key）：密钥本体不出现在 docker inspect、
+# /proc/<pid>/environ 与进程环境快照里，泄露面比环境变量小。
+# 仓库内公开的默认密钥（旧版 docker-compose 的 BLOG_SECRET_KEY 默认值）在
+# 生产环境一律拒绝启动 —— 它是公开的，谁都能据此伪造签名 Cookie 冒充管理员。
+INSECURE_DEFAULT_SECRET_KEYS = ("insecure-compose-default-key-CHANGE-ME-0123456789abcdef",)
+
+
+def _read_secret_key_file(path: str) -> str:
+    """读取密钥文件（去掉首尾空白）；不可读时告警并返回空串。"""
+    if not path:
+        return ""
+    try:
+        with open(path, encoding="utf-8") as f:
+            return f.read().strip()
+    except OSError as exc:
+        warnings.warn(
+            f"BLOG_SECRET_KEY_FILE={path} 无法读取（{exc}），已忽略该配置。",
+            stacklevel=2,
+        )
+        return ""
+
+
+def _resolve_secret_key() -> str:
+    """解析生效的 SECRET_KEY 原始值；完全未配置时返回空串（由调用方决定回退）。"""
+    env_key = (os.environ.get("BLOG_SECRET_KEY") or "").strip()
+    if env_key:
+        return env_key
+    return _read_secret_key_file((os.environ.get("BLOG_SECRET_KEY_FILE") or "").strip())
+
+
+_RESOLVED_SECRET_KEY = _resolve_secret_key()
+
+
 class Config:
     """基类配置（所有环境共享）"""
 
     # ── Flask ───────────────────────────────────────────
-    SECRET_KEY = os.environ.get("BLOG_SECRET_KEY") or secrets.token_hex(32)
+    # 未配置任何来源时用一次性随机值兜底（仅开发/测试可接受：进程重启后
+    # 登录态与加密字段即失效，生产环境由 get_config() 直接拒绝启动）。
+    SECRET_KEY = _RESOLVED_SECRET_KEY or secrets.token_hex(32)
     DEBUG = _env_bool("BLOG_DEBUG", "false")
     TESTING = False
 
@@ -153,7 +191,8 @@ class Config:
     # Session 有效期（秒，环境变量 BLOG_SESSION_LIFETIME）：
     # 登录时 session.permanent = True，此配置决定管理后台登录态多久过期
     PERMANENT_SESSION_LIFETIME = int(os.environ.get("BLOG_SESSION_LIFETIME", "86400"))  # 默认 24 小时
-    PERMANENT_SESSION_LIFETIME_DELTA = None  # 由 __init__.py 转 timedelta
+    # 注：Flask 要求 timedelta；由 app/__init__.py 在 from_object 之后转换，
+    # 此处不再保留未使用的 *_DELTA 中间属性（历史上从无代码读取它）。
 
     # ── 静态文件 ────────────────────────────────────────
     SEND_FILE_MAX_AGE_DEFAULT = int(os.environ.get("BLOG_STATIC_MAX_AGE", "0"))
@@ -178,6 +217,10 @@ class Config:
     WTF_CSRF_ENABLED = True
     WTF_CSRF_TIME_LIMIT = None  # 不设过期（避免长时间编辑后提交失败）
     WTF_I18N_ENABLED = False
+
+    # ── 站内搜索 ────────────────────────────────────────
+    # 关键词长度上限：LIKE 模式越长扫描成本越高，超长输入也必然无结果
+    SEARCH_KEYWORD_MAX_LEN = 100
 
     # ── Babel ───────────────────────────────────────────
     BABEL_DEFAULT_LOCALE = "zh_CN"
@@ -319,15 +362,34 @@ config_map = {
 def get_config():
     """根据 BLOG_ENV 返回对应配置类。
 
-    生产环境（ProductionConfig）若未显式设置 BLOG_SECRET_KEY 则直接报错，
-    避免静默使用随机密钥导致登录态失效与加密字段无法解密。
+    生产环境（ProductionConfig）必须显式提供会话密钥，否则直接报错：
+    - 完全未设置（BLOG_SECRET_KEY 与 BLOG_SECRET_KEY_FILE 都没有）→ 报错，
+      避免静默使用随机密钥导致登录态失效与加密字段（SMTP 密码）无法解密；
+    - 仍等于仓库里公开的默认密钥 → 报错，该值人人可见，可据此伪造签名 Cookie
+      冒充管理员；容器部署由 docker-entrypoint.sh 自动生成随机密钥并写入
+      ./data/.secret_key（BLOG_SECRET_KEY_FILE），无需人工干预。
+
+    非生产环境沿用随机兜底，仅对「公开默认密钥」发出告警。
     """
     env = os.environ.get("BLOG_ENV", "development").lower()
     cls = config_map.get(env, config_map["default"])
-    if cls is ProductionConfig and not os.environ.get("BLOG_SECRET_KEY"):
-        raise RuntimeError(
-            "生产环境必须设置 BLOG_SECRET_KEY 环境变量后再启动。"
-            "生成命令: python -c \"import secrets;print(secrets.token_hex(32))\""
+    if cls is ProductionConfig:
+        if not _RESOLVED_SECRET_KEY:
+            raise RuntimeError(
+                "生产环境必须设置 BLOG_SECRET_KEY 环境变量（或 BLOG_SECRET_KEY_FILE 指向的密钥文件）后再启动。"
+                "生成命令: python -c \"import secrets;print(secrets.token_hex(32))\""
+            )
+        if _RESOLVED_SECRET_KEY in INSECURE_DEFAULT_SECRET_KEYS:
+            raise RuntimeError(
+                "生产环境的 BLOG_SECRET_KEY 是仓库中公开的默认值，任何人都能据此伪造管理员登录态。"
+                "请改为随机值: python -c \"import secrets;print(secrets.token_hex(32))\" "
+                "（容器部署删除该环境变量即可，入口脚本会自动生成并持久化随机密钥）"
+            )
+    elif _RESOLVED_SECRET_KEY in INSECURE_DEFAULT_SECRET_KEYS:
+        warnings.warn(
+            "BLOG_SECRET_KEY 仍是仓库中公开的默认值，仅可用于本机调试；"
+            "公网部署请改为随机值，否则可被伪造管理员登录态。",
+            stacklevel=2,
         )
     return cls
 
