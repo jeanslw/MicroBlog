@@ -167,6 +167,12 @@ class Config:
     LOG_DIR = os.environ.get("BLOG_LOG_DIR") or os.path.join(_BASE_DIR, "logs")
     LOG_MAX_BYTES = int(os.environ.get("BLOG_LOG_MAX_BYTES", str(10 * 1024 * 1024)))
     LOG_BACKUP_COUNT = int(os.environ.get("BLOG_LOG_BACKUP_COUNT", "5"))
+    # 日志格式：auto（默认，生产 JSON / 开发测试文本）、json（ELK/Loki 采集）、text
+    LOG_FORMAT = (os.environ.get("BLOG_LOG_FORMAT") or "auto").lower()
+    # 慢请求阈值（毫秒）：超过则 http_request 日志升级为 WARNING；0 = 全部告警
+    SLOW_REQUEST_MS = int(os.environ.get("BLOG_SLOW_REQUEST_MS", "500"))
+    # 慢 SQL 阈值（毫秒）：超过则记 slow_query WARNING（只记语句不记参数）；0 = 全部记录
+    SLOW_QUERY_MS = int(os.environ.get("BLOG_SLOW_QUERY_MS", "200"))
 
     # ── WTF ─────────────────────────────────────────────
     WTF_CSRF_ENABLED = True

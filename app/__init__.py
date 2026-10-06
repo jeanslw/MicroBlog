@@ -33,6 +33,15 @@ from app.extensions import (
     log,
     login_manager,
 )
+from app.observability import (
+    REQUEST_ID_HEADER,
+    RequestIdFilter,
+    begin_request_id,
+    build_formatter,
+    end_request_id,
+    log_event,
+    register_slow_sql,
+)
 from app.utils import configure_pillow
 from config import APP_VERSION, get_config
 
@@ -63,10 +72,16 @@ def _setup_logging(app: Flask):
     或 reloader 双进程不会产生重复行。
     """
     level = logging.DEBUG if app.debug else logging.INFO
-    formatter = logging.Formatter("[%(asctime)s] %(levelname)s in %(module)s: %(message)s")
+    # 结构化日志：生产默认单行 JSON（ELK/Loki 直接解析），开发/测试可读文本；
+    # BLOG_LOG_FORMAT=json|text 可强制覆盖。控制台与文件使用同一 formatter。
+    formatter = build_formatter(
+        app.config.get("LOG_FORMAT", "auto"), debug=app.debug, testing=app.testing
+    )
+    req_filter = RequestIdFilter()
 
     stream_handler = logging.StreamHandler()
     stream_handler.setFormatter(formatter)
+    stream_handler.addFilter(req_filter)
     stream_handler._blog_log_handler = True  # type: ignore[attr-defined]
 
     file_handler = None
@@ -80,6 +95,7 @@ def _setup_logging(app: Flask):
             encoding="utf-8",
         )
         file_handler.setFormatter(formatter)
+        file_handler.addFilter(req_filter)
         file_handler._blog_log_handler = True  # type: ignore[attr-defined]
     except OSError:
         # 目录不可写（只读文件系统等）不阻断启动，退回仅控制台
@@ -180,6 +196,9 @@ def create_app(config_name: str | None = None):
         from app.database import ensure_admin_exists, ensure_site_config, init_db, wait_for_database
         from app.utils import migrate_legacy_upload_dirs
 
+        # 慢 SQL 探针（幂等挂到当前引擎；阈值 BLOG_SLOW_QUERY_MS，默认 200ms）
+        register_slow_sql(db.engine, int(app.config.get("SLOW_QUERY_MS", 200)))
+
         # 先等数据库可连通（MySQL 容器首次初始化较慢）。超时直接抛出,
         # 由 gunicorn/容器重启策略重新拉起,避免初始化只跑一次却静默跳过。
         wait_for_database()
@@ -254,6 +273,23 @@ def create_app(config_name: str | None = None):
             return jsonify({"error": "服务器内部错误"}), 500
         return _safe_error_page(500, _("服务器内部错误,请联系管理员"))
 
+    # ── 请求关联 ID（最先注册，保证后续 Host 校验/防盗链/访问日志都能带上） ──
+    @app.before_request
+    def _assign_request_id():
+        begin_request_id()
+
+    @app.after_request
+    def _echo_request_id(response):
+        # 即使后续钩子短路（如 Host 400）也回传，便于网关/客户端按 ID 查日志
+        rid = getattr(g, "_request_id", None)
+        if rid:
+            response.headers[REQUEST_ID_HEADER] = rid
+        return response
+
+    @app.teardown_request
+    def _reset_request_id(exc):
+        end_request_id()
+
     # ── Host 白名单校验（防 Host 头注入 / 密码重置邮件投毒） ─
     @app.before_request
     def _validate_host():
@@ -265,7 +301,7 @@ def create_app(config_name: str | None = None):
             app.logger.warning("拒绝非白名单 Host 请求: %s (ip=%s)", request.host, request.remote_addr)
             return jsonify({"error": "Invalid Host header"}), 400
 
-    # ── 请求计时 + 访问日志（waitress/gunicorn 下无 werkzeug 访问日志，
+    # ── 请求计时 + 结构化访问日志（waitress/gunicorn 下无 werkzeug 访问日志，
     #    由应用层统一记录每个业务请求；静态资源/健康探针跳过避免刷屏） ──
     @app.before_request
     def _start_request_timer():
@@ -277,17 +313,26 @@ def create_app(config_name: str | None = None):
         if request.endpoint in ("static", "main.healthz", "main.uploaded_file"):
             return response
         duration_ms = int((time.perf_counter() - getattr(g, "_req_start", time.perf_counter())) * 1000)
-        user = getattr(current_user, "username", None) or "-"
-        line = (
-            f'{request.method} {request.full_path.rstrip("?")} -> {response.status_code} '
-            f"{duration_ms}ms ip={request.remote_addr} user={user} ua={request.user_agent}"
-        )
+        # 查询串单独成字段（截断防超长），路径保持纯净便于聚合
+        query = request.query_string.decode("utf-8", errors="replace")[:500] or None
+        fields = {
+            "method": request.method,
+            "path": request.path,
+            "query": query,
+            "status_code": response.status_code,
+            "duration_ms": duration_ms,
+            "ip": request.remote_addr,
+            "user_id": getattr(current_user, "id", None),
+            "user_agent": str(request.user_agent)[:300] or None,
+        }
+        # 5xx ERROR；4xx 或超过慢请求阈值 WARNING；其余 INFO
         if response.status_code >= 500:
-            app.logger.error(line)
-        elif response.status_code >= 400:
-            app.logger.warning(line)
+            level = logging.ERROR
+        elif response.status_code >= 400 or duration_ms >= int(app.config.get("SLOW_REQUEST_MS", 500)):
+            level = logging.WARNING
         else:
-            app.logger.info(line)
+            level = logging.INFO
+        log_event(app.logger, level, "http_request", **fields)
         return response
 
     # ── 上传资源防盗链（对齐原 nginx valid_referers，迁移至应用层） ──
