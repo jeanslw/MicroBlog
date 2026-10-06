@@ -3,6 +3,7 @@
 测试使用 TestingConfig（内存 SQLite + 关闭 CSRF），可重复运行互不影响。
 """
 
+import logging
 import os
 import shutil
 import tempfile
@@ -16,6 +17,12 @@ os.environ.setdefault("BLOG_INIT_ADMIN_PWD", "admin123456")
 # 测试用固定 SECRET_KEY，避免不同进程随机生成
 os.environ.setdefault("BLOG_SECRET_KEY", "testing-secret-key-do-not-use-in-prod")
 
+# 日志目录也必须在 config 导入前重定向：LOG_DIR 在 config.py 按绝对路径
+# 计算，不随 project_root 重定向。不隔离的话每次跑全套测试，几百次
+# create_app 产生的"初始管理员账号已创建"/http_request 会写进真实 logs/app.log。
+_TEST_LOG_DIR = tempfile.mkdtemp(prefix="blog_test_logs_")
+os.environ.setdefault("BLOG_LOG_DIR", _TEST_LOG_DIR)
+
 
 @pytest.fixture(scope="session")
 def _tmp_project_root():
@@ -27,7 +34,17 @@ def _tmp_project_root():
     """
     tmp = tempfile.mkdtemp(prefix="blog_test_root_")
     yield tmp
+    # 先关闭测试 app 挂在全局 logger 上的文件 handler：Windows 下句柄
+    # 不释放，临时日志目录里的 app.log 会被锁定导致 rmtree 静默失败、
+    # TEMP 中目录逐次堆积。
+    for logger_name in ("blog", "app", "blog.slowsql"):
+        lg = logging.getLogger(logger_name)
+        for h in list(lg.handlers):
+            if getattr(h, "_blog_log_handler", False):
+                h.close()
+                lg.removeHandler(h)
     shutil.rmtree(tmp, ignore_errors=True)
+    shutil.rmtree(_TEST_LOG_DIR, ignore_errors=True)
 
 
 @pytest.fixture()
