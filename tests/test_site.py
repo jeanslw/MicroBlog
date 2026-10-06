@@ -89,7 +89,7 @@ def test_upload_image_success(login_admin):
 
     data = json.loads(rv.data)
     assert "url" in data
-    assert data["url"].startswith("/static/uploads/")
+    assert data["url"].startswith("/uploads/image/")
     assert data["url"].endswith(".png") or data["url"].endswith(".jpg")
 
 

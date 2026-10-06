@@ -17,7 +17,7 @@ from flask_login import LoginManager, current_user
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf import CSRFProtect
 
-from app.utils import static_url_exists
+from app.utils import asset_url_exists
 
 # 扩展实例（不绑定 app）
 db = SQLAlchemy()
@@ -191,7 +191,7 @@ def fetch_global_context():
         # 上传文件不随数据库备份迁移：文件缺失时回落为「无 Logo」，交给导航栏渲染图标。
         # 否则浏览器渲染破图，并把 <img alt="站点名"> 的 alt 文本画出来，
         # 导航栏看起来就成了「My Blog My Blog」（跨机恢复备份的典型现象）。
-        if not static_url_exists(site_logo):
+        if not asset_url_exists(site_logo):
             site_logo = ""
         site_favicon = db.session.scalar(db.select(SiteConfig.favicon_path)) or ""
         # favicon_path 存相对路径（如 static/favicon.ico）,转成可访问的 URL

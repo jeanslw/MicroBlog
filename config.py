@@ -143,7 +143,7 @@ class Config:
     )
     # 防盗链保护的静态路径前缀（对齐原 nginx valid_referers：空 Referer 放行、
     # 同源/白名单 Host 放行，其余 403）
-    HOTLINK_PROTECTED_PREFIXES: ClassVar[tuple[str, ...]] = ("/static/banner/", "/static/uploads/")
+    HOTLINK_PROTECTED_PREFIXES: ClassVar[tuple[str, ...]] = ("/uploads/banner/", "/uploads/image/")
 
     # ── Session / Cookie ────────────────────────────────
     SESSION_COOKIE_HTTPONLY = True
@@ -158,6 +158,15 @@ class Config:
     # ── 静态文件 ────────────────────────────────────────
     SEND_FILE_MAX_AGE_DEFAULT = int(os.environ.get("BLOG_STATIC_MAX_AGE", "0"))
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB（Flask 整体请求上限）
+
+    # ── 日志文件 ────────────────────────────────────────
+    # 无论 python run.py / waitress / gunicorn / uWSGI 启动，应用日志
+    # （启动初始化、告警、未捕获异常、请求访问记录）都同时写入控制台和文件。
+    # 默认项目根 logs/app.log；容器内默认 /app/logs（compose 映射到宿主机
+    # ./data/logs）。可用 BLOG_LOG_DIR 覆盖；轮转：单文件 10MB，保留 5 份。
+    LOG_DIR = os.environ.get("BLOG_LOG_DIR") or os.path.join(_BASE_DIR, "logs")
+    LOG_MAX_BYTES = int(os.environ.get("BLOG_LOG_MAX_BYTES", str(10 * 1024 * 1024)))
+    LOG_BACKUP_COUNT = int(os.environ.get("BLOG_LOG_BACKUP_COUNT", "5"))
 
     # ── WTF ─────────────────────────────────────────────
     WTF_CSRF_ENABLED = True

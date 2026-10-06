@@ -14,12 +14,15 @@
 
 import logging
 import os
+import time
 import traceback
 from datetime import date, timedelta
+from logging.handlers import RotatingFileHandler
 from urllib.parse import urlsplit
 
-from flask import Flask, current_app, jsonify, render_template, request, session
+from flask import Flask, current_app, g, jsonify, render_template, request, session
 from flask_babel import Babel, _
+from flask_login import current_user
 from werkzeug.exceptions import HTTPException
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -51,14 +54,52 @@ def _is_trusted_host(host: str | None) -> bool:
 
 
 def _setup_logging(app: Flask):
-    """统一日志格式"""
-    if not app.logger.handlers:
-        handler = logging.StreamHandler()
-        handler.setFormatter(logging.Formatter("[%(asctime)s] %(levelname)s in %(module)s: %(message)s"))
-        app.logger.addHandler(handler)
-    app.logger.setLevel(logging.DEBUG if app.debug else logging.INFO)
-    # 让 app.extensions.log 也跟随同级别
-    log.setLevel(app.logger.level)
+    """统一日志：控制台 + 按大小轮转的文件日志（LOG_DIR/app.log）。
+
+    无论 python run.py / waitress / gunicorn / uWSGI 启动，应用日志
+    （启动初始化、告警、未捕获异常、请求访问记录）都同时写控制台和文件，
+    脱离启动终端也能回溯。gunicorn 多 worker 以 O_APPEND 共享同一文件，
+    单条日志不会交错损坏。文件句柄幂等挂载，测试中反复 create_app()
+    或 reloader 双进程不会产生重复行。
+    """
+    level = logging.DEBUG if app.debug else logging.INFO
+    formatter = logging.Formatter("[%(asctime)s] %(levelname)s in %(module)s: %(message)s")
+
+    stream_handler = logging.StreamHandler()
+    stream_handler.setFormatter(formatter)
+    stream_handler._blog_log_handler = True  # type: ignore[attr-defined]
+
+    file_handler = None
+    log_dir = app.config.get("LOG_DIR", "logs")
+    try:
+        os.makedirs(log_dir, exist_ok=True)
+        file_handler = RotatingFileHandler(
+            os.path.join(log_dir, "app.log"),
+            maxBytes=int(app.config.get("LOG_MAX_BYTES", 10 * 1024 * 1024)),
+            backupCount=int(app.config.get("LOG_BACKUP_COUNT", 5)),
+            encoding="utf-8",
+        )
+        file_handler.setFormatter(formatter)
+        file_handler._blog_log_handler = True  # type: ignore[attr-defined]
+    except OSError:
+        # 目录不可写（只读文件系统等）不阻断启动，退回仅控制台
+        app.logger.warning("日志目录不可用,文件日志已禁用: %s", log_dir, exc_info=True)
+
+    def _configure(target: logging.Logger):
+        # Flask 首次访问 app.logger 时会自动挂一个 stderr 默认 handler，
+        # 移除它（含测试中二次 create_app 同名 logger 的残留），由下面
+        # 统一的控制台/文件 handler 取代，避免每条日志输出两份。
+        for h in list(target.handlers):
+            if type(h) is logging.StreamHandler and not getattr(h, "_blog_log_handler", False):
+                target.removeHandler(h)
+        if not any(getattr(h, "_blog_log_handler", False) for h in target.handlers):
+            target.addHandler(stream_handler)
+            if file_handler is not None:
+                target.addHandler(file_handler)
+        target.setLevel(level)
+
+    _configure(app.logger)
+    _configure(log)
 
 
 def _select_locale():
@@ -137,10 +178,19 @@ def create_app(config_name: str | None = None):
     # ── 启动时初始化数据库与初始数据 ────────────────────
     with app.app_context():
         from app.database import ensure_admin_exists, ensure_site_config, init_db, wait_for_database
+        from app.utils import migrate_legacy_upload_dirs
 
         # 先等数据库可连通（MySQL 容器首次初始化较慢）。超时直接抛出,
         # 由 gunicorn/容器重启策略重新拉起,避免初始化只跑一次却静默跳过。
         wait_for_database()
+
+        # 旧上传目录迁移（幂等）：static/banner -> uploads/banner、
+        # static/uploads -> uploads/image，保证升级实例的存量文件可用。
+        try:
+            for msg in migrate_legacy_upload_dirs():
+                app.logger.info(msg)
+        except OSError:
+            app.logger.warning("旧上传目录迁移失败", exc_info=True)
 
         # 三个步骤相互独立：多 worker 并发启动时,任一 worker 建表/写入失败
         # 不应导致其它初始化步骤被整体跳过。
@@ -215,6 +265,31 @@ def create_app(config_name: str | None = None):
             app.logger.warning("拒绝非白名单 Host 请求: %s (ip=%s)", request.host, request.remote_addr)
             return jsonify({"error": "Invalid Host header"}), 400
 
+    # ── 请求计时 + 访问日志（waitress/gunicorn 下无 werkzeug 访问日志，
+    #    由应用层统一记录每个业务请求；静态资源/健康探针跳过避免刷屏） ──
+    @app.before_request
+    def _start_request_timer():
+        g._req_start = time.perf_counter()
+
+    @app.after_request
+    def _access_log(response):
+        # 静态/上传文件与健康探针不记访问日志，避免页面图片请求刷屏
+        if request.endpoint in ("static", "main.healthz", "main.uploaded_file"):
+            return response
+        duration_ms = int((time.perf_counter() - getattr(g, "_req_start", time.perf_counter())) * 1000)
+        user = getattr(current_user, "username", None) or "-"
+        line = (
+            f'{request.method} {request.full_path.rstrip("?")} -> {response.status_code} '
+            f"{duration_ms}ms ip={request.remote_addr} user={user} ua={request.user_agent}"
+        )
+        if response.status_code >= 500:
+            app.logger.error(line)
+        elif response.status_code >= 400:
+            app.logger.warning(line)
+        else:
+            app.logger.info(line)
+        return response
+
     # ── 上传资源防盗链（对齐原 nginx valid_referers，迁移至应用层） ──
     # 轮播图/文章上传图仅允许：空 Referer、同源请求、Host 白名单站点引用；
     # 其余 Referer 返回 403。
@@ -255,9 +330,9 @@ def create_app(config_name: str | None = None):
         # 还原真实协议（BLOG_PROXY_XPROTO=1）
         if request.is_secure:
             response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-        # 静态资源缓存策略（对齐原 nginx expires 30d + immutable）；
+        # 静态/上传资源缓存策略（对齐原 nginx expires 30d + immutable）；
         # BLOG_STATIC_MAX_AGE=0（开发默认）时不加缓存头，避免调试看到旧资源
-        if request.endpoint == "static" and response.status_code == 200:
+        if request.endpoint in ("static", "main.uploaded_file") and response.status_code == 200:
             max_age = int(app.config.get("SEND_FILE_MAX_AGE_DEFAULT") or 0)
             if max_age > 0:
                 response.headers["Cache-Control"] = f"public, max-age={max_age}, immutable"

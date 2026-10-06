@@ -69,18 +69,18 @@ class TestStaticCacheControl:
 class TestHotlinkProtection:
     def test_foreign_referer_blocked(self, client):
         rv = client.get(
-            "/static/banner/whatever.jpg",
+            "/uploads/banner/whatever.jpg",
             headers={"Referer": "http://evil.example.com/steal"},
         )
         assert rv.status_code == 403
 
     def test_empty_referer_allowed(self, client):
-        rv = client.get("/static/banner/whatever.jpg")
+        rv = client.get("/uploads/banner/whatever.jpg")
         assert rv.status_code != 403
 
     def test_same_origin_referer_allowed(self, client):
         rv = client.get(
-            "/static/banner/whatever.jpg",
+            "/uploads/banner/whatever.jpg",
             headers={"Referer": "http://localhost:80/"},
         )
         assert rv.status_code != 403
@@ -88,7 +88,7 @@ class TestHotlinkProtection:
     def test_whitelisted_host_referer_allowed(self, app, client):
         app.config["HOST_WHITELIST"] = ["friend.example.com"]
         rv = client.get(
-            "/static/banner/whatever.jpg",
+            "/uploads/banner/whatever.jpg",
             headers={"Referer": "http://friend.example.com:8080/page"},
         )
         assert rv.status_code != 403
@@ -99,4 +99,53 @@ class TestHotlinkProtection:
             EXISTING_STATIC,
             headers={"Referer": "http://evil.example.com/steal"},
         )
+        assert rv.status_code == 200
+
+
+class TestUploadsServing:
+    """/uploads/<category>/<filename> 文件服务与旧版 /static 路径 301 兼容"""
+
+    @staticmethod
+    def _touch(_tmp_project_root, category, rel, content=b"x"):
+        from pathlib import Path
+
+        p = Path(_tmp_project_root) / "uploads" / category / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_bytes(content)
+        return p
+
+    def test_existing_upload_served_with_cache(self, app, client, _tmp_project_root):
+        app.config["SEND_FILE_MAX_AGE_DEFAULT"] = 43200
+        self._touch(_tmp_project_root, "banner", "sample.png")
+        rv = client.get("/uploads/banner/sample.png")
+        assert rv.status_code == 200
+        assert rv.headers["Cache-Control"] == "public, max-age=43200, immutable"
+
+    def test_missing_upload_404(self, client):
+        rv = client.get("/uploads/image/no-such-file.png")
+        assert rv.status_code == 404
+
+    def test_invalid_category_404(self, client):
+        rv = client.get("/uploads/etc/passwd")
+        assert rv.status_code == 404
+
+    def test_path_traversal_blocked(self, client):
+        rv = client.get("/uploads/image/../../app/__init__.py")
+        # werkzeug 会规范化掉 ../ 或由 send_from_directory 拒绝，均不得返回源码
+        assert rv.status_code in (404, 308)
+
+    def test_legacy_banner_url_redirects(self, client):
+        rv = client.get("/static/banner/x.jpg")
+        assert rv.status_code == 301
+        assert rv.headers["Location"].endswith("/uploads/banner/x.jpg")
+
+    def test_legacy_uploads_url_redirects(self, client):
+        rv = client.get("/static/uploads/logo/x.png")
+        assert rv.status_code == 301
+        assert rv.headers["Location"].endswith("/uploads/image/logo/x.png")
+
+    def test_legacy_redirect_reaches_file(self, client, _tmp_project_root):
+        """旧 URL 经 301 后能拿到真实文件（follow_redirects）"""
+        self._touch(_tmp_project_root, "banner", "old.png")
+        rv = client.get("/static/banner/old.png", follow_redirects=True)
         assert rv.status_code == 200

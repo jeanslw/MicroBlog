@@ -241,36 +241,79 @@ def project_root() -> str:
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-def upload_dir(subdir: str = "uploads") -> str:
-    """返回 static/{subdir} 绝对路径并自动创建"""
-    path = os.path.join(project_root(), "static", subdir)
+# ── 上传资源目录（项目根 uploads/，与内置 static/ 分离） ─────
+# banner —— 轮播图；image —— 正文插图 / Logo / 头像 / 自定义背景
+# （image 下再分 avatar / logo / backgrounds 子目录）。
+UPLOAD_CATEGORIES = ("banner", "image")
+
+
+def uploads_root() -> str:
+    """返回项目根 uploads/ 目录绝对路径并自动创建"""
+    path = os.path.join(project_root(), "uploads")
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
+def upload_dir(category: str = "image", subdir: str = "") -> str:
+    """返回 uploads/<category>[/<subdir>] 绝对路径并自动创建。
+
+    category 仅允许 UPLOAD_CATEGORIES 中的值，防止调用方拼出越界目录。
+    """
+    if category not in UPLOAD_CATEGORIES:
+        raise ValueError(f"非法上传分类: {category}")
+    parts = [uploads_root(), category]
+    if subdir:
+        parts.append(subdir.strip("/\\"))
+    path = os.path.join(*parts)
     os.makedirs(path, exist_ok=True)
     return path
 
 
 # ── 上传文件清理（删除文章/换图时回收磁盘空间） ─────────────
-# 本项目上传 URL 不带查询参数,排除 ? 避免把 ?x=1 误当文件名
-_UPLOAD_URL_RE = re.compile(r"/static/uploads/[^\"'\s<>?]+")
+# 本项目上传 URL 不带查询参数,排除 ? 避免把 ?x=1 误当文件名。
+# 同时识别新版 /uploads/(banner|image)/ 与旧版 /static/(banner|uploads)/，
+# 后者来自迁移前写入数据库的历史记录（旧 URL 由 301 路由继续可访问）。
+_UPLOAD_URL_PREFIXES = (
+    ("/uploads/banner/", "banner"),
+    ("/uploads/image/", "image"),
+    ("/static/banner/", "banner"),
+    ("/static/uploads/", "image"),
+)
+_UPLOAD_URL_RE = re.compile(
+    r"/(?:uploads/(?:banner|image)|static/(?:banner|uploads))/[^\"'\s<>?]+"
+)
 
 
-def collect_static_upload_urls(html: str) -> set[str]:
-    """从 HTML 内容中提取 /static/uploads/ 图片 URL 集合"""
+def collect_upload_urls(html: str) -> set[str]:
+    """从 HTML 内容中提取上传图片 URL 集合（新旧路径均识别）"""
     if not html:
         return set()
     return set(_UPLOAD_URL_RE.findall(html))
 
 
-def remove_static_upload(url: str | None) -> bool:
-    """安全删除 static/uploads 下的文件。
+def _parse_upload_url(url: str | None) -> tuple[str, str] | None:
+    """把上传资源 URL 解析为 (category, 相对路径)；非上传 URL 返回 None"""
+    if not url:
+        return None
+    for prefix, category in _UPLOAD_URL_PREFIXES:
+        if prefix in url:
+            rel = url.split(prefix, 1)[1].split("?", 1)[0]
+            return category, rel
+    return None
 
-    - 仅处理 /static/uploads/ 开头的 URL（外部 http(s) 背景图不删）
-    - 解析后的绝对路径必须仍位于 uploads 目录内（防路径穿越）
+
+def remove_uploaded_file(url: str | None) -> bool:
+    """安全删除 uploads 下的文件（兼容旧版 /static/... URL）。
+
+    - 仅处理上传目录的 URL（外部 http(s) 背景图不删）
+    - 解析后的绝对路径必须仍位于目标分类目录内（防路径穿越）
     - 文件不存在视为已删除,返回 False 表示未执行删除
     """
-    if not url or "/static/uploads/" not in url:
+    parsed = _parse_upload_url(url)
+    if not parsed:
         return False
-    rel = url.split("/static/uploads/", 1)[1].split("?", 1)[0]
-    upload_root = os.path.abspath(upload_dir("uploads"))
+    category, rel = parsed
+    upload_root = os.path.abspath(upload_dir(category))
     abs_path = os.path.abspath(os.path.join(upload_root, rel))
     if not abs_path.startswith(upload_root + os.sep):
         return False
@@ -284,7 +327,7 @@ def remove_static_upload(url: str | None) -> bool:
 
 
 def to_abs_url_path(abs_path: str) -> str:
-    """把项目内文件绝对路径转换为 URL 路径 /static/..."""
+    """把项目内文件绝对路径转换为 URL 路径（/uploads/... 或 /static/...）"""
     root = project_root().replace("\\", "/")
     path = abs_path.replace("\\", "/")
     if path.startswith(root):
@@ -292,24 +335,59 @@ def to_abs_url_path(abs_path: str) -> str:
     return path
 
 
-# ── 站内静态资源是否存在（跨机恢复后 uploads 可能缺失） ──────
-def static_url_exists(url: str | None) -> bool:
-    """判断站点静态资源 URL 指向的文件在本地是否真实存在。
+def migrate_legacy_upload_dirs() -> list[str]:
+    """一次性迁移旧上传目录到 uploads/（幂等，供启动时调用）。
 
-    用途是「渲染前兜底」：数据库备份不含 ``static/uploads/`` 下的上传文件
-    （Logo / 头像 / 背景图 / 正文插图），把备份恢复到另一台机器或容器后，
-    库里记录的 URL 仍在、文件却已丢失，浏览器会渲染成破图；而带 alt 的
-    ``<img>`` 还会把 alt 文本画出来——导航栏 Logo 的 alt 正是站点名，
-    于是页面上出现「My Blog My Blog」这种像是数据错乱的现象。
+    static/banner  -> uploads/banner
+    static/uploads -> uploads/image
+    目标不存在时整体改名；目标已存在且非空时跳过（避免覆盖，由管理员手工合并）。
+    返回迁移说明列表，交由调用方写日志。
+    """
+    moved: list[str] = []
+    for old_name, category in (("banner", "banner"), ("uploads", "image")):
+        old = os.path.join(project_root(), "static", old_name)
+        new = upload_dir(category)
+        if not os.path.isdir(old):
+            continue
+        if os.path.isdir(new) and os.listdir(new):
+            continue
+        if os.path.isdir(new):
+            # 目标存在但为空：删掉空目录再改名
+            os.rmdir(new)
+        os.rename(old, new)
+        moved.append(f"上传目录已迁移: {os.path.join('static', old_name)} -> uploads/{category}")
+    return moved
+
+
+# ── 站内资源是否存在（跨机恢复后上传文件可能缺失） ──────
+def asset_url_exists(url: str | None) -> bool:
+    """判断站点资源 URL 指向的文件在本地是否真实存在。
+
+    用途是「渲染前兜底」：数据库备份不含 uploads/ 下的上传文件
+    （Logo / 头像 / 背景图 / 正文插图 / 轮播图），把备份恢复到另一台机器
+    或容器后，库里记录的 URL 仍在、文件却已丢失，浏览器会渲染成破图；
+    而带 alt 的 ``<img>`` 还会把 alt 文本画出来——导航栏 Logo 的 alt
+    正是站点名，页面上会出现「My Blog My Blog」这种数据错乱现象。
 
     - 外部 http(s) URL：无法本地校验，一律视为存在（交浏览器处理）
-    - ``/static/...`` 或 ``static/...``：映射到项目 static 目录校验文件
+    - ``/uploads/...``（含旧版 ``/static/banner|uploads``）：映射到 uploads 目录校验
+    - ``/static/...`` 或 ``static/...``：内置静态资源，映射到 static 目录校验
     - 空值 / 其他形式（``data:`` 等）：False
     """
     if not url:
         return False
     if url.startswith(("http://", "https://")):
         return True
+    # 上传资源（新版 + 旧版路径）
+    parsed = _parse_upload_url(url)
+    if parsed:
+        category, rel = parsed
+        upload_root = os.path.abspath(upload_dir(category))
+        abs_path = os.path.abspath(os.path.join(upload_root, rel))
+        if not abs_path.startswith(upload_root + os.sep):
+            return False
+        return os.path.isfile(abs_path)
+    # 内置静态资源（favicon、内置背景图、第三方库等）
     if "/static/" in url:
         rel = url.split("/static/", 1)[1]
     elif url.startswith("static/"):

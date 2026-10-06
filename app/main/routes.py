@@ -1,12 +1,42 @@
-"""主蓝图：语言切换、robots.txt 等通用路由。
+"""主蓝图：语言切换、robots.txt、上传文件服务等通用路由。
 
 不处理根路由 `/`,根路由由 blog.index 提供。
 """
 
-from flask import Response, jsonify, redirect, request, session, url_for
+import os
+
+from flask import Response, abort, jsonify, redirect, request, send_from_directory, session, url_for
 
 from app.extensions import db, external_url_for, safe_redirect_path
 from app.main import main_bp
+from app.utils import UPLOAD_CATEGORIES, project_root
+
+
+@main_bp.route("/uploads/<category>/<path:filename>")
+def uploaded_file(category: str, filename: str):
+    """上传文件服务（uploads/ 位于 static/ 之外，不走 Flask 内置 static 路由）。
+
+    category 白名单限定为 banner / image；send_from_directory 内部
+    safe_join 会阻断 ../ 路径穿越（命中时返回 404）。缓存策略由
+    after_request 与 /static/ 统一处理（BLOG_STATIC_MAX_AGE）。
+    """
+    if category not in UPLOAD_CATEGORIES:
+        abort(404)
+    directory = os.path.join(project_root(), "uploads", category)
+    return send_from_directory(directory, filename)
+
+
+# 旧版上传 URL 兼容：目录从 static/ 迁移到 uploads/ 后，存量数据库记录
+# （轮播图 img_path、文章正文 img src、站点设置等）仍指向旧地址，
+# 用 301 永久跳转至新地址，避免历史内容破图。
+@main_bp.route("/static/banner/<path:filename>")
+def legacy_static_banner(filename: str):
+    return redirect(url_for("main.uploaded_file", category="banner", filename=filename), code=301)
+
+
+@main_bp.route("/static/uploads/<path:filename>")
+def legacy_static_uploads(filename: str):
+    return redirect(url_for("main.uploaded_file", category="image", filename=filename), code=301)
 
 
 @main_bp.route("/healthz")

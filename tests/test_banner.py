@@ -32,7 +32,7 @@ def test_banner_list_shows_items(login_admin, db):
     """已有 banner 时展示"""
     db.session.add(
         Banner(
-            img_path="/static/banner/x.jpg",
+            img_path="/uploads/banner/x.jpg",
             title="T1",
             link_url="https://example.com",
             sort=1,
@@ -64,7 +64,7 @@ def test_banner_add_success(login_admin, db, app):
     b = db.session.scalar(db.select(Banner).filter_by(title="新Banner"))
     assert b is not None
     assert b.sort == 5
-    assert b.img_path.startswith("/static/banner/")
+    assert b.img_path.startswith("/uploads/banner/")
 
 
 def test_banner_add_no_file(login_admin, db):
@@ -108,7 +108,7 @@ def test_banner_add_invalid_format(login_admin, db):
 
 def test_banner_edit_metadata(login_admin, db):
     """仅编辑文字字段（不换图）应成功"""
-    b = Banner(img_path="/static/banner/old.jpg", title="旧", create_time="2026-01-01 00:00:00")
+    b = Banner(img_path="/uploads/banner/old.jpg", title="旧", create_time="2026-01-01 00:00:00")
     db.session.add(b)
     db.session.commit()
 
@@ -132,7 +132,7 @@ def test_banner_edit_metadata(login_admin, db):
 
 def test_banner_edit_replace_image(login_admin, db):
     """更换图片应更新 img_path"""
-    b = Banner(img_path="/static/banner/old.jpg", title="x", create_time="2026-01-01 00:00:00")
+    b = Banner(img_path="/uploads/banner/old.jpg", title="x", create_time="2026-01-01 00:00:00")
     db.session.add(b)
     db.session.commit()
     old_path = b.img_path
@@ -153,7 +153,7 @@ def test_banner_edit_replace_image(login_admin, db):
     assert rv.status_code == 302
     db.session.refresh(b)
     assert b.img_path != old_path
-    assert b.img_path.startswith("/static/banner/")
+    assert b.img_path.startswith("/uploads/banner/")
 
 
 def test_banner_edit_not_found(login_admin):
@@ -174,7 +174,7 @@ def test_banner_edit_not_found(login_admin):
 
 def test_banner_del_success(login_admin, db):
     """删除 banner 应从数据库移除"""
-    b = Banner(img_path="/static/banner/del.jpg", title="待删", create_time="2026-01-01 00:00:00")
+    b = Banner(img_path="/uploads/banner/del.jpg", title="待删", create_time="2026-01-01 00:00:00")
     db.session.add(b)
     db.session.commit()
     bid = b.id
@@ -200,7 +200,7 @@ def test_banner_add_requires_login(client):
 def test_banner_withdraw_success(login_admin, db):
     """撤回（下架）后记录保留,is_active=False"""
     b = Banner(
-        img_path="/static/banner/a.jpg",
+        img_path="/uploads/banner/a.jpg",
         title="a",
         create_time="2026-01-01 00:00:00",
         is_active=True,
@@ -220,7 +220,7 @@ def test_banner_withdraw_success(login_admin, db):
 def test_banner_withdraw_twice(login_admin, db):
     """已撤回的 banner 再次撤回应保持 False"""
     b = Banner(
-        img_path="/static/banner/a.jpg",
+        img_path="/uploads/banner/a.jpg",
         title="a",
         create_time="2026-01-01 00:00:00",
         is_active=False,
@@ -250,7 +250,7 @@ def test_banner_withdraw_requires_login(client):
 def test_banner_activate_success(login_admin, db):
     """启用（上架）后 is_active=True"""
     b = Banner(
-        img_path="/static/banner/b.jpg",
+        img_path="/uploads/banner/b.jpg",
         title="b",
         create_time="2026-01-01 00:00:00",
         is_active=False,
@@ -274,13 +274,13 @@ def test_banner_activate_requires_login(client):
 def test_homepage_hides_withdrawn_banner(client, db):
     """首页轮播只展示启用中的 banner,已撤回的不出现"""
     on = Banner(
-        img_path="/static/banner/on.jpg",
+        img_path="/uploads/banner/on.jpg",
         title="ONBANNER",
         create_time="2026-01-01 00:00:00",
         is_active=True,
     )
     off = Banner(
-        img_path="/static/banner/off.jpg",
+        img_path="/uploads/banner/off.jpg",
         title="OFFBANNER",
         create_time="2026-01-02 00:00:00",
         is_active=False,
@@ -292,4 +292,5 @@ def test_homepage_hides_withdrawn_banner(client, db):
     assert rv.status_code == 200
     assert b"ONBANNER" in rv.data
     assert b"OFFBANNER" not in rv.data
+
 

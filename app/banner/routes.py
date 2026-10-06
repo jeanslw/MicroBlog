@@ -20,7 +20,7 @@ from app.models import Banner
 from app.utils import (
     build_safe_filename,
     process_and_save_image,
-    project_root,
+    remove_uploaded_file,
     upload_dir,
 )
 
@@ -72,7 +72,7 @@ def banner_add():
         flash(_("图片处理失败,请重试"), "danger")
         return redirect(url_for("banner.banner_list"))
 
-    img_path = f"/static/banner/{final_name}"
+    img_path = f"/uploads/banner/{final_name}"
     link = safe_url(form.link_url.data or "")[: current_app.config.get("LINK_MAX_LEN", 500)]
     title = (form.title.data or "").strip()[:100]
     desc = (form.desc_text.data or "").strip()[:200]
@@ -137,15 +137,10 @@ def banner_edit(bid):
             log.error("Banner 图片处理失败: %s", e, exc_info=True)
             flash(_("图片处理失败,请重试"), "danger")
             return redirect(url_for("banner.banner_list"))
-        # 删除旧文件（失败仅告警）
-        if banner.img_path:
-            old_abs = os.path.join(project_root(), banner.img_path.lstrip("/"))
-            try:
-                if os.path.exists(old_abs):
-                    os.remove(old_abs)
-            except OSError:
-                log.warning("删除旧 banner 文件失败 bid=%s", bid, exc_info=True)
-        banner.img_path = f"/static/banner/{final_name}"
+        # 删除旧文件（失败仅告警；兼容迁移前的 /static/banner 旧路径）
+        if banner.img_path and not remove_uploaded_file(banner.img_path):
+            log.info("旧 banner 文件不存在或无需删除 bid=%s path=%s", bid, banner.img_path)
+        banner.img_path = f"/uploads/banner/{final_name}"
 
     db.session.commit()
     flash(_("修改完成"), "success")
@@ -161,14 +156,9 @@ def banner_del(bid):
         flash(_("轮播图不存在"), "warning")
         return redirect(url_for("banner.banner_list"))
 
-    # 先删除物理文件
-    if banner.img_path:
-        abs_path = os.path.join(project_root(), banner.img_path.lstrip("/"))
-        try:
-            if os.path.exists(abs_path):
-                os.remove(abs_path)
-        except OSError:
-            log.warning("删除 banner 物理文件失败 bid=%s", bid, exc_info=True)
+    # 先删除物理文件（文件删除失败不阻断；兼容迁移前的 /static/banner 旧路径）
+    if banner.img_path and not remove_uploaded_file(banner.img_path):
+        log.info("banner 物理文件不存在或无需删除 bid=%s path=%s", bid, banner.img_path)
 
     db.session.delete(banner)
     db.session.commit()

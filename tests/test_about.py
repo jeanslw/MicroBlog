@@ -103,7 +103,7 @@ def test_about_setting_save(login_admin, db):
 
 def test_about_setting_clear_avatar(login_admin, db):
     """勾选清除头像应清空 about_avatar"""
-    _update_site(db, about_avatar="/static/uploads/avatar/old.png")
+    _update_site(db, about_avatar="/uploads/image/avatar/old.png")
     rv = login_admin.post(
         "/admin/about_setting",
         data={"avatar_clear": "y"},
@@ -130,8 +130,9 @@ def test_about_avatar_falls_back_when_file_missing(client, db, monkeypatch, tmp_
     import app.utils as utils
 
     monkeypatch.setattr(utils, "project_root", lambda: str(tmp_path))  # static 目录为空
-    _update_site(db, about_avatar="/static/uploads/avatar/gone.png")
+    _update_site(db, about_avatar="/uploads/image/avatar/gone.png")
     html = client.get("/about").get_data(as_text=True)
     assert "gone.png" not in html
     assert "about-avatar-empty" in html
+
 

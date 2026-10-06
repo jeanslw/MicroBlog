@@ -104,12 +104,14 @@ services:
     volumes:
       # SQLite 数据文件持久化（mysql 模式下也无害）
       - ./data:/app/data
-      # 上传的轮播图持久化
-      - ./static/banner:/app/static/banner
-      # 文章图 / Logo / 自定义背景持久化（nginx 也从宿主机同目录读）
-      - ./static/uploads:/app/static/uploads
+      # 上传的轮播图持久化（uploads/banner，由 Flask /uploads/ 路由提供）
+      - ./uploads/banner:/app/uploads/banner
+      # 文章图 / Logo / 头像 / 自定义背景持久化（uploads/image）
+      - ./uploads/image:/app/uploads/image
       # 数据库备份持久化（容器重建不丢失）
       - ./backups:/app/backups
+      # 应用日志持久化（app.log 轮转：10MB×5，waitress/gunicorn 均写入）
+      - ./data/logs:/app/logs
     depends_on:
       # MySQL 模式等 db 健康检查通过后再启动 web（init.sql 此时已执行完）。
       # required: false：db 的 profile 未启用（SQLite 模式）时该依赖自动忽略，

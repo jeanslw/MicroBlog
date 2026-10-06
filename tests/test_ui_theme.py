@@ -67,12 +67,14 @@ def test_site_bg_upload_save(login_admin, db, monkeypatch, tmp_path):
     """上传背景图应保存到 uploads/backgrounds 且 URL 可访问"""
     from app.admin import routes as admin_routes
 
-    def fake_upload_dir(subdir="uploads"):
-        d = tmp_path / "bg" / subdir
+    def fake_upload_dir(category="image", subdir=""):
+        d = tmp_path / "bg" / category
+        if subdir:
+            d = d / subdir
         d.mkdir(parents=True, exist_ok=True)
         return str(d)
 
-    # 重定向上传目录，避免污染真实 static/ 目录
+    # 重定向上传目录，避免污染真实 uploads/ 目录
     monkeypatch.setattr(admin_routes, "upload_dir", fake_upload_dir)
 
     img = _make_image_bytes("JPEG")
@@ -89,9 +91,9 @@ def test_site_bg_upload_save(login_admin, db, monkeypatch, tmp_path):
     assert rv.status_code == 302
     s = db.session.get(SiteConfig, 1)
     assert s.bg_style == "custom"
-    assert s.bg_custom.startswith("/static/uploads/backgrounds/")
+    assert s.bg_custom.startswith("/uploads/image/backgrounds/")
     fname = os.path.basename(s.bg_custom)
-    saved = os.path.join(str(tmp_path / "bg" / "uploads" / "backgrounds"), fname)
+    saved = os.path.join(str(tmp_path / "bg" / "image" / "backgrounds"), fname)
     assert os.path.exists(saved), "上传文件应已写入磁盘"
 
 
@@ -119,8 +121,10 @@ def test_site_logo_upload_save(login_admin, db, monkeypatch, tmp_path):
     """上传 Logo 应保存到 uploads/logo 且 URL 可访问"""
     from app.admin import routes as admin_routes
 
-    def fake_upload_dir(subdir="uploads"):
-        d = tmp_path / "logo" / subdir
+    def fake_upload_dir(category="image", subdir=""):
+        d = tmp_path / "logo" / category
+        if subdir:
+            d = d / subdir
         d.mkdir(parents=True, exist_ok=True)
         return str(d)
 
@@ -139,9 +143,9 @@ def test_site_logo_upload_save(login_admin, db, monkeypatch, tmp_path):
     )
     assert rv.status_code == 302
     s = db.session.get(SiteConfig, 1)
-    assert s.logo_path.startswith("/static/uploads/logo/")
+    assert s.logo_path.startswith("/uploads/image/logo/")
     fname = os.path.basename(s.logo_path)
-    saved = os.path.join(str(tmp_path / "logo" / "uploads" / "logo"), fname)
+    saved = os.path.join(str(tmp_path / "logo" / "image" / "logo"), fname)
     assert os.path.exists(saved), "Logo 文件应已写入磁盘"
 
 
@@ -149,8 +153,10 @@ def test_site_logo_oversized_auto_scaled(login_admin, db, monkeypatch, tmp_path)
     """超大 Logo（1200x600）上传后应自动缩放到长边不超过 400"""
     from app.admin import routes as admin_routes
 
-    def fake_upload_dir(subdir="uploads"):
-        d = tmp_path / "logo2" / subdir
+    def fake_upload_dir(category="image", subdir=""):
+        d = tmp_path / "logo2" / category
+        if subdir:
+            d = d / subdir
         d.mkdir(parents=True, exist_ok=True)
         return str(d)
 
@@ -170,7 +176,7 @@ def test_site_logo_oversized_auto_scaled(login_admin, db, monkeypatch, tmp_path)
     assert rv.status_code == 302
     s = db.session.get(SiteConfig, 1)
     fname = os.path.basename(s.logo_path)
-    saved = os.path.join(str(tmp_path / "logo2" / "uploads" / "logo"), fname)
+    saved = os.path.join(str(tmp_path / "logo2" / "image" / "logo"), fname)
     with Image.open(saved) as out:
         assert max(out.width, out.height) <= 400, "Logo 过长边应被缩放到 400 内"
 
@@ -199,15 +205,15 @@ def test_homepage_renders_navbar_logo(login_admin, db, monkeypatch, tmp_path):
     import app.utils as utils
 
     monkeypatch.setattr(utils, "project_root", lambda: str(tmp_path))
-    logo_dir = tmp_path / "static" / "uploads" / "logo"
+    logo_dir = tmp_path / "uploads" / "image" / "logo"
     logo_dir.mkdir(parents=True)
     (logo_dir / "test-logo.png").write_bytes(b"x")
     s = db.session.get(SiteConfig, 1)
-    s.logo_path = "/static/uploads/logo/test-logo.png"
+    s.logo_path = "/uploads/image/logo/test-logo.png"
     db.session.commit()
     html = login_admin.get("/").get_data(as_text=True)
     assert 'class="navbar-logo"' in html
-    assert "/static/uploads/logo/test-logo.png" in html
+    assert "/uploads/image/logo/test-logo.png" in html
 
 
 def test_navbar_logo_falls_back_when_file_missing(login_admin, db, monkeypatch, tmp_path):
@@ -219,9 +225,9 @@ def test_navbar_logo_falls_back_when_file_missing(login_admin, db, monkeypatch, 
     """
     import app.utils as utils
 
-    monkeypatch.setattr(utils, "project_root", lambda: str(tmp_path))  # static 目录为空
+    monkeypatch.setattr(utils, "project_root", lambda: str(tmp_path))  # uploads 目录为空
     s = db.session.get(SiteConfig, 1)
-    s.logo_path = "/static/uploads/logo/gone.png"
+    s.logo_path = "/uploads/image/logo/gone.png"
     s.site_name = "My Blog"
     db.session.commit()
     html = login_admin.get("/").get_data(as_text=True)

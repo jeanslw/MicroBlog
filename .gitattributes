@@ -1,16 +1,55 @@
 # 统一行尾为 LF（覆盖全局 core.autocrlf=true）
+# 检出/提交均强制 LF，Windows 下也不会出现 CRLF 警告
 * text=auto eol=lf
+
+# 文本文件显式声明（即使无扩展名/扩展名罕见也参与 LF 归一）
+*.py    text eol=lf
+*.js    text eol=lf
+*.css   text eol=lf
+*.html  text eol=lf
+*.json  text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.md    text eol=lf
+*.txt   text eol=lf
+*.sh    text eol=lf
+*.env   text eol=lf
+*.sql   text eol=lf
+*.po    text eol=lf
+*.pot   text eol=lf
+*.toml  text eol=lf
+*.cfg   text eol=lf
+*.ini   text eol=lf
+*.gitkeep text eol=lf
+.gitignore      text eol=lf
+.gitattributes  text eol=lf
+Dockerfile      text eol=lf
+
+# Windows 专用脚本保留 CRLF
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
 
 # 二进制文件不要做行尾转换
 *.mo binary
+*.po~ binary
 *.png binary
 *.jpg binary
 *.jpeg binary
 *.gif binary
 *.webp binary
 *.ico binary
+*.bmp binary
+*.avif binary
 *.pdf binary
 *.zip binary
+*.gz binary
+*.tar binary
+*.db binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.otf binary
 
 *.py linguist-language=python
 *.js linguist-language=python

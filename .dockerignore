@@ -28,8 +28,9 @@ app.env
 
 # 本地数据（容器内自建或挂载卷）
 data/
-static/banner/
-static/uploads/
+logs/
+backups/
+uploads/
 MyBlog_ZH-CN.png
 MyBlog.png
 MyBlog_Admin_Panel.png

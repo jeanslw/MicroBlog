@@ -86,7 +86,7 @@ def test_comment_reply_cascade(db, article):
 
 def test_banner_defaults(db):
     """Banner 默认值应正确"""
-    b = Banner(img_path="/static/banner/x.jpg")
+    b = Banner(img_path="/uploads/banner/x.jpg")
     db.session.add(b)
     db.session.commit()
     assert b.title == ""
@@ -117,3 +117,4 @@ def test_vote_log_record(db, article):
     db.session.add(v)
     db.session.commit()
     assert v.id is not None
+

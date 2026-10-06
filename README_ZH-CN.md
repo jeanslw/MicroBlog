@@ -226,15 +226,15 @@ pytest --cov=app
 | 登录防暴力 | IP + 用户名维度失败计数，超限锁定 |
 | 安全 Session | HttpOnly + SameSite=Lax + 生产环境 Secure |
 | 文件上传安全 | 类型/大小校验、UUID 重命名、防双扩展、Pillow 解压炸弹防护 |
-| 图片防盗链 | Nginx valid_referers 规则保护 `/static/banner/` 和 `/static/uploads/` |
+| 图片防盗链 | 应用层 Referer 校验保护 `/uploads/banner/` 和 `/uploads/image/` |
 | 错误信息隐藏 | 生产模式隐藏异常堆栈，返回通用错误页 |
 
 ## 9. 目录权限
 
 ```bash
 # 上传目录可写
-mkdir -p static/banner static/uploads
-chmod 755 static/banner static/uploads
+mkdir -p uploads/banner uploads/image
+chmod 755 uploads/banner uploads/image
 
 # SQLite 模式需要 data 目录可写（首次启动自动创建）
 mkdir -p data

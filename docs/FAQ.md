@@ -49,7 +49,7 @@ The app enforces a Host allowlist to prevent Host header injection. Add the host
 - Direct MySQL deployment: confirm the database is running, the account has access to `flask_blog`, `BLOG_DB_TYPE=mysql` is set, and all required fields are present (the app refuses to start rather than silently falling back when fields are missing)
 
 **Q: Permission denied when uploading images or writing SQLite in the container?**
-On native Linux Docker, bind-mounted directories are owned by root by default, while the container runs as a non-root user. The image entrypoint [docker-entrypoint.sh](../docker-entrypoint.sh) automatically fixes ownership of `data/`, `static/banner`, `static/uploads`, and `backups/` at startup — rebuild with the latest image. If you customize the image, do not bypass this entrypoint.
+On native Linux Docker, bind-mounted directories are owned by root by default, while the container runs as a non-root user. The image entrypoint [docker-entrypoint.sh](../docker-entrypoint.sh) automatically fixes ownership of `data/`, `uploads/banner`, `uploads/image`, and `backups/` at startup — rebuild with the latest image. If you customize the image, do not bypass this entrypoint.
 
 **Q: What is the config file called, and what should I watch out for?**
 - **Bare metal / local runs**: the app-side config file is `app.env` (template `app.env.example`, `cp app.env.example app.env`), loaded by python-dotenv at startup; it is listed in `.gitignore` and never committed
@@ -97,10 +97,10 @@ Exit code 2 means the mysql/mysqldump client rejected the command during **optio
 - `[WinError 2]` / `command not found`: no client installed on the host — bare-metal runs need the MySQL/MariaDB client with its `bin` on `PATH` (container images bundle it, so they are unaffected)
 
 **Q: After restoring a Windows backup into a Linux container the blog name reads "My Blog My Blog" (or images are broken)?**
-A backup contains **only the database**, not the uploaded files under `static/uploads/` (site logo, avatar, custom background, images embedded in articles). After a restore the URLs in the database still point at those files, but the files are not on the new machine, so the browser renders broken images; the navbar logo's `alt` happens to be the site name, so the broken image paints that alt text right next to the real site name — it looks as if the site name were stored twice. The app now checks whether the file exists before rendering: when the logo/avatar is missing it falls back to the built-in icon and placeholder avatar, so no broken images or duplicated text appear (the URL in the database is left untouched and display recovers as soon as the file is back). For a full migration, copy the uploads directory along with the backup file:
+A backup contains **only the database**, not the uploaded files under `uploads/` (`uploads/image/` holds the site logo, avatar, custom background and images embedded in articles; `uploads/banner/` holds carousel images). After a restore the URLs in the database still point at those files, but the files are not on the new machine, so the browser renders broken images; the navbar logo's `alt` happens to be the site name, so the broken image paints that alt text right next to the real site name — it looks as if the site name were stored twice. The app now checks whether the file exists before rendering: when the logo/avatar is missing it falls back to the built-in icon and placeholder avatar, so no broken images or duplicated text appear (the URL in the database is left untouched and display recovers as soon as the file is back). For a full migration, copy the uploads directory along with the backup file:
 
 ```bash
-tar -czf uploads.tar.gz static/uploads           # on the old machine (for Docker, run it in the bind-mounted dir)
+tar -czf uploads.tar.gz uploads                  # on the old machine (for Docker, run it in the bind-mounted dir)
 tar -xzf uploads.tar.gz -C /path/to/MicroBlog    # on the new machine, into the project root
 ```
 Re-uploading the logo, avatar and background from "Site Settings" / "About" also works; images inside article bodies must be re-inserted or copied as above.
@@ -113,7 +113,7 @@ On serverless platforms (Vercel / AWS Lambda) the function's code directory is r
 - **Recommended for production**: use an external MySQL — set `BLOG_DB_TYPE=mysql` plus `BLOG_MYSQL_HOST` / `BLOG_MYSQL_USER` / `BLOG_MYSQL_PWD` / `BLOG_MYSQL_DB` (configure them under Settings → Environment Variables in Vercel; the database must be reachable from Vercel outbound)
 - **Demo only**: set `BLOG_SQLITE_PATH=/tmp/blog.db` (`/tmp` is not persistent — data is lost when instances restart or scale down, and instances do not share it; never use this for a real site)
 
-On Vercel you must also set `BLOG_ENV=production`, `BLOG_SECRET_KEY` (otherwise the app refuses to start) and `BLOG_TRUSTED_HOSTS=<your domain>` (otherwise requests return 400). Note that `static/uploads/` is not writable on Vercel (uploads fail) and the admin backup/restore feature is unusable. See [Deployment Guide 2.7](DEPLOYMENT.md#27-deploying-to-vercel-serverless-demo-only).
+On Vercel you must also set `BLOG_ENV=production`, `BLOG_SECRET_KEY` (otherwise the app refuses to start) and `BLOG_TRUSTED_HOSTS=<your domain>` (otherwise requests return 400). Note that `uploads/` is not writable on Vercel (uploads fail) and the admin backup/restore feature is unusable. See [Deployment Guide 2.7](DEPLOYMENT.md#27-deploying-to-vercel-serverless-demo-only).
 
 ---
 

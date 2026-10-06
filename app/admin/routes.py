@@ -67,7 +67,7 @@ from app.utils import (
     process_and_resize_logo,
     process_and_save_image,
     project_root,
-    remove_static_upload,
+    remove_uploaded_file,
     upload_dir,
 )
 
@@ -195,9 +195,11 @@ def about_setting():
                     avatar_file.filename,
                     base_name_max_len=current_app.config.get("UPLOAD_BASE_NAME_LEN", 50),
                 )
-                save_path = os.path.join(upload_dir("uploads/avatar"), final_name)
+                save_path = os.path.join(upload_dir("image", "avatar"), final_name)
                 process_and_resize_logo(avatar_file.stream, save_path, ext, max_edge=512)
-                site.about_avatar = url_for("static", filename=f"uploads/avatar/{final_name}")
+                site.about_avatar = url_for(
+                    "main.uploaded_file", category="image", filename=f"avatar/{final_name}"
+                )
             except Exception:
                 log.error("头像上传失败", exc_info=True)
                 flash(_("头像上传失败，请重试"), "danger")
@@ -214,7 +216,7 @@ def about_setting():
         db.session.commit()
         # 清理被替换的旧头像文件,避免磁盘堆积
         if old_avatar and old_avatar != site.about_avatar:
-            remove_static_upload(old_avatar)
+            remove_uploaded_file(old_avatar)
         flash(_("关于我信息保存完成"), "success")
         return redirect(url_for("admin.about_setting"))
     return render_template("admin/about_setting.html", form=form, site=site)
@@ -245,9 +247,11 @@ def _site_setting_view(template):
                         upload.filename,
                         base_name_max_len=current_app.config.get("UPLOAD_BASE_NAME_LEN", 50),
                     )
-                    save_path = os.path.join(upload_dir("uploads/backgrounds"), final_name)
+                    save_path = os.path.join(upload_dir("image", "backgrounds"), final_name)
                     process_and_save_image(upload.stream, save_path, ext, max_width=1920, quality=90)
-                    site.bg_custom = url_for("static", filename=f"uploads/backgrounds/{final_name}")
+                    site.bg_custom = url_for(
+                        "main.uploaded_file", category="image", filename=f"backgrounds/{final_name}"
+                    )
                     site.bg_style = "custom"
                 except Exception:
                     log.error("背景图上传失败", exc_info=True)
@@ -273,14 +277,16 @@ def _site_setting_view(template):
                     logo.filename,
                     base_name_max_len=current_app.config.get("UPLOAD_BASE_NAME_LEN", 50),
                 )
-                save_path = os.path.join(upload_dir("uploads/logo"), final_name)
+                save_path = os.path.join(upload_dir("image", "logo"), final_name)
                 process_and_resize_logo(
                     logo.stream,
                     save_path,
                     ext,
                     max_edge=current_app.config.get("LOGO_MAX_EDGE", 400),
                 )
-                site.logo_path = url_for("static", filename=f"uploads/logo/{final_name}")
+                site.logo_path = url_for(
+                    "main.uploaded_file", category="image", filename=f"logo/{final_name}"
+                )
             except Exception:
                 log.error("Logo 上传失败", exc_info=True)
                 flash(_("Logo 上传失败，请重试"), "danger")
@@ -292,9 +298,9 @@ def _site_setting_view(template):
         db.session.commit()
         # 清理被替换的旧背景/旧 Logo 文件,避免磁盘堆积
         if old_bg_custom and old_bg_custom != site.bg_custom:
-            remove_static_upload(old_bg_custom)
+            remove_uploaded_file(old_bg_custom)
         if old_logo and old_logo != site.logo_path:
-            remove_static_upload(old_logo)
+            remove_uploaded_file(old_logo)
         flash(_("站点设置保存完成"), "success")
         return redirect(url_for("admin.site_setting"))
     return render_template(template, form=form, site=site)
@@ -321,7 +327,7 @@ def upload_image():
         img.filename,
         base_name_max_len=current_app.config.get("UPLOAD_BASE_NAME_LEN", 100),
     )
-    save_dir = upload_dir("uploads")
+    save_dir = upload_dir("image")
     save_path = os.path.join(save_dir, final_name)
 
     # FileSize 验证器读取过 stream，重置到开头避免 PIL 无法识别
@@ -337,7 +343,7 @@ def upload_image():
         log.error("图片处理失败: %s", e, exc_info=True)
         return jsonify({"error": _("图片处理失败,请重试")}), 500
 
-    return jsonify({"url": f"/static/uploads/{final_name}"}), 200
+    return jsonify({"url": f"/uploads/image/{final_name}"}), 200
 
 
 # ── 首次安装引导 ─────────────────────────────────────────

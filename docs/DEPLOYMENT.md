@@ -289,7 +289,7 @@ The orchestration includes these guarantees out of the box — no custom wait sc
 | db health check | MySQL container uses `mysqladmin ping` and auto-imports [MySQL/init.sql](../MySQL/init.sql) on first boot |
 | Startup order | web `depends_on` db being healthy (ignored automatically in SQLite mode); nginx only routes traffic once web is healthy |
 | App-level wait | On startup the web app waits until MySQL accepts connections (probe every 3s, up to 90s) before creating tables/initializing — no skipped initialization due to slow MySQL first boot |
-| Mount permissions | The container entrypoint [docker-entrypoint.sh](../docker-entrypoint.sh) fixes ownership of `./data`, `./static/banner`, `./static/uploads`, and `./backups`, then drops privileges — the root-owned bind-mount problem on native Linux Docker is handled automatically |
+| Mount permissions | The container entrypoint [docker-entrypoint.sh](../docker-entrypoint.sh) fixes ownership of `./data`, `./uploads/banner`, `./uploads/image`, and `./backups`, then drops privileges — the root-owned bind-mount problem on native Linux Docker is handled automatically |
 
 Verify the probe manually:
 
@@ -356,7 +356,7 @@ Vercel's Python runtime picks up `wsgi.py` at the repository root as the WSGI en
 |---------------------|------------------------|
 | Read-only code directory | Inside a function the code directory (Vercel: `/var/task`) is read-only; only `/tmp` is writable. SQLite defaults to `data/blog.db`, so startup fails with `OSError: [Errno 30] Read-only file system: '/var/task/data'` (logged as "cannot import wsgi.py / Python process exited with status 1"). An external MySQL is mandatory |
 | `/tmp` is not persistent | Each instance has its own `/tmp`, wiped when the instance is recycled. Keeping SQLite in `/tmp` is demo-only: articles/settings written by the admin vanish on the next cold start, and concurrent instances do not even share the same file |
-| Uploads/backups unavailable | Logo/avatar/background/article images are written to `static/uploads/`, which is not writable on Vercel (upload requests return 500); the admin "database backup/restore" feature needs local disk plus `mysqldump` and is equally unusable |
+| Uploads/backups unavailable | Logo/avatar/background/article images are written under `uploads/` (`uploads/image/`, `uploads/banner/`), which is not writable on Vercel (upload requests return 500); the admin "database backup/restore" feature needs local disk plus `mysqldump` and is equally unusable |
 
 Steps:
 

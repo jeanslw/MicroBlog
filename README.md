@@ -226,15 +226,15 @@ pytest --cov=app
 | Brute-Force Protection | IP + username failure counting with lockout |
 | Secure Sessions | HttpOnly + SameSite=Lax + Secure (production) |
 | Upload Security | Type/size validation, UUID renaming, double-extension prevention, Pillow decompression bomb protection |
-| Hotlink Protection | Nginx valid_referers for `/static/banner/` and `/static/uploads/` |
+| Hotlink Protection | App-layer Referer check for `/uploads/banner/` and `/uploads/image/` |
 | Error Hiding | Production mode hides exception traces, returns generic error page |
 
 ## 9. Directory Permissions
 
 ```bash
-# Ensure upload directories are writable
-mkdir -p static/banner static/uploads
-chmod 755 static/banner static/uploads
+# Ensure upload directories are writable (auto-created on first startup)
+mkdir -p uploads/banner uploads/image
+chmod 755 uploads/banner uploads/image
 
 # SQLite mode requires writable data/ (auto-created on first startup)
 mkdir -p data

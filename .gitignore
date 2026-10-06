@@ -21,13 +21,13 @@ app.env
 /backups/
 # SSL 证书/私钥禁止入库（启用 HTTPS 时放入 nginx/certs/）
 /nginx/certs/
-/static/banner/*
-/static/uploads/*
+/uploads/banner/*
+/uploads/image/*
 /logs/*
 
 
 # 保留目录占位
 .codebuddy/
-!/static/banner/.gitkeep
-!/static/uploads/.gitkeep
+!/uploads/banner/.gitkeep
+!/uploads/image/.gitkeep
 

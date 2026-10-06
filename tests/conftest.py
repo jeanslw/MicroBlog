@@ -4,6 +4,7 @@
 """
 
 import os
+import shutil
 import tempfile
 
 import pytest
@@ -17,21 +18,30 @@ os.environ.setdefault("BLOG_SECRET_KEY", "testing-secret-key-do-not-use-in-prod"
 
 
 @pytest.fixture(scope="session")
-def _tmp_uploads_dir():
-    """会话级临时上传目录，测试结束自动清理"""
-    tmp = tempfile.mkdtemp(prefix="blog_test_uploads_")
-    return tmp
+def _tmp_project_root():
+    """会话级临时项目根：所有 uploads/backups 落盘重定向到这里，结束后清理。
+
+    必须在 create_app 之前替换 app.utils.project_root —— 启动时的
+    migrate_legacy_upload_dirs() 与请求中的 upload_dir() 都经它定位目录，
+    否则测试上传的小图会写进仓库真实 uploads/（历史污染问题）。
+    """
+    tmp = tempfile.mkdtemp(prefix="blog_test_root_")
+    yield tmp
+    shutil.rmtree(tmp, ignore_errors=True)
 
 
 @pytest.fixture()
-def app(_tmp_uploads_dir):
+def app(_tmp_project_root, monkeypatch):
     """每个测试函数创建全新 app + 内存数据库"""
+    import app.utils as utils
     from app import create_app
     from app.extensions import db as _db
 
+    # 全局重定向 project_root：upload_dir / 备份目录 / 上传文件存在性检查
+    # 全部落到临时目录。各测试内更细粒度的 monkeypatch 会临时覆盖并自动还原。
+    monkeypatch.setattr(utils, "project_root", lambda: _tmp_project_root)
+
     a = create_app("testing")
-    # 指向临时目录避免污染 static/uploads
-    a.config["UPLOAD_FOLDER"] = _tmp_uploads_dir
 
     with a.app_context():
         _db.create_all()

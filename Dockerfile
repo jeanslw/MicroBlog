@@ -33,8 +33,8 @@ RUN pip install -r requirements.txt
 # 复制项目代码
 COPY . .
 
-# 创建运行时目录（数据 + 上传图：文章图/轮播图/自定义背景）
-RUN mkdir -p data static/banner static/uploads/backgrounds
+# 创建运行时目录（数据 + 上传图：轮播图/文章图/Logo/头像/背景 + 日志）
+RUN mkdir -p data logs uploads/banner uploads/image
 
 # 容器内非 root 运行（入口脚本以 root 修正挂载目录属主后再 gosu 降权）
 RUN useradd -r -u 1000 -g root appuser \

@@ -1333,8 +1333,8 @@ msgstr "Account & Mail Settings"
 msgid "测试邮件将发送到上方账户邮箱。"
 msgstr "The test email will be sent to the account email above."
 
-msgid "/static/uploads/backgrounds/xxx.jpg 或 http(s)://..."
-msgstr "/static/uploads/backgrounds/xxx.jpg or http(s)://..."
+msgid "/uploads/image/backgrounds/xxx.jpg 或 http(s)://..."
+msgstr "/uploads/image/backgrounds/xxx.jpg or http(s)://..."
 
 msgid "（镜像已内置 mysqldump/mysql，备份与恢复开箱即用）"
 msgstr "(mysqldump/mysql bundled in the image; backup and restore work out of the box)"

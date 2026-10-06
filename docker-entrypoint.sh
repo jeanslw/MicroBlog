@@ -10,7 +10,7 @@
 # ============================================================
 set -e
 
-RUNTIME_DIRS="/app/data /app/backups /app/static/banner /app/static/uploads /app/static/uploads/backgrounds"
+RUNTIME_DIRS="/app/data /app/backups /app/logs /app/uploads/banner /app/uploads/image"
 for d in $RUNTIME_DIRS; do
     mkdir -p "$d"
     chown appuser:root "$d" 2>/dev/null || true
