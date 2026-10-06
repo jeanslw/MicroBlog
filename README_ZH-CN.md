@@ -4,7 +4,7 @@
 
 基于 Flask 3.1 框架，功能包括：文章发布与管理、Markdown文档上传、支持代码高亮与图片上传、评论与点赞、文章分类、Banner 轮播、中英双语 i18n。
 整体 UI 采用玻璃拟态透明风格，搭配动态炫酷背景（极光 / 星空 / 流光 / 气泡 / 经典），右下角悬浮调色盘按钮一键自由切换风格，选择记忆在 localStorage 中。
-全部静态资源本地加载，支持 SQLite 与 MySQL，内置 219 项自动化测试。
+全部静态资源本地加载，支持 SQLite 与 MySQL，内置 301 项自动化测试。
 
 <p align="center">
   <a href="https://gitee.com/jeanslw/MicroBlog/releases/tag/v1.3.3"><img src="https://img.shields.io/github/v/release/jeanslw/MicroBlog?style=flat-square&label=Release" alt="Release"></a>
@@ -35,9 +35,9 @@
 | Banner 轮播 | 后台管理轮播图、图片上传与排序 |
 | 国际化 | 中英双语自动切换，跟随浏览器语言，下拉框手动切换 |
 | UI 主题 | 玻璃拟态透明 UI，内置 12 张 1920x1080 高清背景图库，右下角调色盘一键切换；后台可上传或填 URL 自定义背景；localStorage 记忆选择 |
-| 安全 | CSRF 保护、HTML 净化防 XSS（nh3）、登录防暴力破解、安全 Session、图片解压炸弹防护 |
+| 安全 | CSRF 保护、HTML 净化防 XSS（nh3）、登录防暴力破解、邮箱找回密码、安全 Session、图片解压炸弹防护 |
 | 数据库 | SQLAlchemy ORM，SQLite / MySQL 无缝切换 |
-| 测试 | pytest 219 项测试，覆盖认证/博客/评论/安全/i18n 等模块 |
+| 测试 | pytest 301 项测试，覆盖认证/博客/评论/安全/i18n 等模块 |
 
 ## 2. 环境要求
 
@@ -180,6 +180,9 @@ waitress-serve --listen=127.0.0.1:5000 wsgi:application
 | 评论管理 | `/comment/manage/<文章 ID>` | 需登录，删除文章下的评论与回复 |
 | 站点设置 | `/admin/site_setting` | 需登录，修改站点名称 |
 | 修改密码 | `/admin/change_pwd` | 需登录 |
+| 找回密码 | `/admin/forgot` | 输入用户名 + 绑定邮箱，匹配后发送重置邮件（有频率限制） |
+| 重置密码 | `/admin/reset/<token>` | 通过邮件链接设置新密码（链接 30 分钟内有效） |
+| 账户与邮件 | `/admin/account` | 需登录，绑定管理员邮箱、配置 SMTP 发信 |
 | 轮播图管理 | `/banner/list` | 需登录，管理 Banner |
 | 语言切换 | `/set_lang/zh_CN` 或 `/set_lang/en` | 切换中/英文 |
 
@@ -191,6 +194,12 @@ waitress-serve --listen=127.0.0.1:5000 wsgi:application
 **登录后立即在「改密码」页面修改为强密码。**
 
 > `BLOG_INIT_ADMIN_PWD` 仅在 admin 表为空时生效一次，不会覆盖已有账号；未设置时启动日志会有提示性警告，属正常现象。
+
+**忘记密码：**在登录页点击「忘记密码」进入 `/admin/forgot`，输入管理员用户名**和**账号绑定的邮箱，两者匹配时发送重置链接邮件。使用前提：
+
+1. 登录后先在 `/admin/account` 绑定管理员邮箱。
+2. 配置 SMTP：可在 `app.env` 设置 `BLOG_MAIL_HOST` / `BLOG_MAIL_PORT` / `BLOG_MAIL_USER` / `BLOG_MAIL_PASSWORD` / `BLOG_MAIL_FROM`，也可在 `/admin/account` 的 SMTP 设置区配置；建议先用 `/admin/mail_test` 测试发信。
+3. 重置链接用 `BLOG_SECRET_KEY` 签名，30 分钟内有效（`BLOG_RESET_TOKEN_MAX_AGE`，默认 1800 秒），密码修改成功后旧链接立即失效；找回接口按 IP 限流（5 分钟最多 5 次），且无论账号是否存在都返回相同提示，防止账号枚举。
 
 ## 6. 国际化（i18n）
 
@@ -214,7 +223,7 @@ pytest tests/test_i18n.py
 pytest --cov=app
 ```
 
-测试覆盖 219 项，包括：认证与防暴力、文章 CRUD、评论与点赞、Banner 管理、健康检查与 MySQL 就绪等待、安全（XSS 净化/CSRF/Host 白名单/路径校验）、i18n 语言切换、数据模型等。
+测试覆盖 301 项，包括：认证与防暴力、文章 CRUD、评论与点赞、Banner 管理、健康检查与 MySQL 就绪等待、安全（XSS 净化/CSRF/Host 白名单/路径校验）、i18n 语言切换、结构化日志与请求链路追踪、数据模型等。
 
 ## 8. 安全特性
 
@@ -224,9 +233,11 @@ pytest --cov=app
 | XSS 防护 | nh3 白名单净化 HTML（文章内容存储原文，展示时净化） |
 | 密码安全 | Werkzeug pbkdf2:sha256 哈希存储 |
 | 登录防暴力 | IP + 用户名维度失败计数，超限锁定 |
+| 找回密码 | 邮箱重置：签名令牌（30 分钟有效、改密后立即失效）、5 分钟 5 次按 IP 限流、统一提示防账号枚举 |
 | 安全 Session | HttpOnly + SameSite=Lax + 生产环境 Secure |
 | 文件上传安全 | 类型/大小校验、UUID 重命名、防双扩展、Pillow 解压炸弹防护 |
 | 图片防盗链 | 应用层 Referer 校验保护 `/uploads/banner/` 和 `/uploads/image/` |
+| 可观测性 | 生产输出 JSON 结构化日志（ELK/Loki 直接解析），`X-Request-ID` 串联请求链路，慢请求/慢 SQL 自动告警；`logs/app.log` 轮转落盘（控制台同步输出） |
 | 错误信息隐藏 | 生产模式隐藏异常堆栈，返回通用错误页 |
 
 ## 9. 目录权限

@@ -4,7 +4,7 @@ Version: v1.3.5
 
 Built with Flask 3.1, it features article publishing and management, Markdown uploads, code highlighting, image uploads, comments and likes, article categories, a banner carousel, and bilingual support (Chinese/English). 
 The UI rocks a glassmorphism transparent style with awesome dynamic backgrounds (aurora / starry sky / flowing light / bubbles / classic). There's a floating color palette button at the bottom right to switch styles with one click, and your choice is saved in localStorage. 
-All static resources are loaded locally, it supports SQLite and MySQL, and comes with 219 automated tests built in.
+All static resources are loaded locally, it supports SQLite and MySQL, and comes with 301 automated tests built in.
 
 <p align="center">
   <a href="https://github.com/jeanslw/MicroBlog/releases/tag/v1.3.3"><img src="https://img.shields.io/github/v/release/jeanslw/MicroBlog?style=flat-square&label=Release" alt="Release"></a>
@@ -35,9 +35,9 @@ All static resources are loaded locally, it supports SQLite and MySQL, and comes
 | Banner Carousel | Backend banner management, image upload & sorting |
 | Internationalization | Chinese/English auto-switching, follows browser language, dropdown manual switch |
 | UI Theme | Glassmorphism transparent UI, 12 built-in 1920x1080 HD background images, one-click switch via floating palette; custom background can be uploaded or set by URL in the admin panel; choice remembered in localStorage |
-| Security | CSRF protection, HTML sanitization against XSS (nh3), login brute-force protection, secure sessions, image decompression bomb protection |
+| Security | CSRF protection, HTML sanitization against XSS (nh3), login brute-force protection, email-based password recovery, secure sessions, image decompression bomb protection |
 | Database | SQLAlchemy ORM, seamless SQLite/MySQL switching |
-| Testing | pytest 219 tests covering auth/blog/comments/security/i18n |
+| Testing | pytest 301 tests covering auth/blog/comments/security/i18n |
 
 ## 2. Requirements
 
@@ -180,6 +180,9 @@ All JS/CSS files are localized. **No CDN is required after deployment**, fully u
 | Comment Management | `/comment/manage/<article id>` | Login required, delete comments/replies under an article |
 | Site Settings | `/admin/site_setting` | Login required, change site name |
 | Change Password | `/admin/change_pwd` | Login required |
+| Forgot Password | `/admin/forgot` | Enter username + bound email; reset link sent by email (rate-limited) |
+| Reset Password | `/admin/reset/<token>` | Set a new password via the email link (token valid 30 minutes) |
+| Account & Email | `/admin/account` | Login required, bind admin email and configure SMTP |
 | Banner Management | `/banner/list` | Login required, manage banners |
 | Language Switch | `/set_lang/zh_CN` or `/set_lang/en` | Switch Chinese/English |
 
@@ -191,6 +194,12 @@ All JS/CSS files are localized. **No CDN is required after deployment**, fully u
 **Immediately change to a strong password on the "Change Password" page after logging in.**
 
 > `BLOG_INIT_ADMIN_PWD` only takes effect once when the admin table is empty and never overwrites an existing account. When it is unset, the startup log just notes that the admin can be created via the `/admin/setup` wizard — this is expected, not an error.
+
+**Forgot password:** on the login page click "Forgot password" → `/admin/forgot`, enter the admin username **and** the email bound to the account; if both match, an email with a reset link is sent. Prerequisites:
+
+1. Bind the admin email at `/admin/account` after logging in.
+2. Configure SMTP — either via `BLOG_MAIL_HOST` / `BLOG_MAIL_PORT` / `BLOG_MAIL_USER` / `BLOG_MAIL_PASSWORD` / `BLOG_MAIL_FROM` in `app.env`, or at `/admin/account` (SMTP settings section); use `/admin/mail_test` to verify delivery first.
+3. The reset link is signed with `BLOG_SECRET_KEY` and expires in 30 minutes (`BLOG_RESET_TOKEN_MAX_AGE`, default 1800s); it becomes invalid immediately once the password is changed. Forgot requests are limited to 5 per 5 minutes per IP, and the response is identical whether or not the account exists (anti-enumeration).
 
 ## 6. Internationalization (i18n)
 
@@ -214,7 +223,7 @@ pytest tests/test_i18n.py
 pytest --cov=app
 ```
 
-219 tests covering: authentication & brute-force protection, article CRUD, comments & likes, banner management, health checks & MySQL readiness waits, security (XSS sanitization/CSRF/host allowlist/path validation), i18n language switching, data models, and more.
+301 tests covering: authentication & brute-force protection, article CRUD, comments & likes, banner management, health checks & MySQL readiness waits, security (XSS sanitization/CSRF/host allowlist/path validation), i18n language switching, structured logging/request tracing, data models, and more.
 
 ## 8. Security Features
 
@@ -224,9 +233,11 @@ pytest --cov=app
 | XSS Prevention | nh3 whitelist HTML sanitization (raw content stored, sanitized on display) |
 | Password Security | Werkzeug pbkdf2:sha256 hash storage |
 | Brute-Force Protection | IP + username failure counting with lockout |
+| Password Recovery | Email-based reset: signed token (30 min TTL, single-use), 5 requests / 5 min rate limit, identical responses prevent account enumeration |
 | Secure Sessions | HttpOnly + SameSite=Lax + Secure (production) |
 | Upload Security | Type/size validation, UUID renaming, double-extension prevention, Pillow decompression bomb protection |
 | Hotlink Protection | App-layer Referer check for `/uploads/banner/` and `/uploads/image/` |
+| Observability | JSON structured logs for ELK/Loki with `X-Request-ID` tracing, slow-request/slow-query probes, rotating `logs/app.log` (console + file) |
 | Error Hiding | Production mode hides exception traces, returns generic error page |
 
 ## 9. Directory Permissions

@@ -19,8 +19,11 @@ Confirm all 10 JS/CSS files in `static/lib/` and the fonts in `static/lib/fonts/
 **Q: How to switch databases?**
 Change `BLOG_DB_TYPE` environment variable (`mysql` or `sqlite`); code adapts automatically.
 
-**Q: Admin login says password is wrong?**
-Passwords are stored as `generate_password_hash` hashes — **plaintext passwords cannot log in**. Note that `BLOG_INIT_ADMIN_PWD` only takes effect once when the admin table is empty (first initialization); it does **not** change the password of an existing admin. To reset a password, use a Python shell:
+**Q: Forgot admin password / login says password is wrong?**
+Passwords are stored as `generate_password_hash` hashes — **plaintext passwords cannot log in**. Note that `BLOG_INIT_ADMIN_PWD` only takes effect once when the admin table is empty (first initialization); it does **not** change the password of an existing admin. Options:
+
+- **Option 1 (recommended, email recovery):** click "Forgot password" on the login page (`/admin/forgot`), submit your username and bound email, then open `/admin/reset/<token>` from the received email to set a new password (link valid for 30 minutes). Requires a bound email at `/admin/account` and working SMTP settings (verify with `/admin/mail_test`).
+- **Option 2 (fallback when no email is bound / SMTP is unavailable):** reset directly via a Python shell on the server:
 ```python
 from werkzeug.security import generate_password_hash
 from app.models import Admin
@@ -31,6 +34,7 @@ admin = db.session.query(Admin).filter_by(username="admin").first()
 admin.password = generate_password_hash("new-password")
 db.session.commit()
 ```
+
 For a brand-new deployment with an empty admin table, you can also visit `/admin/setup` in the browser and use the setup wizard.
 
 **Q: Login fails behind nginx / keeps redirecting back to the login page?**

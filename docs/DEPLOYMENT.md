@@ -96,6 +96,12 @@ Common variables:
 | `BLOG_SESSION_LIFETIME` | `86400` | Session lifetime in seconds (default 24h; applies to the admin login session) |
 | `BLOG_INIT_ADMIN_USER` | `admin` | Admin username created on first startup |
 | `BLOG_INIT_ADMIN_PWD` | (none) | Auto-created admin password, takes effect only once when the admin table is empty; **leave empty and create the admin via the `/admin/setup` wizard on first visit** |
+| `BLOG_MAIL_HOST` / `BLOG_MAIL_PORT` / `BLOG_MAIL_USER` / `BLOG_MAIL_PASSWORD` / `BLOG_MAIL_FROM` | - | SMTP settings for password-recovery emails; can also be configured at `/admin/account` after login, test with `/admin/mail_test` |
+| `BLOG_MAIL_USE_SSL` / `BLOG_MAIL_USE_TLS` | `false` / `true` | SMTP encryption (typically SSL on port 465, STARTTLS on 587) |
+| `BLOG_RESET_TOKEN_MAX_AGE` | `1800` | Password-reset link lifetime in seconds (default 30 minutes) |
+| `BLOG_LOG_DIR` | `logs` | Log directory (console + rotating `app.log`, 10MB × 5; `/app/logs` inside Docker) |
+| `BLOG_LOG_FORMAT` | `auto` | `auto` (JSON in production / text in dev & test), `json` (for ELK/Loki), `text` |
+| `BLOG_SLOW_REQUEST_MS` / `BLOG_SLOW_QUERY_MS` | `500` / `200` | Slow request / slow query warning thresholds in milliseconds |
 
 Linux example:
 
