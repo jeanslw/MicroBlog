@@ -249,6 +249,21 @@ class Config:
     # 密码找回令牌有效期（秒）
     RESET_TOKEN_MAX_AGE = int(os.environ.get("BLOG_RESET_TOKEN_MAX_AGE", "1800"))
 
+    # ── 业务常量（镜像模块级常量，随 from_object 进入 app.config） ──
+    # 真正的定义在本文件顶部（供 `from config import ...` 直接导入）；此处显式
+    # 声明 ClassVar 并引用同名模块常量，使 app.config.from_object() 能把这些键
+    # 写入 app.config，替代原先在类定义后 `Config.X = X` 的动态挂载
+    # （动态属性 mypy 无法识别，且类的公开接口应在类体内可见）。
+    APP_VERSION: ClassVar[str] = APP_VERSION
+    PAGE_SIZE: ClassVar[int] = PAGE_SIZE
+    UPLOAD_ALLOWED_EXT: ClassVar[tuple[str, ...]] = UPLOAD_ALLOWED_EXT
+    UPLOAD_ALLOWED_MIME: ClassVar[tuple[str, ...]] = UPLOAD_ALLOWED_MIME
+    UPLOAD_MAX_SIZE: ClassVar[int] = UPLOAD_MAX_SIZE
+    UPLOAD_BASE_NAME_LEN: ClassVar[int] = UPLOAD_BASE_NAME_LEN
+    UPLOAD_MAX_WIDTH: ClassVar[int] = UPLOAD_MAX_WIDTH
+    BANNER_MAX_WIDTH: ClassVar[int] = BANNER_MAX_WIDTH
+    PIL_MAX_IMAGE_PIXELS: ClassVar[int] = PIL_MAX_IMAGE_PIXELS
+
 
 class DevelopmentConfig(Config):
     DEBUG = True
@@ -392,15 +407,3 @@ def get_config():
             stacklevel=2,
         )
     return cls
-
-
-# 模块级常量：供旧代码向后兼容（不应直接依赖）
-Config.APP_VERSION = APP_VERSION
-Config.PAGE_SIZE = PAGE_SIZE
-Config.UPLOAD_ALLOWED_EXT = UPLOAD_ALLOWED_EXT
-Config.UPLOAD_ALLOWED_MIME = UPLOAD_ALLOWED_MIME
-Config.UPLOAD_MAX_SIZE = UPLOAD_MAX_SIZE
-Config.UPLOAD_BASE_NAME_LEN = UPLOAD_BASE_NAME_LEN
-Config.UPLOAD_MAX_WIDTH = UPLOAD_MAX_WIDTH
-Config.BANNER_MAX_WIDTH = BANNER_MAX_WIDTH
-Config.PIL_MAX_IMAGE_PIXELS = PIL_MAX_IMAGE_PIXELS

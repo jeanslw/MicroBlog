@@ -143,7 +143,7 @@ def process_and_save_image(
     Raises:
         PIL.UnidentifiedImageError, OSError, ValueError 等异常由调用方处理
     """
-    image = Image.open(file_storage)
+    image: Image.Image = Image.open(file_storage)
     ext_lower = ext.lower()
 
     if ext_lower == "gif":
@@ -155,7 +155,7 @@ def process_and_save_image(
     if image.width > max_width:
         ratio = max_width / image.width
         new_height = int(image.height * ratio)
-        image = image.resize((max_width, new_height), Image.LANCZOS)
+        image = image.resize((max_width, new_height), Image.Resampling.LANCZOS)
 
     if ext_lower in ("jpg", "jpeg"):
         # JPEG 不支持透明通道,RGBA/P 模式需先转 RGB
@@ -176,7 +176,7 @@ def _save_gif(image: Image.Image, save_path: str, max_width: int) -> None:
     for frame in frames:
         if frame.width > max_width:
             ratio = max_width / frame.width
-            frame = frame.resize((max_width, int(frame.height * ratio)), Image.LANCZOS)
+            frame = frame.resize((max_width, int(frame.height * ratio)), Image.Resampling.LANCZOS)
         scaled.append(frame)
     scaled[0].save(
         save_path,
@@ -200,8 +200,8 @@ def process_and_resize_logo(
     Logo 过大时自动缩小（thumbnail 保持宽高比、不拉伸），输出尺寸
     始终控制在限制内。Raises 交由调用方处理。
     """
-    image = Image.open(file_storage)
-    image.thumbnail((max_edge, max_edge), Image.LANCZOS)
+    image: Image.Image = Image.open(file_storage)
+    image.thumbnail((max_edge, max_edge), Image.Resampling.LANCZOS)
 
     ext_lower = ext.lower()
     if ext_lower in ("jpg", "jpeg"):

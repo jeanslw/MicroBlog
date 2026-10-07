@@ -25,6 +25,8 @@ def uploaded_file(category: str, filename: str):
     if category not in UPLOAD_CATEGORIES:
         abort(404)
     directory = safe_join(project_root(), "uploads", category)
+    if directory is None:
+        abort(404)
     full_path = safe_join(directory, filename)
     if full_path is None or not os.path.isfile(full_path):
         abort(404)

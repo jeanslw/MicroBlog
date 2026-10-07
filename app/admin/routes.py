@@ -877,8 +877,11 @@ def _request_worker_recycle() -> bool:
         return False
     if "gunicorn" not in cmdline:
         return False
+    sighup = getattr(signal, "SIGHUP", None)  # Windows 无 SIGHUP；posix 守卫已拦截，此处为类型检查与双保险
+    if sighup is None:
+        return False
     try:
-        os.kill(os.getppid(), signal.SIGHUP)
+        os.kill(os.getppid(), sighup)
     except OSError as e:
         log.warning("向 gunicorn 发送 SIGHUP 失败，请手动重启服务: %s", e)
         return False

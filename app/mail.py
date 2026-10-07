@@ -37,7 +37,7 @@ def send_mail(to: str, subject: str, body: str) -> None:
     except Exception:
         site = None
 
-    if db_host:
+    if db_host and site is not None:
         host = db_host
         port = int(site.mail_port or 587)
         user = site.mail_user or ""
@@ -63,7 +63,7 @@ def send_mail(to: str, subject: str, body: str) -> None:
     msg["To"] = to
     msg.set_content(body)
 
-    server = None
+    server: smtplib.SMTP | None = None
     try:
         if use_ssl:
             server = smtplib.SMTP_SSL(host, port, timeout=15)
