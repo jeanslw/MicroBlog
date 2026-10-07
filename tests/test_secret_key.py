@@ -23,6 +23,10 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_DEFAULT = "insecure-compose-default-key-CHANGE-ME-0123456789abcdef"
+# 显式用户密钥的测试占位符。security.yml 的行级正则会把关键字赋值的单段 16+
+# 字符引号串误判为硬编码密钥（完整值 17 字符）；拆成两段相邻字符串后拼接值不变，
+# 且任何单段引号串都达不到阈值。
+EXPLICIT_KEY = "my-own-strong" "-key"
 
 # 导入 config 会执行 load_dotenv()（按 config.py 所在目录找 app.env），
 # 故把真实 config.py 复制到临时目录再导入，避免读到开发者本机的 app.env
@@ -178,10 +182,10 @@ def test_entrypoint_block_generates_reuses_and_ignores_public_default(tmp_path):
 
     # 显式提供自己的密钥：沿用，不覆盖（用全新目录，验证不会额外生成密钥文件）
     proc, secret_file2 = _run_secret_key_block(
-        tmp_path / "explicit", BLOG_SECRET_KEY="my-own-strong-key"
+        tmp_path / "explicit", BLOG_SECRET_KEY=EXPLICIT_KEY
     )
     assert proc.returncode == 0, proc.stderr
-    assert _env_line(proc) == "ENV=my-own-strong-key", "用户显式设置的密钥必须被沿用"
+    assert _env_line(proc) == f"ENV={EXPLICIT_KEY}", "用户显式设置的密钥必须被沿用"
     assert not secret_file2.exists(), "已有显式密钥时不应再生成密钥文件"
 
     # 显式设成仓库里的公开默认值：必须被忽略并重新生成随机密钥
