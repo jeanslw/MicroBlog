@@ -34,7 +34,7 @@ jobs:
           pip install -r requirements.txt "pip-audit==2.10.1"
 
       - name: Python syntax check
-        run: python -m compileall -q app config.py run.py tests
+        run: python -m compileall -q app config.py run.py wsgi.py tests
 
       # 依赖漏洞审计策略（与 Devops_CD 对齐）：
       # - PR：已知漏洞仅告警不阻断——第三方新披露的 CVE 与本 PR 无关时，

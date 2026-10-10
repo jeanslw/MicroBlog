@@ -23,9 +23,9 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_DEFAULT = "insecure-compose-default-key-CHANGE-ME-0123456789abcdef"
-# 显式用户密钥的测试占位符。security.yml 的行级正则会把关键字赋值的单段 16+
-# 字符引号串误判为硬编码密钥（完整值 17 字符）；拆成两段相邻字符串后拼接值不变，
-# 且任何单段引号串都达不到阈值。
+# 显式用户密钥的测试占位符（非真实凭证）。security.yml 的扫描已改为只匹配
+# 真实凭证格式（glpat-/ghp_/github_pat_/AKIA/xox…/私钥块），普通占位串不会
+# 误报——早期为规避旧版宽泛正则而拆分字符串的写法已无必要，随 ruff format 合并还原。
 EXPLICIT_KEY = "my-own-strong-key"
 
 # 导入 config 会执行 load_dotenv()（按 config.py 所在目录找 app.env），

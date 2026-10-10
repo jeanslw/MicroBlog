@@ -47,12 +47,13 @@ jobs:
         run: pip check
 
       - name: Ruff lint
-        run: ruff check app config.py run.py tests
+        run: ruff check app config.py run.py wsgi.py tests
 
       # 格式门禁：ruff.toml 已忽略 E501、行宽判定交给 formatter 单独处理，
       # 因此 formatter 必须进 CI，否则代码格式实际处于无门禁状态。
+      # wsgi.py 是 gunicorn 生产入口，与 mypy 的检查范围保持一致。
       - name: Ruff format check
-        run: ruff format --check app config.py run.py tests
+        run: ruff format --check app config.py run.py wsgi.py tests
 
       # 类型检查：配置在仓库根目录 mypy.ini（定位为挡真实缺陷、非严格类型化，
       # 详见该文件头部说明）。无参数运行时 mypy 自动读取其中的 files 配置。
@@ -60,7 +61,7 @@ jobs:
         run: mypy
 
       - name: Python syntax check
-        run: python -m compileall -q app config.py run.py tests
+        run: python -m compileall -q app config.py run.py wsgi.py tests
 
   test:
     name: Pytest (Python ${{ matrix.python-version }})
