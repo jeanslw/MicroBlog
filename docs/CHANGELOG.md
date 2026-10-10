@@ -1,8 +1,14 @@
 # MicroBlog Changelog
 
-## [Unreleased]
+## [v1.3.5] - 2026-09-16
 
-Security and correctness fixes: the session key no longer falls back to the repository's public default, SQLite restore now validates and atomically replaces the database file under a cross-process lock, site settings are read and written as a single row, and rate-limit cleanup is no longer rolled back.
+Ops & UI hardening: docker-compose pre-start guard, MySQL 8.4 upgrade with auth-plugin compatibility, configurable 24-hour session lifetime, mobile collapsed-navbar search layout, touch support fix for the theme switcher, nginx version hiding, plus admin comment management and breadcrumb group fixes.Security and correctness fixes: the session key no longer falls back to the repository's public default, SQLite restore now validates and atomically replaces the database file under a cross-process lock, site settings are read and written as a single row, and rate-limit cleanup is no longer rolled back.
+
+### Added
+
+- docker-compose pre-start guard `env-check` (profiles `mysql`/`full`): before `db` starts, a one-shot container verifies that `MySQL/init.sql` exists (prevents an empty bind-mount directory shadowing initialization) and that `MYSQL_ROOT_PASSWORD` / `MYSQL_PASSWORD` are neither the template placeholder (`请替换为强密码`) nor explicitly set to the public test defaults — any of these aborts startup with bilingual guidance. When both passwords are simply left unset (no `.env.docker` at all) the guard only emits a security warning and passes, reusing the built-in test passwords of the `db` service so that `--profile full up -d` still works out of the box locally instead of being silently blocked; it likewise warns when `BLOG_SECRET_KEY` is still the public test key. `db` depends on the guard completing successfully. Note that `up -d` does not print this one-shot container's output — inspect failures with `docker compose --profile full logs env-check`.
+- Admin comment management: the published-article list gains a comment-count badge column and a "Comment Management" entry; `/comment/manage/<article id>` lists every comment and reply of that article with newest comments first and offers per-row deletion — deleting a comment cascades to its replies through the ORM, while a single reply can also be removed on its own; afterwards the admin returns to the same management page (or to the article list if the article no longer exists). Comments/replies are loaded with one comment query plus one reply query (`get_article_comments`) and the article list counts comments with a single `GROUP BY`, so there is no N+1; every route requires admin login and a CSRF token.
+- Configurable session lifetime: `PERMANENT_SESSION_LIFETIME` is now driven by `BLOG_SESSION_LIFETIME` (seconds, default `86400` = 24 hours; previously hardcoded 12 hours). Exposed in docker-compose, `.env` examples and the deployment docs; covered by a new `test_session_lifetime_24h`.
 
 ### Security
 
@@ -18,25 +24,6 @@ Security and correctness fixes: the session key no longer falls back to the repo
 - **Search keywords are matched literally**: `search_articles` now uses `contains(..., autoescape=True)`, so `%` and `_` no longer act as wildcards, and keywords are capped by `SEARCH_KEYWORD_MAX_LEN = 100`.
 - **`MySQL/init.sql` is idempotent**: tables use `CREATE TABLE IF NOT EXISTS` and seed data uses `INSERT IGNORE`, so re-running it against a live database no longer drops data (previous versions started with `DROP TABLE IF EXISTS`); `article.is_pinned` and `rate_limit.idx_action_time` were added.
 - **Dead config removed**: `PERMANENT_SESSION_LIFETIME_DELTA` was never read by any code and is gone.
-
-### Tests & Docs
-
-- 30 new regression tests: `test_secret_key.py` (including a case that executes the entrypoint's key block for real, covering generate / reuse / honour explicit value / ignore public default), `test_restore_lock.py` (lock contention, stale-lock takeover, corrupt backups never touching the live database), `test_site_config.py`, `test_rate_limit_cleanup.py`, `test_search_escape.py`, plus stricter `safe_url` assertions in `test_security.py` (301 → 331 passing, ruff clean).
-- Updated the session-key documentation across both READMEs, both deployment guides, both FAQs, `.env.docker.example` and the docker-compose comments.
-
-
-## [v1.3.5] - 2026-09-16
-
-Ops & UI hardening: docker-compose pre-start guard, MySQL 8.4 upgrade with auth-plugin compatibility, configurable 24-hour session lifetime, mobile collapsed-navbar search layout, touch support fix for the theme switcher, nginx version hiding, plus admin comment management and breadcrumb group fixes.
-
-### Added
-
-- docker-compose pre-start guard `env-check` (profiles `mysql`/`full`): before `db` starts, a one-shot container verifies that `MySQL/init.sql` exists (prevents an empty bind-mount directory shadowing initialization) and that `MYSQL_ROOT_PASSWORD` / `MYSQL_PASSWORD` are neither the template placeholder (`请替换为强密码`) nor explicitly set to the public test defaults — any of these aborts startup with bilingual guidance. When both passwords are simply left unset (no `.env.docker` at all) the guard only emits a security warning and passes, reusing the built-in test passwords of the `db` service so that `--profile full up -d` still works out of the box locally instead of being silently blocked; it likewise warns when `BLOG_SECRET_KEY` is still the public test key. `db` depends on the guard completing successfully. Note that `up -d` does not print this one-shot container's output — inspect failures with `docker compose --profile full logs env-check`.
-- Admin comment management: the published-article list gains a comment-count badge column and a "Comment Management" entry; `/comment/manage/<article id>` lists every comment and reply of that article with newest comments first and offers per-row deletion — deleting a comment cascades to its replies through the ORM, while a single reply can also be removed on its own; afterwards the admin returns to the same management page (or to the article list if the article no longer exists). Comments/replies are loaded with one comment query plus one reply query (`get_article_comments`) and the article list counts comments with a single `GROUP BY`, so there is no N+1; every route requires admin login and a CSRF token.
-- Configurable session lifetime: `PERMANENT_SESSION_LIFETIME` is now driven by `BLOG_SESSION_LIFETIME` (seconds, default `86400` = 24 hours; previously hardcoded 12 hours). Exposed in docker-compose, `.env` examples and the deployment docs; covered by a new `test_session_lifetime_24h`.
-
-### Changed & Fixed
-
 - MySQL image upgraded 8.0 → 8.4 (guard image kept in sync): the `--default-authentication-plugin=mysql_native_password` flag — removed in 8.4 — was dropped and replaced with `--mysql-native-password=ON`, so legacy accounts on pre-existing 8.0 data volumes keep authenticating after the in-place upgrade (note: 8.0 → 8.4 is one-way; do not downgrade afterwards). Verified on a fresh 8.4 volume: container healthy, app account TCP auth passes (8.4 default `caching_sha2_password` is fully supported by PyMySQL 1.2.0 + cryptography — no app change needed).
 - Mobile collapsed navbar (<992px): the search row (search box + button + language switch) now renders at the **top** of the expanded menu, right-aligned with the search box capped at 210px — echoing the desktop top-right search position instead of spanning the full width under the category links. Desktop (≥992px) layout untouched.
 - Theme switcher works on touch devices again: `onPointerDown` no longer calls `e.preventDefault()` on `touchstart` — on touch screens that suppresses the browser-synthesized `click`, so tapping the palette button did nothing (desktop was unaffected because `mousedown` default-prevention does not block `click`). Scroll-blocking during drags is already handled by CSS `touch-action: none`; mouse/touch dragging and position memory are unchanged. Cache stamp bumped to `?v=20260916a`.
@@ -48,6 +35,8 @@ Ops & UI hardening: docker-compose pre-start guard, MySQL 8.4 upgrade with auth-
 ### Tests & Docs
 
 - **270** tests passing (24 added here: 8 covering the comment-management delete flows, 1 for the new i18n entries, 12 for backup/restore client-flag fallback and stderr surfacing, and 3 for the missing-upload rendering fallback). Changelog and FAQ updated in both languages, and both READMEs document the new "Article List" / "Comment Management" admin URLs.
+- 30 new regression tests: `test_secret_key.py` (including a case that executes the entrypoint's key block for real, covering generate / reuse / honour explicit value / ignore public default), `test_restore_lock.py` (lock contention, stale-lock takeover, corrupt backups never touching the live database), `test_site_config.py`, `test_rate_limit_cleanup.py`, `test_search_escape.py`, plus stricter `safe_url` assertions in `test_security.py` (301 → 331 passing, ruff clean).
+- Updated the session-key documentation across both READMEs, both deployment guides, both FAQs, `.env.docker.example` and the docker-compose comments.
 
 ---
 
