@@ -412,7 +412,7 @@ Maintenance mode (HTTP 503) in manual mode:
 
 > **Why maintenance mode exists**: during a structural upgrade the old code may be unable to read the new schema (and vice versa), and even logging in can fail. That is why the three tables used by the login path (`admin`, `login_attempt`, `rate_limit`) **keep their structure across versions**, and the upgrade page reads no business table at all — the "log in → migrate" path therefore works whatever state the database is in.
 
-Before upgrading: export a backup from the admin "Database Backup" page and **verify it can be restored** (ideally restore it once in a scratch environment). A failed migration is logged (`数据库迁移失败` with a traceback) and **never blocks startup** — fix the cause (disk space, account privileges, …) and retry; failing to acquire the MySQL named lock (60s wait) is likewise only logged, and a restart or the next request retries.
+Before upgrading: export a backup from the admin "Database Backup" page and **verify it can be restored** (ideally restore it once in a scratch environment). Note that in manual mode, once the site is in maintenance mode the admin "Database Backup" page is itself gated with a 503 (it is not on the allow-list) — take the backup **before** changing the config or restarting, or use `mysqldump` (MySQL) / copy `data/blog.db` (SQLite) on the server instead. A failed migration is logged (`数据库迁移失败` with a traceback) and **never blocks startup** — fix the cause (disk space, account privileges, …) and retry; failing to acquire the MySQL named lock (60s wait) is likewise only logged, and a restart or the next request retries.
 
 ---
 

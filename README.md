@@ -259,6 +259,7 @@ chmod 755 data
 | [Deployment Guide](docs/DEPLOYMENT.md) | Quick start + full deployment (bare-metal, Docker Compose, HTTPS) |
 | [FAQ](docs/FAQ.md) | Frequently asked questions & troubleshooting |
 | [Project Architecture](docs/ARCHITECTURE.md) | Codebase structure, entry points & module layout |
+| [Admin Guide](docs/ADMIN_GUIDE.md) | Admin panel tour, backups, schema migrations & maintenance mode |
 | [Contributing Guide](CONTRIBUTING.md) | Bug reporting, code contribution workflow & commit conventions; release rules see [Version Management](CONTRIBUTING.md#5-version-management) |
 
 ## Contact

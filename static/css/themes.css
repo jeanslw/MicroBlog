@@ -1,6 +1,6 @@
 /* ============================================================
    themes.css - 图片动态背景 + 玻璃拟态透明 UI + 风格切换器
-   body[data-bg] 由后台 SiteConfig.bg_style 决定默认值，
+   body[data-bg] 由后台 SiteSetting.bg_style 决定默认值，
    theme-switcher.js 支持前台临时切换（localStorage 记忆）。
    内置背景图库对应 static/backgrounds/ 下的 12 张高清图。
    ============================================================ */

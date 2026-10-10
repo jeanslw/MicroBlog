@@ -206,90 +206,99 @@ def _migrate_site_config_split():
     ensure_default_settings 只在对应表为空时补默认行。
 
     安全设计（用户决策：迁移后立即 DROP 旧表）：
-    1. 复制（INSERT）与行数校验在同一个 DML 事务里完成；
+    1. 读旧行（SELECT）、复制（INSERT）、行数校验与 DROP 旧表全部在**同一条
+       连接/事务**里顺序完成——绝不跨连接读写。若用 db.session 读旧行、engine
+       另一连接 DROP，MySQL 下会话未提交事务会持有 site_config 的共享 MDL，
+       DROP 需要排他 MDL，会阻塞到 lock_wait_timeout 才失败；
     2. 校验通过（三表各恰好一行）后才执行 DROP —— MySQL 的 DDL 会隐式提交、
        无法与 DML 同事务，因此「先校验后删」是该引擎下最接近原子性的做法；
-       校验失败则抛异常回滚，旧表原样保留，下次启动重试；
-    3. 旧库可能缺列（v1.1.x 及以前没有 bg/about/mail 列）：缺列取默认值，
+    3. 任何失败都**向上抛出**（不吞异常）：由版本化迁移框架负责「不戳记、
+       下次启动/手动触发重试」。若在这里吞掉异常，run_schema_migrations 仍会
+       把该版本戳成「已应用」，失败就再也不会重试，用户配置静默丢失；
+    4. 旧库可能缺列（v1.1.x 及以前没有 bg/about/mail 列）：缺列取默认值，
        不再像旧迁移那样逐列 ALTER 后复制。
     """
-    try:
-        inspector = db.inspect(db.engine)
-        if "site_config" not in inspector.get_table_names():
-            return  # 新库或已完成迁移
-        old_cols = {c["name"] for c in inspector.get_columns("site_config")}
-        row = db.session.execute(db.text("SELECT * FROM site_config ORDER BY id LIMIT 1")).mappings().first()
+    inspector = db.inspect(db.engine)
+    if "site_config" not in inspector.get_table_names():
+        return  # 新库或已完成迁移
+    old_cols = {c["name"] for c in inspector.get_columns("site_config")}
 
-        with db.engine.begin() as conn:
-            if row is not None:
-                # 缺列取默认值：老库可能没有 v1.2+ 新增的列
-                def val(col, default):
-                    v = row[col] if col in old_cols else default
-                    return default if v is None else v
+    def _int_or(raw, default):
+        """旧库 mail_port 可能是空串/非数字（极老 VARCHAR schema）：转 int 失败回退默认。"""
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            return default
 
-                conn.execute(db.text("DELETE FROM site_setting"))
-                conn.execute(db.text("DELETE FROM mail_setting"))
-                conn.execute(db.text("DELETE FROM about_profile"))
-                conn.execute(
-                    db.text(
-                        "INSERT INTO site_setting "
-                        "(id, site_name, favicon_path, logo_path, bg_style, bg_custom, comments_enabled, sidebar_style) "
-                        "VALUES (1, :site_name, :favicon_path, :logo_path, :bg_style, :bg_custom, "
-                        ":comments_enabled, :sidebar_style)"
-                    ),
-                    {
-                        "site_name": val("site_name", "My Blog"),
-                        "favicon_path": val("favicon_path", "static/favicon.ico"),
-                        "logo_path": val("logo_path", ""),
-                        "bg_style": val("bg_style", "bg1"),
-                        "bg_custom": val("bg_custom", ""),
-                        "comments_enabled": 1 if val("comments_enabled", True) else 0,
-                        "sidebar_style": val("sidebar_style", "book"),
-                    },
-                )
-                conn.execute(
-                    db.text(
-                        "INSERT INTO mail_setting "
-                        "(id, mail_host, mail_port, mail_user, mail_password, mail_from, mail_use_ssl, mail_use_tls) "
-                        "VALUES (1, :mail_host, :mail_port, :mail_user, :mail_password, :mail_from, "
-                        ":mail_use_ssl, :mail_use_tls)"
-                    ),
-                    {
-                        "mail_host": val("mail_host", ""),
-                        "mail_port": int(val("mail_port", 587)),
-                        "mail_user": val("mail_user", ""),
-                        "mail_password": val("mail_password", ""),
-                        "mail_from": val("mail_from", ""),
-                        "mail_use_ssl": 1 if val("mail_use_ssl", False) else 0,
-                        "mail_use_tls": 1 if val("mail_use_tls", True) else 0,
-                    },
-                )
-                conn.execute(
-                    db.text(
-                        "INSERT INTO about_profile "
-                        "(id, about_avatar, about_bio, about_email, about_github, about_homepage, about_nickname) "
-                        "VALUES (1, :about_avatar, :about_bio, :about_email, :about_github, "
-                        ":about_homepage, :about_nickname)"
-                    ),
-                    {
-                        "about_avatar": val("about_avatar", ""),
-                        "about_bio": val("about_bio", ""),
-                        "about_email": val("about_email", ""),
-                        "about_github": val("about_github", ""),
-                        "about_homepage": val("about_homepage", ""),
-                        "about_nickname": val("about_nickname", ""),
-                    },
-                )
-                # 校验：三张新表各恰好一行，任何异常整体回滚（旧表保留,下次启动重试）
-                for table in ("site_setting", "mail_setting", "about_profile"):
-                    cnt = conn.execute(db.text(f"SELECT COUNT(*) FROM {table}")).scalar()
-                    if cnt != 1:
-                        raise RuntimeError(f"{table} 迁移校验失败: 期望 1 行,实际 {cnt} 行")
-            # 旧行为空也直接删空表；校验通过后 DROP 旧表
-            conn.execute(db.text("DROP TABLE site_config"))
-        log.info("site_config 已拆分迁移至 site_setting / mail_setting / about_profile,旧表已删除")
-    except Exception as e:
-        log.warning("site_config 拆分迁移失败,旧表保留待下次重试: %s", e)
+    with db.engine.begin() as conn:
+        row = conn.execute(db.text("SELECT * FROM site_config ORDER BY id LIMIT 1")).mappings().first()
+        if row is not None:
+            # 缺列取默认值：老库可能没有 v1.2+ 新增的列
+            def val(col, default):
+                v = row[col] if col in old_cols else default
+                return default if v is None else v
+
+            conn.execute(db.text("DELETE FROM site_setting"))
+            conn.execute(db.text("DELETE FROM mail_setting"))
+            conn.execute(db.text("DELETE FROM about_profile"))
+            conn.execute(
+                db.text(
+                    "INSERT INTO site_setting "
+                    "(id, site_name, favicon_path, logo_path, bg_style, bg_custom, comments_enabled, sidebar_style) "
+                    "VALUES (1, :site_name, :favicon_path, :logo_path, :bg_style, :bg_custom, "
+                    ":comments_enabled, :sidebar_style)"
+                ),
+                {
+                    "site_name": val("site_name", "My Blog"),
+                    "favicon_path": val("favicon_path", "static/favicon.ico"),
+                    "logo_path": val("logo_path", ""),
+                    "bg_style": val("bg_style", "bg1"),
+                    "bg_custom": val("bg_custom", ""),
+                    "comments_enabled": 1 if val("comments_enabled", True) else 0,
+                    "sidebar_style": val("sidebar_style", "book"),
+                },
+            )
+            conn.execute(
+                db.text(
+                    "INSERT INTO mail_setting "
+                    "(id, mail_host, mail_port, mail_user, mail_password, mail_from, mail_use_ssl, mail_use_tls) "
+                    "VALUES (1, :mail_host, :mail_port, :mail_user, :mail_password, :mail_from, "
+                    ":mail_use_ssl, :mail_use_tls)"
+                ),
+                {
+                    "mail_host": val("mail_host", ""),
+                    "mail_port": _int_or(val("mail_port", 587), 587),
+                    "mail_user": val("mail_user", ""),
+                    "mail_password": val("mail_password", ""),
+                    "mail_from": val("mail_from", ""),
+                    "mail_use_ssl": 1 if val("mail_use_ssl", False) else 0,
+                    "mail_use_tls": 1 if val("mail_use_tls", True) else 0,
+                },
+            )
+            conn.execute(
+                db.text(
+                    "INSERT INTO about_profile "
+                    "(id, about_avatar, about_bio, about_email, about_github, about_homepage, about_nickname) "
+                    "VALUES (1, :about_avatar, :about_bio, :about_email, :about_github, "
+                    ":about_homepage, :about_nickname)"
+                ),
+                {
+                    "about_avatar": val("about_avatar", ""),
+                    "about_bio": val("about_bio", ""),
+                    "about_email": val("about_email", ""),
+                    "about_github": val("about_github", ""),
+                    "about_homepage": val("about_homepage", ""),
+                    "about_nickname": val("about_nickname", ""),
+                },
+            )
+            # 校验：三张新表各恰好一行，任何异常整体回滚（旧表保留,下次启动重试）
+            for table in ("site_setting", "mail_setting", "about_profile"):
+                cnt = conn.execute(db.text(f"SELECT COUNT(*) FROM {table}")).scalar()
+                if cnt != 1:
+                    raise RuntimeError(f"{table} 迁移校验失败: 期望 1 行,实际 {cnt} 行")
+        # 旧行为空也直接删空表；校验通过后 DROP 旧表
+        conn.execute(db.text("DROP TABLE site_config"))
+    log.info("site_config 已拆分迁移至 site_setting / mail_setting / about_profile,旧表已删除")
 
 
 # ── Schema 版本化迁移框架（v1.3.6 引入） ────────────────────

@@ -1,6 +1,6 @@
 /**
  * theme-switcher.js - 背景风格切换器
- * 默认风格来自后台 SiteConfig.bg_style（base.html 输出到 body[data-bg]），
+ * 默认风格来自后台 SiteSetting.bg_style（base.html 输出到 body[data-bg]），
  * 前台用户可临时切换并持久化到 localStorage（key: blog-bg-style），
  * 优先于后台默认值。
  *

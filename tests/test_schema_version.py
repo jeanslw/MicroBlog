@@ -12,6 +12,9 @@ note）,「数据库当前版本」= 履历里语义化最高的一行。
 
 import re
 
+import pytest
+from sqlalchemy.exc import DBAPIError
+
 from app import run_startup_schema_migrations
 from app.database import (
     SCHEMA_VERSION,
@@ -66,6 +69,38 @@ def test_legacy_db_detected_and_migrated_step_by_step(app, db):
     assert [v for v, _ in applied] == ["1.3.6"]
     assert not _table_exists("site_config")
     assert get_schema_version() == SCHEMA_VERSION
+
+
+def test_failed_migration_is_not_stamped_and_retries(app, db):
+    """P1 回归：迁移函数抛异常时框架不戳记、版本不推进，修好后重试成功。
+
+    若迁移函数内部吞掉异常，run_schema_migrations 仍会把该版本戳成「已应用」，
+    失败就再也不会重试——用户配置静默丢失。这里验证：失败 → 版本停在基线、
+    旧表保留；修好原因后重试 → 成功戳记并推进版本。
+    """
+    _reset_to_legacy()
+    sync_schema_version()  # 推断基线 1.3.5 并戳记
+    assert get_schema_version() == SCHEMA_VERSION_BASELINE
+
+    # 制造复制失败：新表 site_setting 意外缺失
+    with db.engine.begin() as conn:
+        conn.execute(db.text("DROP TABLE site_setting"))
+
+    # 表缺失在 SQLite 抛 OperationalError、MySQL 抛 ProgrammingError,
+    # 统一以共同基类 DBAPIError 断言（不用宽泛的 Exception,见 ruff B017）
+    with pytest.raises(DBAPIError):
+        run_schema_migrations()
+
+    # 失败不被误标为「已应用」：版本停在基线，旧表保留
+    assert get_schema_version() == SCHEMA_VERSION_BASELINE
+    assert _table_exists("site_config")
+
+    # 修好原因（重建缺失的新表）后重试即成功
+    db.create_all()
+    applied = run_schema_migrations()
+    assert [v for v, _ in applied] == ["1.3.6"]
+    assert get_schema_version() == SCHEMA_VERSION
+    assert not _table_exists("site_config")
 
 
 def test_history_table_records_one_row_per_version(app, db):

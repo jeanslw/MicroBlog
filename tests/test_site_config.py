@@ -11,6 +11,9 @@ site_setting / mail_setting / about_profile 三张单行表：
   （v1.3.5 修复的坑）在拆表后继续成立。
 """
 
+import pytest
+from sqlalchemy.exc import DBAPIError
+
 from app.database import (
     _migrate_site_config_split,
     get_about_profile,
@@ -145,14 +148,40 @@ def test_split_migration_tolerates_very_old_schema(app, db):
 
 
 def test_split_migration_keeps_legacy_table_on_copy_failure(app, db):
-    """复制失败（如新表意外缺失）时旧表必须原样保留,下次启动可重试。"""
+    """复制失败（如新表意外缺失）时抛异常,旧表必须原样保留,下次启动可重试。
+
+    v1.3.6 起迁移函数不再吞异常:失败向上抛,由 run_schema_migrations 负责
+    「不戳记、重试」。若吞掉异常,框架仍会把版本戳成已应用,失败永不重试。
+    表缺失在 SQLite 抛 OperationalError、MySQL 抛 ProgrammingError,故以共同
+    基类 DBAPIError 断言（不用宽泛的 Exception,见 ruff B017）。
+    """
     _create_legacy_site_config()
     with db.engine.begin() as conn:
         conn.execute(db.text("DROP TABLE site_setting"))
 
-    _migrate_site_config_split()
+    with pytest.raises(DBAPIError):
+        _migrate_site_config_split()
 
     assert _table_exists("site_config")
+
+
+@pytest.mark.parametrize("bad_port", ["abc", ""])
+def test_split_migration_coerces_non_numeric_mail_port_to_default(app, db, bad_port):
+    """极老库 mail_port 为 VARCHAR：非数字/空串转 int 失败时回退默认 587。"""
+    with db.engine.begin() as conn:
+        conn.execute(db.text("DROP TABLE IF EXISTS site_config"))
+        conn.execute(
+            db.text("CREATE TABLE site_config (id INTEGER PRIMARY KEY, site_name VARCHAR(100), mail_port VARCHAR(20))")
+        )
+        conn.execute(
+            db.text("INSERT INTO site_config (id, site_name, mail_port) VALUES (3, '老库', :p)"),
+            {"p": bad_port},
+        )
+
+    _migrate_site_config_split()
+
+    assert not _table_exists("site_config")
+    assert get_mail_setting().mail_port == 587
 
 
 # ── 单行访问器：id≠1 历史库兼容（v1.3.5 修复的坑在拆表后继续成立） ──

@@ -21,7 +21,7 @@ class MailError(Exception):
 def send_mail(to: str, subject: str, body: str) -> None:
     """发送纯文本邮件。SMTP 未配置或发送失败抛 MailError。
 
-    优先使用后台保存的 SMTP 配置（site_config.mail_host 非空即视为已配置），
+    优先使用后台保存的 SMTP 配置（mail_setting.mail_host 非空即视为已配置），
     否则回退到环境变量（app.env 的 BLOG_MAIL_*）。
     """
     cfg = current_app.config

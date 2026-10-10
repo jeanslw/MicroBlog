@@ -47,7 +47,7 @@
 - **文档**：你的贡献必须包含或更新相关文档，包括：
     - 更新 `README.md` / `README_ZH-CN.md` 中的使用说明。
     - 如果新增界面文案，请同步更新 `messages.pot` 与 `translations/` 下的 `.po` 文件。
-    - 如果引入新的配置项，请更新 `app.env.example` 和管理员手册。
+    - 如果引入新的配置项，请更新 `app.env.example` 和[管理员手册](docs/管理员手册.md)。
 
 ### 4. 提交代码（Commit Message）
 

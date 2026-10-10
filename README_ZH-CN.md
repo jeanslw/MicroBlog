@@ -260,6 +260,7 @@ chmod 755 data
 | [部署文档](docs/部署文档.md) | 快速启动 + 完整部署（裸机、Docker Compose、HTTPS） |
 | [常见问题](docs/常见问题.md) | 常见问题与排查 |
 | [项目架构](docs/项目架构.md) | 代码结构、入口与模块布局 |
+| [管理员手册](docs/管理员手册.md) | 后台功能、备份恢复、迁移数据库与维护模式 |
 | [贡献指南](CONTRIBUTING_ZH-CN.md) | 报告 Bug、代码贡献流程与提交规范；发布规则见[版本管理](CONTRIBUTING_ZH-CN.md#5-版本管理) |
 
 

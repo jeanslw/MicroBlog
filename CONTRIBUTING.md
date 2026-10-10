@@ -47,7 +47,7 @@ If you plan to implement a major feature or refactor, please **discuss it in an 
 - **Documentation**: Your contribution must include or update relevant documentation. This includes:
     - Updating usage instructions in `README.md` / `README_ZH-CN.md`.
     - If you add new UI strings, update `messages.pot` and the `.po` files under `translations/`.
-    - If new configuration items are introduced, update `app.env.example` and the administrator manual.
+    - If new configuration items are introduced, update `app.env.example` and the [Admin Guide](docs/ADMIN_GUIDE.md).
 
 ### 4. Commit Message
 
