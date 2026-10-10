@@ -1421,3 +1421,69 @@ msgstr "Database migration failed: %(err)s"
 msgid "迁移完成：%(names)s"
 msgstr "Migration complete: %(names)s"
 
+
+msgid "当前为自动模式：程序版本高于数据库版本时，启动会自动执行迁移。本页用于升级后确认状态或排查问题。"
+msgstr "Auto mode is on: when the program version is newer than the database version, migrations run automatically at startup. Use this page to confirm status after an upgrade or to troubleshoot."
+
+msgid "当前为手动模式（BLOG_AUTO_MIGRATE=false）：检测到待迁移时站点进入维护状态，请在本页执行迁移。"
+msgstr "Manual mode is on (BLOG_AUTO_MIGRATE=false): when pending migrations are detected the site enters maintenance mode; run the migration from this page."
+
+msgid "手动模式"
+msgstr "Manual mode"
+
+msgid "数据库版本落后于程序版本，但程序中没有登记可用的迁移：请确认是否完整部署了新版本程序。"
+msgstr "The database version is behind the program version, but no matching migration is registered: make sure the new release was fully deployed."
+
+msgid "迁移履历"
+msgstr "Migration history"
+
+msgid "版本"
+msgstr "Version"
+
+msgid "应用时间"
+msgstr "Applied at"
+
+msgid "说明"
+msgstr "Note"
+
+msgid "站点维护中"
+msgstr "Site under maintenance"
+
+msgid "检测到待执行的数据库结构升级，站点已暂停对外服务，以免旧结构与新程序混用导致数据错乱。"
+msgstr "A pending database schema upgrade was detected. The site is paused so the old schema is never mixed with the new program."
+
+msgid "执行前请先备份数据库。升级由管理员登录后在后台「迁移数据库」页手动执行，执行完成后本页会自动消失。"
+msgstr "Back up the database first. An administrator must log in and run the upgrade from the "Migrate Database" page; this page disappears once it completes."
+
+msgid "前往迁移页"
+msgstr "Go to migration page"
+
+msgid "最近变更"
+msgstr "Last changed"
+
+msgid "撤回时间"
+msgstr "Withdrawn at"
+
+msgid "登录失败记录"
+msgstr "Failed sign-in attempts"
+
+msgid "同一 IP + 账号失败 5 次将被临时锁定；下表为最近 10 条失败记录。"
+msgstr "5 failures from the same IP and account trigger a temporary lock; the table lists the 10 most recent failures."
+
+msgid "IP"
+msgstr "IP"
+
+msgid "失败次数"
+msgstr "Failures"
+
+msgid "最近失败时间"
+msgstr "Last failure"
+
+msgid "已锁定"
+msgstr "Locked"
+
+msgid "正常"
+msgstr "Normal"
+
+msgid "暂无登录失败记录"
+msgstr "No failed sign-in attempts"

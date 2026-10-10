@@ -125,6 +125,7 @@ CREATE TABLE IF NOT EXISTS `banner` (
   `desc_text` varchar(200) DEFAULT '' COMMENT '轮播描述',
   `sort` int DEFAULT '0' COMMENT '排序数字，越大越靠前',
   `create_time` varchar(50) DEFAULT NULL,
+  `update_time` varchar(50) DEFAULT NULL COMMENT '最近一次编辑/撤回/启用时间',
   `is_active` tinyint(1) NOT NULL DEFAULT '1' COMMENT '是否在首页展示：1展示 0已撤回（下架）',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -204,6 +205,7 @@ CREATE TABLE IF NOT EXISTS `login_attempt` (
   `username` varchar(100) NOT NULL,
   `fail_count` int NOT NULL DEFAULT '0',
   `lock_until` int NOT NULL DEFAULT '0',
+  `update_time` varchar(50) DEFAULT NULL COMMENT '最近一次登录失败时间',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_ip_username` (`ip`, `username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -225,13 +227,15 @@ CREATE TABLE IF NOT EXISTS `rate_limit` (
 
 
 -- --------------------------------------------------------
--- 表：schema_version（schema 版本戳记，v1.3.6 引入版本化迁移框架）
+-- 表：schema_version（schema 版本履历，v1.3.6 引入版本化迁移框架）
 -- --------------------------------------------------------
+-- 每应用一级迁移追一行，version 为主键（同一版本只留一行）。
+-- 当前数据库版本 = 本表中版本号语义最高的一行（1.3.10 > 1.3.6）。
 CREATE TABLE IF NOT EXISTS `schema_version` (
-  `id` int NOT NULL AUTO_INCREMENT,
-  `version` varchar(20) NOT NULL COMMENT '数据库当前 schema 版本（真实发布号,随迁移逐级戳记）',
-  `applied_time` varchar(50) DEFAULT NULL,
-  PRIMARY KEY (`id`)
+  `version` varchar(20) NOT NULL COMMENT '已应用的 schema 发布号',
+  `applied_time` varchar(50) DEFAULT NULL COMMENT '应用时间',
+  `note` varchar(255) DEFAULT NULL COMMENT '迁移说明（来自迁移登记表）',
+  PRIMARY KEY (`version`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
@@ -247,8 +251,8 @@ INSERT IGNORE INTO `site_setting` (`id`, `site_name`, `favicon_path`)
 VALUES (1, 'My Blog', 'static/favicon.ico');
 INSERT IGNORE INTO `mail_setting` (`id`) VALUES (1);
 INSERT IGNORE INTO `about_profile` (`id`) VALUES (1);
-INSERT IGNORE INTO `schema_version` (`id`, `version`, `applied_time`)
-VALUES (1, '1.3.6', NOW());
+INSERT IGNORE INTO `schema_version` (`version`, `applied_time`, `note`)
+VALUES ('1.3.6', NOW(), '新装环境直接建出最新 schema');
 
 -- ⚠️ 不在此插入初始管理员账号（避免明文密码）
 -- 请用以下任一方式创建管理员：

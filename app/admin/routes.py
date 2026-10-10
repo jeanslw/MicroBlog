@@ -76,7 +76,7 @@ from app.forms import (
     UploadImageForm,
 )
 from app.mail import MailError, send_mail
-from app.models import Admin
+from app.models import Admin, LoginAttempt, SchemaVersion
 from app.utils import (
     build_safe_filename,
     process_and_resize_logo,
@@ -467,7 +467,18 @@ def account():
         db.session.commit()
         flash(_("邮箱已保存"), "success")
         return redirect(url_for("admin.account"))
-    return render_template("admin/account.html", form=email_form, mail_form=mail_form)
+    # 最近登录失败记录（防爆破可视化的数据来源是 login_attempt.update_time,
+    # v1.3.6 起每次失败都会刷新该列）
+    attempts = (
+        db.session.execute(db.select(LoginAttempt).order_by(LoginAttempt.update_time.desc()).limit(10)).scalars().all()
+    )
+    return render_template(
+        "admin/account.html",
+        form=email_form,
+        mail_form=mail_form,
+        attempts=attempts,
+        now_ts=int(datetime.now().timestamp()),
+    )
 
 
 # ── SMTP 邮件设置（表单在「账户邮件设置」页内,本端点仅负责保存） ──
@@ -864,18 +875,36 @@ def migrate_db():
             flash(_("迁移完成：%(names)s", names=names), "success")
         else:
             flash(_("数据库已是最新 schema 版本，无需迁移"), "info")
+        # 手动迁移完成后为本进程解除维护闸门（BLOG_AUTO_MIGRATE=false 场景;
+        # 多 worker 下其它 worker 由闸门逻辑每请求自检、迁移完成后自动放行）。
+        current_app.config["SCHEMA_UPGRADE_PENDING"] = False
         return redirect(url_for("admin.migrate_db"))
 
     current = sync_schema_version()
     pending = pending_schema_migrations(current)
     ahead = current is not None and schema_version_cmp(current, SCHEMA_VERSION) > 0
+    # 「已是最新」必须严格等于程序目标版本:数据库落后、但登记表里又没有
+    # 对应迁移（发布包不完整/登记遗漏）时亮黄灯,绝不能误报「已是最新」。
+    ver_cmp = 1 if current is None else schema_version_cmp(current, SCHEMA_VERSION)
+    up_to_date = not pending and not ahead and ver_cmp == 0
+    migration_missing = not pending and not ahead and ver_cmp < 0
+    history = (
+        db.session.execute(
+            db.select(SchemaVersion).order_by(SchemaVersion.applied_time.desc(), SchemaVersion.version.desc())
+        )
+        .scalars()
+        .all()
+    )
     return render_template(
         "admin/migrate_db.html",
         current_version=current,
         target_version=SCHEMA_VERSION,
         pending=pending,
-        up_to_date=current is not None and not pending and not ahead,
+        up_to_date=up_to_date,
+        migration_missing=migration_missing,
         ahead=ahead,
+        history=history[:20],
+        auto_migrate=current_app.config.get("AUTO_SCHEMA_MIGRATE", True),
     )
 
 

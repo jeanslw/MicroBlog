@@ -153,6 +153,37 @@ def _select_locale():
 babel = Babel()
 
 
+def run_startup_schema_migrations(app) -> None:
+    """启动时的 schema 迁移步骤,由 BLOG_AUTO_MIGRATE 决定模式。
+
+    - true（默认）:程序版本 > 数据库版本时立即自动执行（与后台「迁移数据库」
+      同一入口 run_schema_migrations）;
+    - false:检测到待迁移项时**不动库**,只置维护闸门标志
+      （app.config["SCHEMA_UPGRADE_PENDING"]）——由 create_app 注册的
+      _schema_upgrade_gate 把全站请求导流到升级维护页,管理员登录后在
+      「迁移数据库」页手动执行,完成后闸门自动解除。
+
+    任何异常（含多 worker 抢迁移锁超时）只记 warning 不阻断启动:
+    库可能暂时不可达,启动流程不该因此整体失败。
+    """
+    from app.database import pending_schema_migrations, run_schema_migrations
+
+    try:
+        if app.config.get("AUTO_SCHEMA_MIGRATE", True):
+            run_schema_migrations()
+        else:
+            pending = pending_schema_migrations(quiet=True)
+            if pending:
+                app.config["SCHEMA_UPGRADE_PENDING"] = True
+                app.logger.warning(
+                    "检测到 %d 项待迁移 schema 且自动迁移已关闭(BLOG_AUTO_MIGRATE=false),"
+                    "站点进入维护模式;请管理员登录后在「迁移数据库」页执行迁移",
+                    len(pending),
+                )
+    except Exception as e:
+        app.logger.warning("schema 迁移启动步骤跳过: %s", e)
+
+
 def create_app(config_name: str | None = None):
     """应用工厂
 
@@ -220,7 +251,6 @@ def create_app(config_name: str | None = None):
             ensure_admin_exists,
             ensure_default_settings,
             init_db,
-            run_schema_migrations,
             wait_for_database,
         )
         from app.utils import migrate_legacy_upload_dirs
@@ -240,14 +270,16 @@ def create_app(config_name: str | None = None):
         except OSError:
             app.logger.warning("旧上传目录迁移失败", exc_info=True)
 
-        # 四个步骤相互独立：多 worker 并发启动时,任一 worker 建表/写入失败
-        # 不应导致其它初始化步骤被整体跳过。迁移按 schema_version 驱动:
-        # 程序版本 > 数据库版本时自动应用待迁移（与后台「迁移数据库」同入口）。
-        for _init_step in (init_db, run_schema_migrations, ensure_default_settings, ensure_admin_exists):
+        # 各步骤相互独立：多 worker 并发启动时,任一 worker 建表/写入失败
+        # 不应导致其它初始化步骤被整体跳过。
+        for _init_step in (init_db, ensure_default_settings, ensure_admin_exists):
             try:
                 _init_step()
             except Exception as e:
                 app.logger.warning("%s 跳过: %s", _init_step.__name__, e)
+
+        # schema 迁移,由 BLOG_AUTO_MIGRATE 决定模式（自动执行 / 进入维护模式）。
+        run_startup_schema_migrations(app)
 
     # ── 模板全局变量（每页面一次,带异常兜底） ─────────────
     # 注:不在此注入 csrf_token —— Flask-WTF 通过 jinja_env.globals
@@ -330,6 +362,52 @@ def create_app(config_name: str | None = None):
         if not _is_trusted_host(request.host):
             app.logger.warning("拒绝非白名单 Host 请求: %s (ip=%s)", request.host, request.remote_addr)
             return jsonify({"error": "Invalid Host header"}), 400
+
+    # ── 维护闸门：BLOG_AUTO_MIGRATE=false 且存在待迁移 schema 时启用 ─────
+    # 业界做法(Nextcloud/WordPress 同款):待迁移期间站点全部导流到一个
+    # 「零 schema 依赖」的升级页(503),只放行 登录/迁移/退出/静态资源/健康
+    # 探针——登录链路只触碰 admin、login_attempt、rate_limit 三张跨版本
+    # 稳定的表(**这三张表永不做 schema 变更**,登录是迁移的唯一入口),
+    # 升级页不继承 base.html、不查任何业务表。
+    # 自恢复:gate 每请求重查 pending,迁移一旦被任何入口完成(本进程手动
+    # POST 后已清标志;另一 worker/CLI 完成时靠这里)即自动放行,无需重启。
+    @app.before_request
+    def _schema_upgrade_gate():
+        if not app.config.get("SCHEMA_UPGRADE_PENDING"):
+            return None
+        if request.endpoint in (
+            "static",
+            "main.healthz",
+            "main.uploaded_file",
+            "admin.login",
+            "admin.logout",
+            "admin.migrate_db",
+        ):
+            return None
+        try:
+            from app.database import (
+                SCHEMA_VERSION,
+                get_schema_version,
+                pending_schema_migrations,
+            )
+
+            pending = pending_schema_migrations(quiet=True)
+            if not pending:
+                app.config["SCHEMA_UPGRADE_PENDING"] = False
+                app.logger.info("数据库 schema 迁移已完成,维护模式自动解除")
+                return None
+            return (
+                render_template(
+                    "admin/upgrade_required.html",
+                    db_version=get_schema_version() or "",
+                    target_version=SCHEMA_VERSION,
+                    pending=pending,
+                ),
+                503,
+            )
+        except Exception:
+            # DB 读失败不做武断拦截,交给各层既有的异常兜底处理
+            return None
 
     # ── 请求计时 + 结构化访问日志（waitress/gunicorn 下无 werkzeug 访问日志，
     #    由应用层统一记录每个业务请求；静态资源/健康探针跳过避免刷屏） ──

@@ -73,13 +73,55 @@ def init_db():
         if "already exists" not in str(e).lower():
             raise
         db.create_all()
+    _migrate_schema_version()
     _migrate_admin()
     _migrate_article()
     _migrate_banner()
     _migrate_rate_limit()
+    _migrate_login_attempt()
     # 注意:site_config → 三表拆分这类「带数据搬迁」的迁移不在这里直调,
     # 由版本化迁移框架（run_schema_migrations / SCHEMA_VERSION）驱动,
     # 保证启动自动执行与后台「迁移数据库」手动触发走同一条路径。
+
+
+def _migrate_schema_version():
+    """schema_version v1（开发期单行 id 主键）→ v2 履历表（version 主键、含 note）。
+
+    v1 结构只存在于 v1.3.6 开发期,从未随正式版交付;此迁移仅为开发机老库
+    平滑过渡:读出最新戳记 → 整表重建 → 回写。整数戳记经 _LEGACY_INT_VERSIONS
+    归一化为真实发布号。
+    """
+    try:
+        inspector = db.inspect(db.engine)
+        if "schema_version" not in inspector.get_table_names():
+            return
+        cols = {c["name"] for c in inspector.get_columns("schema_version")}
+        if "id" not in cols and "note" in cols:
+            return  # 已是 v2 履历结构
+        # 注:create_all 先于本函数执行,但旧表已存在时 create_all 会跳过,
+        # 所以走到这里时拿的一定是 v1 旧结构,可安全重建。
+        # 表改名语法分引擎:MySQL 用 RENAME TABLE,SQLite 用 ALTER TABLE ... RENAME TO。
+        with db.engine.begin() as conn:
+            old_rows = conn.execute(db.text("SELECT version, applied_time FROM schema_version ORDER BY id ASC")).all()
+            if db.engine.dialect.name == "mysql":
+                conn.execute(db.text("RENAME TABLE schema_version TO schema_version_v1_legacy"))
+            else:
+                conn.execute(db.text("ALTER TABLE schema_version RENAME TO schema_version_v1_legacy"))
+        db.metadata.tables["schema_version"].create(db.engine)
+        ver = None
+        with db.engine.begin() as conn:
+            if old_rows:
+                ver = str(old_rows[-1][0])
+                if ver.isdigit():
+                    ver = _LEGACY_INT_VERSIONS.get(int(ver), ver)
+                conn.execute(
+                    db.text("INSERT INTO schema_version (version, applied_time, note) VALUES (:v, :t, :n)"),
+                    {"v": ver, "t": old_rows[-1][1] or "", "n": "自开发期单行结构重建"},
+                )
+            conn.execute(db.text("DROP TABLE schema_version_v1_legacy"))
+        log.info("schema_version 已由开发期单行结构重建为履历表(%s)", f"v{ver}" if ver else "无戳记")
+    except Exception as e:
+        log.warning("schema_version 结构迁移失败,可手动重建: %s", e)
 
 
 def _migrate_admin():
@@ -115,7 +157,7 @@ def _migrate_article():
 
 
 def _migrate_banner():
-    """轻量迁移：为旧版 banner 表补齐 is_active（撤回/下架）列（幂等）。
+    """轻量迁移：为旧版 banner 表补齐 is_active（撤回/下架）/ update_time 列（幂等）。
 
     新装环境表结构已包含该列,直接跳过；旧库通过 ALTER TABLE 追加,
     避免老数据迁移 SQLite/MySQL 报错。
@@ -125,11 +167,30 @@ def _migrate_banner():
         if "banner" not in inspector.get_table_names():
             return
         cols = {c["name"] for c in inspector.get_columns("banner")}
-        if "is_active" not in cols:
-            with db.engine.begin() as conn:
+        with db.engine.begin() as conn:
+            if "is_active" not in cols:
                 conn.execute(db.text("ALTER TABLE banner ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT 1"))
+            if "update_time" not in cols:
+                conn.execute(db.text("ALTER TABLE banner ADD COLUMN update_time VARCHAR(50) NULL"))
     except Exception as e:
-        log.warning("banner is_active 列迁移失败,可手动执行 ALTER TABLE: %s", e)
+        log.warning("banner 列迁移失败,可手动执行 ALTER TABLE: %s", e)
+
+
+def _migrate_login_attempt():
+    """轻量迁移：为旧版 login_attempt 表补齐 update_time 列（幂等）。
+
+    update_time = 最近一次登录失败时间,供账户安全页可视化排查爆破尝试。
+    """
+    try:
+        inspector = db.inspect(db.engine)
+        if "login_attempt" not in inspector.get_table_names():
+            return
+        cols = {c["name"] for c in inspector.get_columns("login_attempt")}
+        if "update_time" not in cols:
+            with db.engine.begin() as conn:
+                conn.execute(db.text("ALTER TABLE login_attempt ADD COLUMN update_time VARCHAR(50) NULL"))
+    except Exception as e:
+        log.warning("login_attempt update_time 列迁移失败,可手动执行 ALTER TABLE: %s", e)
 
 
 def _migrate_site_config_split():
@@ -279,37 +340,49 @@ def schema_version_cmp(a: str, b: str) -> int:
 
 
 def get_schema_version() -> str | None:
-    """读取数据库当前 schema 版本（发布号字符串）;无版本行返回 None,异常向上抛。"""
+    """读取数据库当前 schema 版本 = 履历表中语义化最高的一行;无行返回 None。
+
+    「最高」按语义化比较（_version_key）而非字典序——"1.3.10" > "1.3.6"。
+    """
     from app.models import SchemaVersion
 
-    row = db.session.get(SchemaVersion, 1)
-    if row is None:
-        row = db.session.scalars(db.select(SchemaVersion).order_by(SchemaVersion.id).limit(1)).first()
-    if row is None:
+    inspector = db.inspect(db.engine)
+    if "schema_version" not in inspector.get_table_names():
         return None
-    version = str(row.version)  # Column[String] 运行时即 str 标量（旧式 Column 盲区,见 models 惯例）
-    # 兼容本框架开发期写入的内部整数序号（仅老开发库可能出现）
-    return _LEGACY_INT_VERSIONS.get(int(version), version) if version.isdigit() else version
+    versions = [str(r[0]) for r in db.session.execute(db.select(SchemaVersion.version)).all()]
+    if not versions:
+        return None
+    max_ver = max(versions, key=_version_key)
+    # 兼容本框架开发期写入的内部整数序号（仅老开发库可能出现,
+    # 含 SQLite TEXT 亲和列把 int 读成 "2" 的情况）
+    return _LEGACY_INT_VERSIONS.get(int(max_ver), max_ver) if max_ver.isdigit() else max_ver
 
 
-def _stamp_schema_version(version: str) -> None:
-    """写入/更新 schema 版本戳记（单行 id=1,多 worker 并发时以先提交者为准）。"""
+def _stamp_schema_version(version: str, note: str = "") -> None:
+    """向履历表幂等戳记一行（主键 version;同版本重复戳记只刷新时间/说明）。
+
+    多 worker 并发戳同一行时以内置 IntegrityError 兜底:后提交者回滚,
+    以库里的为准——两份戳记语义等价,无所谓谁赢。
+    """
     from datetime import datetime
 
     from app.models import SchemaVersion
 
     try:
-        row = db.session.get(SchemaVersion, 1)
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        inspector = db.inspect(db.engine)
+        if "schema_version" not in inspector.get_table_names():
+            from app import models  # noqa: F401
+
+            SchemaVersion.__table__.create(db.engine)
+        row = db.session.get(SchemaVersion, version)
         if row is None:
-            db.session.add(SchemaVersion(id=1, version=version, applied_time=now))
+            db.session.add(SchemaVersion(version=version, applied_time=now, note=note))
         else:
-            # 同上:Column 标注为 Column[T],运行时是标量
-            row.version = version  # type: ignore[assignment]
             row.applied_time = now  # type: ignore[assignment]
+            row.note = note  # type: ignore[assignment]
         db.session.commit()
     except IntegrityError:
-        # 并发 worker 已先一步戳记;以库里的为准
         db.session.rollback()
 
 
@@ -331,24 +404,26 @@ def sync_schema_version() -> str | None:
         return current
     inspector = db.inspect(db.engine)
     initial = SCHEMA_VERSION_BASELINE if "site_config" in inspector.get_table_names() else SCHEMA_VERSION
-    _stamp_schema_version(initial)
+    _stamp_schema_version(initial, "版本管理上线时推断的初始版本")
     log.info("schema 版本管理初始化: 数据库版本 v%s,程序版本 v%s", initial, SCHEMA_VERSION)
     return initial
 
 
-def pending_schema_migrations(current: str | None = None) -> list[tuple[str, str]]:
+def pending_schema_migrations(current: str | None = None, quiet: bool = False) -> list[tuple[str, str]]:
     """待应用的迁移列表 [(发布号, 说明), ...],按发布号升序。
 
     程序版本 **大于** 数据库版本（数据库比代码旧）才有待应用迁移;
     数据库版本高于程序（代码被降级）时返回空并告警——迁移永远只把旧库
     往前带,不用旧代码的迁移逻辑去碰比它新的库。
+    quiet=True 抑制告警日志（维护闸门每次请求都重查,避免刷屏）。
     """
     if current is None:
         current = sync_schema_version()
     if current is None:
         return []
     if schema_version_cmp(current, SCHEMA_VERSION) > 0:
-        log.warning("数据库 schema 版本 (v%s) 高于程序版本 (v%s),请先升级程序,跳过迁移", current, SCHEMA_VERSION)
+        if not quiet:
+            log.warning("数据库 schema 版本 (v%s) 高于程序版本 (v%s),请先升级程序,跳过迁移", current, SCHEMA_VERSION)
         return []
     cur, target = _version_key(current), _version_key(SCHEMA_VERSION)
     return [
@@ -358,21 +433,62 @@ def pending_schema_migrations(current: str | None = None) -> list[tuple[str, str
     ]
 
 
+_MIGRATION_LOCK_NAME = "microblog_schema_migration"
+
+
+def _acquire_migration_lock(timeout: int = 60):
+    """MySQL 命名锁,防止多 worker 并发启动 / 手动与自动迁移同时执行。
+
+    GET_LOCK 是连接级锁:持锁期间该连接不归还连接池,RELEASE_LOCK 或连接
+    断开（进程崩溃）自动释放。返回持有锁的连接,调用方须在 finally 中传给
+    _release_migration_lock。非 MySQL（测试 SQLite,单进程）无此原语,返回 None。
+    取锁超时抛 RuntimeError,由调用方决定跳过或向用户报错。
+    """
+    if db.engine.dialect.name != "mysql":
+        return None
+    conn = db.engine.connect()
+    acquired = conn.execute(
+        db.text("SELECT GET_LOCK(:name, :timeout)"),
+        {"name": _MIGRATION_LOCK_NAME, "timeout": timeout},
+    ).scalar()
+    if acquired != 1:
+        conn.close()
+        raise RuntimeError(f"schema 迁移锁 {timeout}s 内未获取,可能有另一迁移正在进行")
+    return conn
+
+
+def _release_migration_lock(conn) -> None:
+    try:
+        conn.execute(db.text("SELECT RELEASE_LOCK(:name)"), {"name": _MIGRATION_LOCK_NAME})
+    except Exception:
+        log.warning("schema 迁移锁释放失败(连接回收时也会自动释放)", exc_info=True)
+    finally:
+        conn.close()
+
+
 def run_schema_migrations() -> list[tuple[str, str]]:
     """执行所有待应用的迁移并逐级戳记;启动初始化与后台「迁移数据库」共用此入口。
 
     触发条件（启动自动 / 后台手动同一函数）:程序 SCHEMA_VERSION **大于** 数据库
-    schema 版本。每个迁移执行成功后立刻把版本戳到该迁移的发布号——中途失败时
-    已完成的迁移不会重复执行,失败的迁移下次启动/手动触发时重试。
-    返回本次实际应用了的迁移列表。
+    schema 版本。每个迁移执行成功后立刻把版本戳到该迁移的发布号（履历表追一行,
+    说明随戳记入档）——中途失败时已完成的迁移不会重复执行,失败的迁移下次
+    启动/手动触发时重试。返回本次实际应用了的迁移列表。
+
+    MySQL 下全程持有命名锁（_acquire_migration_lock）:多 worker 并发启动时
+    只有抢到锁的 worker 真正执行,其余超时后由启动链 catch 记 warning 跳过。
     """
-    applied: list[tuple[str, str]] = []
-    for version, desc in pending_schema_migrations():
-        log.info("应用 schema 迁移 v%s: %s", version, desc)
-        _SCHEMA_MIGRATIONS[version][1]()
-        _stamp_schema_version(version)
-        applied.append((version, desc))
-    return applied
+    lock_conn = _acquire_migration_lock()
+    try:
+        applied: list[tuple[str, str]] = []
+        for version, desc in pending_schema_migrations():
+            log.info("应用 schema 迁移 v%s: %s", version, desc)
+            _SCHEMA_MIGRATIONS[version][1]()
+            _stamp_schema_version(version, desc)
+            applied.append((version, desc))
+        return applied
+    finally:
+        if lock_conn is not None:
+            _release_migration_lock(lock_conn)
 
 
 def ensure_admin_exists():

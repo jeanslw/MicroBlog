@@ -99,5 +99,45 @@
             </form>
         </div>
     </div>
+
+    <!-- 登录失败记录（login_attempt,防爆破排查） -->
+    <div class="col-12">
+        <div class="card admin-panel-card p-4">
+            <h4 class="mb-1 fw-bold"><i class="bi bi-shield-lock"></i> {{ _('登录失败记录') }}</h4>
+            <p class="text-muted small mb-3">{{ _('同一 IP + 账号失败 5 次将被临时锁定；下表为最近 10 条失败记录。') }}</p>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>{{ _('IP') }}</th>
+                            <th>{{ _('账号') }}</th>
+                            <th style="width:110px">{{ _('失败次数') }}</th>
+                            <th style="width:180px">{{ _('最近失败时间') }}</th>
+                            <th style="width:110px">{{ _('状态') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in attempts %}
+                        <tr>
+                            <td><small>{{ item.ip }}</small></td>
+                            <td><small>{{ item.username }}</small></td>
+                            <td><span class="badge bg-secondary">{{ item.fail_count }}</span></td>
+                            <td><small class="text-muted">{{ item.update_time or '' }}</small></td>
+                            <td>
+                                {% if item.lock_until and item.lock_until > now_ts %}
+                                <span class="badge bg-danger">{{ _('已锁定') }}</span>
+                                {% else %}
+                                <span class="badge bg-success">{{ _('正常') }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="5" class="text-center text-muted">{{ _('暂无登录失败记录') }}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}

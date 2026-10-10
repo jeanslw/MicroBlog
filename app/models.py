@@ -104,6 +104,8 @@ class Banner(db.Model):
     desc_text = Column(String(200), default="")
     sort = Column(Integer, default=0)
     create_time = Column(String(50))
+    # 最近一次编辑/撤回/启用时间（撤回后它就是「撤回时间」,列表页直接可读）
+    update_time = Column(String(50))
     # 是否在首页轮播展示：True=展示中；False=已撤回（下架，保留记录可重新启用）
     is_active = Column(Boolean, nullable=False, default=True)
 
@@ -193,6 +195,8 @@ class LoginAttempt(db.Model):
     username = Column(String(100), nullable=False)
     fail_count = Column(Integer, default=0, nullable=False)
     lock_until = Column(Integer, default=0, nullable=False)
+    # 最近一次登录失败时间（账户安全页可视化排查爆破尝试）
+    update_time = Column(String(50))
 
 
 class RateLimit(db.Model):
@@ -214,16 +218,15 @@ class RateLimit(db.Model):
 
 
 class SchemaVersion(db.Model):
-    """数据库 schema 版本记录（单行,id=1）。v1.3.6 引入版本化迁移框架。
+    """数据库 schema 版本履历（每行一次戳记,version 为真实发布号主键）。
 
-    version 为真实发布号（如 "1.3.6"）,不用内部序号——日志和后台所见即发布
-    版本。程序代码侧的 SCHEMA_VERSION（app/database.py）**大于**它时,启动
-    初始化或后台「迁移数据库」会把 _SCHEMA_MIGRATIONS 里登记的待应用迁移
-    按发布号依次执行并逐级戳记。
+    v1.3.6 引入版本化迁移框架。「数据库当前版本」= 履历中语义化最高的
+    一行；每次迁移成功立刻追加一行（版本 + 时间 + 说明）,后台「迁移
+    数据库」页展示完整履历,不必翻日志。
     """
 
     __tablename__ = "schema_version"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    version = Column(String(20), nullable=False)
+    version = Column(String(20), primary_key=True)
     applied_time = Column(String(50))
+    note = Column(String(200), default="")

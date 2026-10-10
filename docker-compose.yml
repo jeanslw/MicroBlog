@@ -92,6 +92,11 @@ services:
       BLOG_LOG_MAX_BYTES: ${BLOG_LOG_MAX_BYTES:-10485760}
       BLOG_LOG_BACKUP_COUNT: ${BLOG_LOG_BACKUP_COUNT:-5}
 
+      # ─ schema 迁移模式：true=启动自动执行（默认）；false=手动模式 ─
+      # false 时检测到待迁移项，站点进入维护状态（503 升级页），
+      # 需管理员登录后在 管理后台 → 运维安全 → 迁移数据库 执行迁移
+      BLOG_AUTO_MIGRATE: ${BLOG_AUTO_MIGRATE:-true}
+
       # ─ SMTP 邮件（可选）：不配置时在 管理后台 → 邮件设置 中填写（后台优先） ─
       BLOG_MAIL_HOST: ${BLOG_MAIL_HOST:-}
       BLOG_MAIL_PORT: ${BLOG_MAIL_PORT:-587}

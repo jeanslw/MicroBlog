@@ -1,0 +1,75 @@
+{# 维护闸门页（BLOG_AUTO_MIGRATE=false 且存在待迁移 schema）。
+
+   刻意不继承 base.html:base 会引入全局上下文(栏目/站点设置),而维护模式下
+   数据库 schema 落后于代码,查这些表正是要避开的风险。本页只渲染迁移框架
+   自己查出来的版本信息,不触碰任何业务表,也不使用 current_user（其解析会
+   查 admin 表）,保证在任何滞后 schema 下都能渲染。 #}
+<!DOCTYPE html>
+<html lang="{{ current_lang if current_lang else 'zh-CN' }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex">
+    <title>{{ _('站点维护中') }}</title>
+    <link href="{{ url_for('static', filename='lib/bootstrap.min.css') }}" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='lib/bootstrap-icons.css') }}">
+</head>
+<body class="bg-light">
+<div class="container" style="max-width:760px">
+    <div class="card shadow-sm my-5">
+        <div class="card-body p-4 p-md-5">
+            <h3 class="fw-bold mb-1">
+                <i class="bi bi-tools text-warning"></i> {{ _('站点维护中') }}
+            </h3>
+            <p class="text-muted">{{ _('检测到待执行的数据库结构升级，站点已暂停对外服务，以免旧结构与新程序混用导致数据错乱。') }}</p>
+
+            <div class="row g-3 my-4">
+                <div class="col-6">
+                    <div class="border rounded text-center p-3 h-100">
+                        <div class="text-muted small">{{ _('当前数据库版本') }}</div>
+                        <div class="fs-4 fw-bold">{{ db_version or '?' }}</div>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="border rounded text-center p-3 h-100">
+                        <div class="text-muted small">{{ _('目标版本') }}</div>
+                        <div class="fs-4 fw-bold text-primary">{{ target_version }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th style="width:90px">{{ _('目标版本') }}</th>
+                        <th>{{ _('迁移说明') }}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for v, desc in pending %}
+                    <tr>
+                        <td><span class="badge bg-primary">v{{ v }}</span></td>
+                        <td>{{ desc }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+
+            <div class="alert alert-warning small mb-4">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+                {{ _('执行前请先备份数据库。升级由管理员登录后在后台「迁移数据库」页手动执行，执行完成后本页会自动消失。') }}
+            </div>
+
+            <div class="d-flex gap-2 flex-wrap">
+                <a href="{{ url_for('admin.login') }}" class="btn btn-primary">
+                    <i class="bi bi-box-arrow-in-right"></i> {{ _('管理员登录') }}
+                </a>
+                <a href="{{ url_for('admin.migrate_db') }}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-repeat"></i> {{ _('前往迁移页') }}
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

@@ -86,6 +86,7 @@ def banner_add():
         desc_text=desc,
         sort=sort_num,
         create_time=now,
+        update_time=now,
     )
     db.session.add(banner)
     db.session.commit()
@@ -110,6 +111,7 @@ def banner_edit(bid):
     banner.title = (form.title.data or "").strip()[:100]
     banner.desc_text = (form.desc_text.data or "").strip()[:200]
     banner.sort = form.sort_num.data or 0
+    banner.update_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     img = form.banner_img.data
     if img and img.filename:
@@ -179,6 +181,7 @@ def banner_withdraw(bid):
         return redirect(url_for("banner.banner_list"))
 
     banner.is_active = False
+    banner.update_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # 撤回时间
     db.session.commit()
     flash(_("已撤回，首页不再展示该轮播图"), "success")
     return redirect(url_for("banner.banner_list"))
@@ -197,6 +200,7 @@ def banner_activate(bid):
         return redirect(url_for("banner.banner_list"))
 
     banner.is_active = True
+    banner.update_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # 启用时间
     db.session.commit()
     flash(_("已重新启用"), "success")
     return redirect(url_for("banner.banner_list"))

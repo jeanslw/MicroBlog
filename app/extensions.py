@@ -10,7 +10,7 @@ from datetime import datetime
 from functools import wraps
 from urllib.parse import urlparse, urlsplit
 
-from flask import flash, redirect, request, url_for
+from flask import current_app, flash, redirect, request, url_for
 from flask_babel import _
 from flask_babel import lazy_gettext as _l
 from flask_login import LoginManager, current_user
@@ -118,6 +118,7 @@ def record_login_fail(ip: str, username: str, lock_seconds: int = 300) -> int:
             rec = LoginAttempt(ip=ip, username=username, fail_count=0, lock_until=0)
             db.session.add(rec)
         rec.fail_count += 1
+        rec.update_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         if rec.fail_count >= 5:
             rec.lock_until = time.time() + lock_seconds
         db.session.commit()
@@ -162,12 +163,37 @@ def admin_required(f):
 
 
 # ── 全局上下文数据（每页面查询一次,带异常兜底） ────────────
+def _default_global_context():
+    """全局模板的默认值兜底（DB 不可用 / 维护模式待迁移时使用）。"""
+    return {
+        "categories": [],
+        "all_article_count": 0,
+        "site_name": "博客",
+        "site_logo": "",
+        "site_favicon": "",
+        "about_nickname": "",
+        "banner_list": [],
+        "site_bg_style": "bg1",
+        "site_bg_custom": "",
+        "comments_enabled": True,
+        "site_sidebar_style": "book",
+    }
+
+
 def fetch_global_context():
     """获取全局模板数据：栏目 + 总数 + 轮播 + 站点名。
 
     使用 current_app.app_context() 内的 db.session,
     DB 异常时返回默认值避免页面整页崩溃。
     """
+    # 维护模式（手动迁移待执行):数据库 schema 落后于代码,查新表必然报错——
+    # 直接给默认值,登录页/升级页照常渲染,也免去每请求一次的异常噪音。
+    try:
+        if current_app.config.get("SCHEMA_UPGRADE_PENDING"):
+            return _default_global_context()
+    except RuntimeError:
+        pass  # 无应用上下文（CLI 场景）,走正常查询路径
+
     from app.database import get_about_profile, get_site_setting
     from app.models import Article, Banner, Category
 
@@ -216,11 +242,7 @@ def fetch_global_context():
         site_sidebar_style = (site.sidebar_style or "book") if site else "book"
     except Exception:
         log.error("全局模板上下文数据库报错", exc_info=True)
-        cats, total_art, banner_list, site_name = [], 0, [], "博客"
-        site_logo, site_favicon, site_bg_style, site_bg_custom = "", "", "bg1", ""
-        about_nickname = ""
-        comments_enabled = True
-        site_sidebar_style = "book"
+        return _default_global_context()
     return {
         "categories": cats,
         "all_article_count": total_art,

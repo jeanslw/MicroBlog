@@ -15,6 +15,7 @@
                 <th>{{ _('跳转链接') }}</th>
                 <th>{{ _('排序权重') }}</th>
                 <th>{{ _('状态') }}</th>
+                <th>{{ _('最近变更') }}</th>
                 <th>{{ _('操作') }}</th>
             </tr>
         </thead>
@@ -30,6 +31,12 @@
                     <span class="badge bg-success">{{ _('展示中') }}</span>
                     {% else %}
                     <span class="badge bg-secondary">{{ _('已撤回') }}</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <small class="text-muted">{{ item.update_time or item.create_time or '' }}</small>
+                    {% if not item.is_active %}
+                    <div><small class="text-muted">{{ _('撤回时间') }}</small></div>
                     {% endif %}
                 </td>
                 <td class="d-flex gap-2 align-items-center">
@@ -52,7 +59,7 @@
                 </td>
             </tr>
             {% else %}
-            <tr><td colspan="6" class="text-center text-muted">{{ _('暂无轮播广告') }}</td></tr>
+            <tr><td colspan="7" class="text-center text-muted">{{ _('暂无轮播广告') }}</td></tr>
             {% endfor %}
         </tbody>
     </table>

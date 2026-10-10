@@ -212,6 +212,10 @@ class Config:
     # 慢 SQL 阈值（毫秒）：超过则记 slow_query WARNING（只记语句不记参数）；0 = 全部记录
     SLOW_QUERY_MS = int(os.environ.get("BLOG_SLOW_QUERY_MS", "200"))
 
+    # schema 迁移模式:true(默认)= 启动时自动执行待迁移;false = 手动模式,
+    # 检测到待迁移项时站点进入维护模式,管理员登录后在后台「迁移数据库」页手动执行
+    AUTO_SCHEMA_MIGRATE = _env_bool("BLOG_AUTO_MIGRATE", "true")
+
     # ── WTF ─────────────────────────────────────────────
     WTF_CSRF_ENABLED = True
     WTF_CSRF_TIME_LIMIT = None  # 不设过期（避免长时间编辑后提交失败）
