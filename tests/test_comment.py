@@ -239,9 +239,7 @@ def test_comment_manage_lists_comments_and_replies(login_admin, article, db):
     c = Comment(article_id=article.id, username="访客甲", content="待删除评论", create_time="2026-01-01 00:00:00")
     db.session.add(c)
     db.session.commit()
-    db.session.add(
-        Reply(comment_id=c.id, username="访客乙", content="待删除回复", create_time="2026-01-01 00:00:01")
-    )
+    db.session.add(Reply(comment_id=c.id, username="访客乙", content="待删除回复", create_time="2026-01-01 00:00:01"))
     db.session.commit()
 
     rv = login_admin.get(f"/comment/manage/{article.id}")

@@ -266,4 +266,3 @@ def test_migrate_legacy_upload_dirs(tmp_path, monkeypatch):
     assert not old_uploads.exists()
     # 再次调用：无旧目录，幂等无操作
     assert utils.migrate_legacy_upload_dirs() == []
-

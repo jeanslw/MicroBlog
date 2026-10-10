@@ -70,7 +70,9 @@ def set_lang(lang: str):
     if lang in ("zh_CN", "en"):
         session["lang"] = lang
     # 优先用 ?next= 显式指定,其次 referrer（均做同源校验）,最后回首页
-    next_url = safe_redirect_path(request.args.get("next")) or safe_redirect_path(request.referrer) or url_for("blog.index")
+    next_url = (
+        safe_redirect_path(request.args.get("next")) or safe_redirect_path(request.referrer) or url_for("blog.index")
+    )
     return redirect(next_url)
 
 
@@ -93,9 +95,7 @@ def sitemap():
         {"loc": external_url_for("blog.about"), "lastmod": "", "priority": "0.6"},
     ]
     for cat in db.session.scalars(db.select(Category).order_by(Category.id)).all():
-        pages.append(
-            {"loc": external_url_for("blog.category", cid=cat.id), "lastmod": "", "priority": "0.5"}
-        )
+        pages.append({"loc": external_url_for("blog.category", cid=cat.id), "lastmod": "", "priority": "0.5"})
     for art in db.session.scalars(
         db.select(Article).where(Article.status == "publish").order_by(Article.create_time.desc())
     ).all():

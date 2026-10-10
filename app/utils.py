@@ -279,9 +279,7 @@ _UPLOAD_URL_PREFIXES = (
     ("/static/banner/", "banner"),
     ("/static/uploads/", "image"),
 )
-_UPLOAD_URL_RE = re.compile(
-    r"/(?:uploads/(?:banner|image)|static/(?:banner|uploads))/[^\"'\s<>?]+"
-)
+_UPLOAD_URL_RE = re.compile(r"/(?:uploads/(?:banner|image)|static/(?:banner|uploads))/[^\"'\s<>?]+")
 
 
 def collect_upload_urls(html: str) -> set[str]:

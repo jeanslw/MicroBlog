@@ -32,10 +32,10 @@ def test_article_detail_has_reading_metadata(client, article):
     db.session.commit()
     rv = client.get(f"/article/{article.id}")
     assert rv.status_code == 200
-    assert b'reading-progress-bar' in rv.data
-    assert b'article-toc' in rv.data
-    assert b'\xe9\x98\x85' in rv.data or b'\xe9\x98\x85\xe8\xaf\xbb' in rv.data
-    assert b'\xe5\x88\x86\x9b' in rv.data or b'\xe9\x98\x85\xe8\xaf\xbb' in rv.data
+    assert b"reading-progress-bar" in rv.data
+    assert b"article-toc" in rv.data
+    assert b"\xe9\x98\x85" in rv.data or b"\xe9\x98\x85\xe8\xaf\xbb" in rv.data
+    assert b"\xe5\x88\x86\x9b" in rv.data or b"\xe9\x98\x85\xe8\xaf\xbb" in rv.data
 
 
 def test_article_reading_stats_use_full_content(client, article):
@@ -100,7 +100,7 @@ def test_article_new_form(login_admin, category):
     assert rv.status_code == 200
     assert "新建文章".encode() in rv.data
     assert b"upload_md_btn" in rv.data
-    assert b'auto-save' in rv.data.lower()
+    assert b"auto-save" in rv.data.lower()
     assert b'accept=".md,.markdown,text/markdown,text/x-markdown,text/plain"' in rv.data
 
 

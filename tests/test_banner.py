@@ -292,5 +292,3 @@ def test_homepage_hides_withdrawn_banner(client, db):
     assert rv.status_code == 200
     assert b"ONBANNER" in rv.data
     assert b"OFFBANNER" not in rv.data
-
-

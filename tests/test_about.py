@@ -23,6 +23,7 @@ def _update_site(db, **kwargs):
 
 # ── 前台 /about ──────────────────────────────────────────
 
+
 def test_about_page_empty(client):
     """未填写内容时 /about 应 200 且无崩溃"""
     rv = client.get("/about")
@@ -59,6 +60,7 @@ def test_about_page_shows_configured(client, db):
 
 
 # ── 后台独立「关于我」设置页 ──────────────────────────────
+
 
 def test_about_setting_page_has_fields_and_menu(login_admin):
     """关于我设置页包含输入项,侧栏含菜单入口;站点设置页不再含这些字段"""
@@ -134,5 +136,3 @@ def test_about_avatar_falls_back_when_file_missing(client, db, monkeypatch, tmp_
     html = client.get("/about").get_data(as_text=True)
     assert "gone.png" not in html
     assert "about-avatar-empty" in html
-
-

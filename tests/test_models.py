@@ -117,4 +117,3 @@ def test_vote_log_record(db, article):
     db.session.add(v)
     db.session.commit()
     assert v.id is not None
-

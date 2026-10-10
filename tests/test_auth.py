@@ -117,12 +117,12 @@ def test_admin_panel_accessible(login_admin):
     rv = login_admin.get("/admin/panel")
     assert rv.status_code == 200
     for url in [
-        "/drafts",          # 草稿管理
-        "/article/new",     # 新建文章
+        "/drafts",  # 草稿管理
+        "/article/new",  # 新建文章
         "/article/manage",  # 撤回文章
         "/admin/site_setting",  # 站点设置
-        "/banner/",         # 轮播图列表
-        "/admin/change_pwd",    # 修改密码
+        "/banner/",  # 轮播图列表
+        "/admin/change_pwd",  # 修改密码
     ]:
         assert url.encode() in rv.data, f"管理后台页缺少入口 {url}"
 

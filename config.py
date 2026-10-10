@@ -155,12 +155,7 @@ class Config:
     # 在请求上下文阶段（早于 before_request）直接拒绝，且无法为 /healthz 等
     # 容器健康探针按路径豁免。这里由应用在 before_request 自行校验。
     HOST_WHITELIST: ClassVar[list[str]] = [
-        h
-        for h in (
-            _normalize_trusted_host(x)
-            for x in (os.environ.get("BLOG_TRUSTED_HOSTS") or "").split(",")
-        )
-        if h
+        h for h in (_normalize_trusted_host(x) for x in (os.environ.get("BLOG_TRUSTED_HOSTS") or "").split(",")) if h
     ]
 
     # ── 安全响应头（app/__init__.py after_request 统一下发） ──
@@ -392,12 +387,12 @@ def get_config():
         if not _RESOLVED_SECRET_KEY:
             raise RuntimeError(
                 "生产环境必须设置 BLOG_SECRET_KEY 环境变量（或 BLOG_SECRET_KEY_FILE 指向的密钥文件）后再启动。"
-                "生成命令: python -c \"import secrets;print(secrets.token_hex(32))\""
+                '生成命令: python -c "import secrets;print(secrets.token_hex(32))"'
             )
         if _RESOLVED_SECRET_KEY in INSECURE_DEFAULT_SECRET_KEYS:
             raise RuntimeError(
                 "生产环境的 BLOG_SECRET_KEY 是仓库中公开的默认值，任何人都能据此伪造管理员登录态。"
-                "请改为随机值: python -c \"import secrets;print(secrets.token_hex(32))\" "
+                '请改为随机值: python -c "import secrets;print(secrets.token_hex(32))" '
                 "（容器部署删除该环境变量即可，入口脚本会自动生成并持久化随机密钥）"
             )
     elif _RESOLVED_SECRET_KEY in INSECURE_DEFAULT_SECRET_KEYS:

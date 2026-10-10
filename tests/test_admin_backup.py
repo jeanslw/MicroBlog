@@ -234,4 +234,3 @@ def test_create_backup_reports_client_stderr(app, monkeypatch, tmp_path):
     monkeypatch.setattr(admin_routes.subprocess, "run", fake_run)
     with pytest.raises(RuntimeError, match="Can't connect to local server"):
         admin_routes._create_backup(str(tmp_path))
-

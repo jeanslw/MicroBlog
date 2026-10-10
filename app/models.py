@@ -183,4 +183,3 @@ class RateLimit(db.Model):
     ip = Column(String(100), nullable=False, index=True)
     action = Column(String(50), nullable=False, index=True)
     create_time = Column(String(50), nullable=False)
-

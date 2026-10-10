@@ -237,7 +237,6 @@ def test_navbar_logo_falls_back_when_file_missing(login_admin, db, monkeypatch, 
     assert "My Blog My Blog" not in html
 
 
-
 def test_background_assets_complete():
     """内置背景图库文件齐全（供 themes.css 引用）"""
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
