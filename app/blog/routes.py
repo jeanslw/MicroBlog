@@ -8,7 +8,7 @@
 """
 
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, tzinfo
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from flask import Response, current_app, flash, redirect, render_template, request, url_for
@@ -461,9 +461,7 @@ def del_category(cid):
         flash(_("栏目不存在"), "warning")
         return redirect(url_for("blog.index"))
     # 先解除文章归属,避免外键约束失败
-    db.session.execute(
-        update(Article).where(Article.category_id == cid).values(category_id=None)
-    )
+    db.session.execute(update(Article).where(Article.category_id == cid).values(category_id=None))
     db.session.delete(cat)
     try:
         db.session.commit()
@@ -545,12 +543,11 @@ def search():
     page_size = current_app.config.get("PAGE_SIZE", 6)
     offset = (page - 1) * page_size
     articles, total_page, total = search_articles(q, offset, page_size)
-    return render_template(
-        "blog/search.html", articles=articles, page=page, total_page=total_page, q=q, total=total
-    )
+    return render_template("blog/search.html", articles=articles, page=page, total_page=total_page, q=q, total=total)
 
 
 # ── RSS/Atom 订阅源 ─────────────────────────────────────
+_CN_TZ: tzinfo  # ZoneInfo 与固定偏移两种取值类型不同，统一标注为基类
 try:
     _CN_TZ = ZoneInfo("Asia/Shanghai")
 except ZoneInfoNotFoundError:

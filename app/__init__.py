@@ -74,9 +74,7 @@ def _setup_logging(app: Flask):
     level = logging.DEBUG if app.debug else logging.INFO
     # 结构化日志：生产默认单行 JSON（ELK/Loki 直接解析），开发/测试可读文本；
     # BLOG_LOG_FORMAT=json|text 可强制覆盖。控制台与文件使用同一 formatter。
-    formatter = build_formatter(
-        app.config.get("LOG_FORMAT", "auto"), debug=app.debug, testing=app.testing
-    )
+    formatter = build_formatter(app.config.get("LOG_FORMAT", "auto"), debug=app.debug, testing=app.testing)
     req_filter = RequestIdFilter()
 
     stream_handler = logging.StreamHandler()
@@ -163,7 +161,8 @@ def create_app(config_name: str | None = None):
     )
 
     # ── ProxyFix（信任反向代理头） ──────────────────────
-    app.wsgi_app = ProxyFix(
+    # 运行时替换 wsgi_app 是 Werkzeug 官方推荐的 ProxyFix 用法，故豁免 method-assign
+    app.wsgi_app = ProxyFix(  # type: ignore[method-assign]
         app.wsgi_app,
         x_for=app.config.get("PROXY_FIX_X_FOR", 0),
         x_proto=app.config.get("PROXY_FIX_X_PROTO", 0),

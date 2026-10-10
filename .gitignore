@@ -8,6 +8,8 @@
 copilot-instructions.md
 *.bat
 pyproject.toml
+# mypy 类型检查缓存（配置见 mypy.ini；pycache 系列忽略规则不覆盖它）
+/.mypy_cache/
 
 # 环境变量与本地数据，禁止入库
 # 注意：.gitignore 不支持行尾注释，每行必须是纯模式，注释单独成行

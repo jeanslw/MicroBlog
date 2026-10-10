@@ -27,7 +27,9 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: actions/checkout@v7
+      # 所有 action 一律 pin 到完整 commit SHA（GitHub 官方供应链安全建议）：
+      # 浮动 tag 可被上游强推/劫持，SHA 不可变；行尾注释保留版本号便于检索升级。
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Validate tag format
         run: |
@@ -38,20 +40,20 @@ jobs:
           fi
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Login to GHCR
-        uses: docker/login-action@v4
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ${{ env.REGISTRY_GHCR }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Login to Docker Hub
-        uses: docker/login-action@v4
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ${{ env.REGISTRY_DOCKER }}
           username: ${{ github.repository_owner }}
@@ -59,7 +61,7 @@ jobs:
 
       - name: Extract metadata for GHCR
         id: meta_ghcr
-        uses: docker/metadata-action@v6
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ${{ env.REGISTRY_GHCR }}/${{ env.IMAGE_NAME }}
           flavor: |
@@ -70,7 +72,7 @@ jobs:
 
       - name: Extract metadata for Docker Hub
         id: meta_dockerhub
-        uses: docker/metadata-action@v6
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
           images: ${{ env.REGISTRY_DOCKER }}/${{ env.IMAGE_NAME }}
           flavor: |
@@ -80,7 +82,7 @@ jobs:
             type=raw,value=latest,enable=${{ !contains(inputs.tag || github.ref_name, '-') && (github.ref_type == 'tag' || inputs.tag != '') }}
 
       - name: Build and Push to GHCR
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           platforms: linux/amd64,linux/arm64
@@ -91,7 +93,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Build and Push to Docker Hub
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           platforms: linux/amd64,linux/arm64

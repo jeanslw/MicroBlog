@@ -17,7 +17,9 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      # 所有 action 一律 pin 到完整 commit SHA（GitHub 官方供应链安全建议）：
+      # 浮动 tag 可被上游强推/劫持，SHA 不可变；行尾注释保留版本号便于检索升级。
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 

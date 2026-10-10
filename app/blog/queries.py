@@ -5,6 +5,7 @@
 """
 
 import math
+from typing import Any
 
 from sqlalchemy import func, or_, select
 
@@ -83,7 +84,7 @@ def get_article_comments(aid: int, newest_first: bool = False):
     replies = db.session.scalars(
         select(Reply).where(Reply.comment_id.in_([c.id for c in comments])).order_by(Reply.create_time)
     ).all()
-    reply_map = {}
+    reply_map: dict[Any, list[Reply]] = {}
     for r in replies:
         reply_map.setdefault(r.comment_id, []).append(r)
     for c in comments:
@@ -105,7 +106,7 @@ def get_article_detail(aid: int):
 
     # 净化 HTML 输出,防止存储型 XSS。结果存到非映射属性 safe_content,
     # 不修改 mapped 的 content 列，避免每次详情页访问都触发一条 UPDATE。
-    article.safe_content = sanitize_html(article.content)
+    article.safe_content = sanitize_html(article.content)  # type: ignore[arg-type]
 
     # 评论 + 回复（批量查询避免 N+1；前台详情页按时间正序展示）
     return article, get_article_comments(aid)
@@ -130,24 +131,17 @@ def search_articles(keyword: str, offset: int, limit: int):
     total = db.session.scalar(select(func.count(Article.id)).where(base_filter)) or 0
     total_page = max(math.ceil(total / limit) if limit > 0 else 1, 1)
     articles = db.session.scalars(
-        select(Article)
-        .where(base_filter)
-        .order_by(Article.create_time.desc())
-        .offset(offset)
-        .limit(limit)
+        select(Article).where(base_filter).order_by(Article.create_time.desc()).offset(offset).limit(limit)
     ).all()
     for art in articles:
-        art.brief = strip_html(art.content)
+        art.brief = strip_html(art.content)  # type: ignore[arg-type]
     return articles, total_page, total
 
 
 def get_recent_articles(limit: int = 20):
     """获取最近发布的文章（用于 RSS/Atom 订阅源）"""
     return db.session.scalars(
-        select(Article)
-        .where(Article.status == "publish")
-        .order_by(Article.create_time.desc())
-        .limit(limit)
+        select(Article).where(Article.status == "publish").order_by(Article.create_time.desc()).limit(limit)
     ).all()
 
 

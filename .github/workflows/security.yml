@@ -18,35 +18,53 @@ jobs:
     name: Dependency & Secret Scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      # 所有 action 一律 pin 到完整 commit SHA（GitHub 官方供应链安全建议）：
+      # 浮动 tag 可被上游强推/劫持，SHA 不可变；行尾注释保留版本号便于检索升级。
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.11'
           cache: pip
 
+      # pip-audit 固定版本（与 Devops_CD 一致），保证扫描结果可复现
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install -r requirements.txt "pip-audit==2.10.1"
 
       - name: Python syntax check
         run: python -m compileall -q app config.py run.py tests
 
+      # 依赖漏洞审计策略（与 Devops_CD 对齐）：
+      # - PR：已知漏洞仅告警不阻断——第三方新披露的 CVE 与本 PR 无关时，
+      #   不应卡住无关贡献者；
+      # - push main / 定时任务：硬失败——漏洞进入主干必须被看见并处理。
+      # （此前为 continue-on-error: true，任何漏洞都无法阻断，形同虚设）
       - name: Dependency vulnerability audit (pip-audit)
-        continue-on-error: true
         run: |
-          python -m pip install pip-audit
-          pip-audit -r requirements.txt
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            pip-audit -r requirements.txt || echo "::warning::Known vulnerabilities found, please review"
+          else
+            pip-audit -r requirements.txt
+          fi
 
-      - name: Hardcoded secret scan
+      # 硬编码凭证扫描：只匹配「真实凭证格式」（GitHub / GitLab / AWS / Slack /
+      # 私钥等），避免此前宽泛的 (secret|password|token)=... 模式大量误伤测试
+      # 样例与示例值。排除 .venv / .git / static（随仓库分发的第三方前端库）、
+      # .github（工作流自身）及 *.example 配置模板。
+      - name: Hardcoded credential scan
         run: |
           set -e
-          if grep -rInE "(api[_-]?key|secret|password|token|SECRET_KEY)\s*[:=]\s*[\"'][A-Za-z0-9_\-]{16,}[\"']" \
-              --include="*.py" --include="*.html" --include="*.toml" \
-              --include="*.yml" --include="*.yaml" --exclude-dir=.git .; then
-            echo "::error::Found potential hardcoded secret"
+          if grep -rInE "(glpat-[A-Za-z0-9_-]{20,}|ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{22,}|AKIA[0-9A-Z]{16}|xox[baprs]-[A-Za-z0-9-]{10,}|-----BEGIN (RSA|OPENSSH|EC|DSA) PRIVATE KEY-----)" \
+              --include="*.py" --include="*.html" --include="*.js" --include="*.json" \
+              --include="*.yml" --include="*.yaml" --include="*.toml" --include="*.sh" \
+              --include="*.ini" --include="*.cfg" --include="*.sql" \
+              --exclude-dir=.git --exclude-dir=.venv --exclude-dir=.github \
+              --exclude-dir=static --exclude-dir=node_modules \
+              --exclude="*.env.example" --exclude="*.example" .; then
+            echo "::error::Found hardcoded credentials"
             exit 1
           else
-            echo "No obvious hardcoded secrets found"
+            echo "No hardcoded credentials found"
           fi

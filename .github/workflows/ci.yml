@@ -22,26 +22,42 @@ concurrency:
 
 jobs:
   quality:
-    name: Lint & Syntax Check
+    name: Lint, Format & Type Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      # 所有 action 一律 pin 到完整 commit SHA（GitHub 官方供应链安全建议）：
+      # 浮动 tag 可被上游强推/劫持，SHA 不可变；行尾注释保留版本号便于检索升级。
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.11'
           cache: pip
 
-      # ruff 固定版本：规则集显式声明在仓库根目录 ruff.toml 中，
+      # ruff / mypy 固定版本：规则集显式声明在仓库根目录 ruff.toml / mypy.ini 中，
       # 版本固定可让 CI 与本地完全一致，避免上游发布新版本或调整规则实现时
       # 流水线突然变红（曾经的失败即源于缺失配置文件退回内置默认规则集）。
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt "ruff==0.16.9"
+          pip install -r requirements.txt "ruff==0.16.9" "mypy==1.13.0"
+
+      # 依赖一致性校验：requirements.txt 内各包的版本约束互相不冲突
+      - name: Validate dependency consistency (pip check)
+        run: pip check
 
       - name: Ruff lint
         run: ruff check app config.py run.py tests
+
+      # 格式门禁：ruff.toml 已忽略 E501、行宽判定交给 formatter 单独处理，
+      # 因此 formatter 必须进 CI，否则代码格式实际处于无门禁状态。
+      - name: Ruff format check
+        run: ruff format --check app config.py run.py tests
+
+      # 类型检查：配置在仓库根目录 mypy.ini（定位为挡真实缺陷、非严格类型化，
+      # 详见该文件头部说明）。无参数运行时 mypy 自动读取其中的 files 配置。
+      - name: Type check (mypy)
+        run: mypy
 
       - name: Python syntax check
         run: python -m compileall -q app config.py run.py tests
@@ -55,9 +71,9 @@ jobs:
       matrix:
         python-version: ['3.10', '3.11', '3.12']
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - uses: actions/setup-python@v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
@@ -67,6 +83,8 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt pytest-cov
 
+      # .coveragerc（仓库根目录）声明覆盖率口径：只统计 app/ 业务代码，
+      # 排除测试目录与缓存，并支持 pragma: no cover。
       - name: Run tests with coverage
         env:
           BLOG_ENV: testing
@@ -74,7 +92,7 @@ jobs:
 
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.11'
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@2320916714171c258d01dbd81040d64d798c6f8e # v7.1.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false

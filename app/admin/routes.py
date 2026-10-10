@@ -198,9 +198,7 @@ def about_setting():
                 )
                 save_path = os.path.join(upload_dir("image", "avatar"), final_name)
                 process_and_resize_logo(avatar_file.stream, save_path, ext, max_edge=512)
-                site.about_avatar = url_for(
-                    "main.uploaded_file", category="image", filename=f"avatar/{final_name}"
-                )
+                site.about_avatar = url_for("main.uploaded_file", category="image", filename=f"avatar/{final_name}")
             except Exception:
                 log.error("头像上传失败", exc_info=True)
                 flash(_("头像上传失败，请重试"), "danger")
@@ -281,9 +279,7 @@ def _site_setting_view(template):
                     ext,
                     max_edge=current_app.config.get("LOGO_MAX_EDGE", 400),
                 )
-                site.logo_path = url_for(
-                    "main.uploaded_file", category="image", filename=f"logo/{final_name}"
-                )
+                site.logo_path = url_for("main.uploaded_file", category="image", filename=f"logo/{final_name}")
             except Exception:
                 log.error("Logo 上传失败", exc_info=True)
                 flash(_("Logo 上传失败，请重试"), "danger")
@@ -424,9 +420,7 @@ def reset(token):
     if current_user.is_authenticated:
         return redirect(url_for("admin.panel"))
     try:
-        data = _reset_serializer().loads(
-            token, max_age=current_app.config.get("RESET_TOKEN_MAX_AGE", 1800)
-        )
+        data = _reset_serializer().loads(token, max_age=current_app.config.get("RESET_TOKEN_MAX_AGE", 1800))
     except (SignatureExpired, BadSignature):
         flash(_("重置链接无效或已过期"), "danger")
         return redirect(url_for("admin.forgot"))
@@ -556,7 +550,7 @@ def _mysql_creds():
 # 下面的候选按优先级排列，以「空参数」收尾（两种写法都不支持时交回客户端默认行为）。
 _TLS_DISABLE_CANDIDATES = (("--skip-ssl",), ("--ssl-mode=DISABLED",), ())
 # binary -> 上一次真正跑通的参数（空元组表示该客户端两种写法都不支持）
-_tls_args_cache = {}
+_tls_args_cache: dict[str, tuple[str, ...]] = {}
 
 # 客户端「不认识该参数」的报错特征（MySQL: unknown option / MariaDB: unknown variable）
 _UNKNOWN_OPTION_MARKERS = ("unknown option", "unknown variable", "unrecognized option")
@@ -593,9 +587,7 @@ def _run_db_client(build_cmd, binary, env, **kwargs):
         try:
             result = subprocess.run(cmd, capture_output=True, env=env, **kwargs)
         except FileNotFoundError:
-            raise RuntimeError(
-                f"未找到 {binary} 客户端，请先安装 MySQL/MariaDB 客户端（容器镜像已内置）"
-            ) from None
+            raise RuntimeError(f"未找到 {binary} 客户端，请先安装 MySQL/MariaDB 客户端（容器镜像已内置）") from None
         if result.returncode == 0:
             _tls_args_cache[binary] = tls_args
             return result
@@ -619,9 +611,7 @@ def _safe_backup_name(name):
     """
     if not name or name != os.path.basename(name) or name.startswith("."):
         return False
-    return name.startswith(("backup_", "mysql_backup_", "sqlite_backup_")) and name.endswith(
-        (".zip", ".db", ".sql")
-    )
+    return name.startswith(("backup_", "mysql_backup_", "sqlite_backup_")) and name.endswith((".zip", ".db", ".sql"))
 
 
 def _resolved_backup_path(name):
@@ -907,10 +897,7 @@ def _verify_sqlite_backup_file(path: str):
                     raise RuntimeError(
                         _("恢复失败：备份文件已损坏（SQLite integrity_check: %(status)s）", status=status)
                     )
-                tables = {
-                    row[0]
-                    for row in conn.execute(db.text("SELECT name FROM sqlite_master WHERE type='table'"))
-                }
+                tables = {row[0] for row in conn.execute(db.text("SELECT name FROM sqlite_master WHERE type='table'"))}
                 if "admin" not in tables:
                     raise RuntimeError(_("恢复不完整：备份中缺少 admin 表，请确认该文件是本博客的数据库备份"))
                 admin_count = conn.execute(db.text("SELECT COUNT(*) FROM admin")).scalar()
@@ -1000,17 +987,13 @@ def backup_restore(name):
         # 防止跨类型误恢复（MySQL 备份恢复到 SQLite 或反之）破坏当前数据库
         if _db_type() == "mysql" and _kind != "sql":
             flash(
-                _(
-                    "恢复失败：该备份为 SQLite（.db）格式，无法恢复到 MySQL 数据库；如需迁移数据请手动处理"
-                ),
+                _("恢复失败：该备份为 SQLite（.db）格式，无法恢复到 MySQL 数据库；如需迁移数据请手动处理"),
                 "danger",
             )
             return redirect(url_for("admin.backup"))
         if _db_type() == "sqlite" and _kind != "db":
             flash(
-                _(
-                    "恢复失败：该备份为 MySQL（.sql）格式，无法恢复到 SQLite 数据库；如需迁移数据请手动处理"
-                ),
+                _("恢复失败：该备份为 MySQL（.sql）格式，无法恢复到 SQLite 数据库；如需迁移数据请手动处理"),
                 "danger",
             )
             return redirect(url_for("admin.backup"))
@@ -1019,9 +1002,7 @@ def backup_restore(name):
             # 旧格式备份的 LOCK TABLES 反而可能被并发请求持有的元数据锁(MDL)阻塞,
             # 造成恢复超时中断、库表处于不一致状态（如 admin 表被删后未重建）
             data = b"\n".join(
-                line
-                for line in data.split(b"\n")
-                if not line.lstrip().startswith((b"LOCK TABLES", b"UNLOCK TABLES"))
+                line for line in data.split(b"\n") if not line.lstrip().startswith((b"LOCK TABLES", b"UNLOCK TABLES"))
             )
         # 恢复前先自动做一次即时备份（文件名带 _snapshot 标记），便于回滚
         _create_backup(_backup_dir(), tag="_snapshot")
@@ -1056,13 +1037,9 @@ def backup_restore(name):
                     {"db": c["db"]},
                 ).scalar()
                 if admin_count:
-                    admin_count = conn.execute(
-                        db.text("SELECT COUNT(*) FROM admin")
-                    ).scalar()
+                    admin_count = conn.execute(db.text("SELECT COUNT(*) FROM admin")).scalar()
             if not admin_count:
-                raise RuntimeError(
-                    _("恢复不完整：admin 表缺失或无数据，请直接重新执行一次恢复")
-                )
+                raise RuntimeError(_("恢复不完整：admin 表缺失或无数据，请直接重新执行一次恢复"))
             # 其它 worker 的连接池在恢复期间未归还，仍指向旧的库/表结构：
             # 请求 gunicorn 平滑重启，让它们重新建连（单进程部署下为空操作）
             _request_worker_recycle()

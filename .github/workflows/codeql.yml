@@ -1,0 +1,50 @@
+name: CodeQL
+
+# CodeQL SAST 静态代码安全分析（advanced setup，与 Devops_CD 同源做法）：
+# - 扫描结果以 SARIF 上传到 GitHub Security 标签页，PR 上直接出告警；
+# - Python 为解释型语言，无需编译，build-mode 为 none；
+# - 定时任务避开整点（17:23 UTC，降低 Actions 峰值排队）；
+# - 暂未配置误报排除文件（.github/codeql/codeql-config.yml），
+#   当前基线无已知误报；若未来出现，须先在排除文件中记录理由再排除。
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  schedule:
+    - cron: '23 17 * * 1'
+
+permissions:
+  contents: read
+  security-events: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (python)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+      actions: read
+    steps:
+      # 所有 action 一律 pin 到完整 commit SHA（GitHub 官方供应链安全建议）：
+      # 浮动 tag 可被上游强推/劫持，SHA 不可变；行尾注释保留版本号便于检索升级。
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@9f759ee644a3e7c15c1390abf49868036c00067b # v3
+        with:
+          languages: python
+          build-mode: none
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@9f759ee644a3e7c15c1390abf49868036c00067b # v3
+        with:
+          category: '/language:python'

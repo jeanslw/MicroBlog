@@ -1,0 +1,33 @@
+# EditorConfig —— 跨编辑器统一基础格式（VS Code / PyCharm / Vim 等原生支持）
+# 行尾策略与 .gitattributes 对齐：仓库统一 LF，仅 Windows 批处理脚本保留 CRLF。
+# Python 缩进由 ruff format 负责（4 空格），本文件保证非 Python 文件的一致性。
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.py]
+indent_style = space
+indent_size = 4
+
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
+[*.{json,toml,ini,cfg}]
+indent_style = space
+indent_size = 4
+
+[*.md]
+# Markdown 行尾双空格是硬换行语法，不裁剪
+trim_trailing_whitespace = false
+
+[*.{bat,cmd,ps1}]
+end_of_line = crlf
+
+[*.{js,css,html}]
+indent_style = space
+indent_size = 2

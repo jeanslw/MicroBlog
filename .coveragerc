@@ -1,0 +1,12 @@
+# pytest-cov 覆盖率配置：只统计业务代码，排除测试目录与缓存
+# （此前 CI 直接 --cov=app，无法排除无关文件；本文件由 pytest-cov 自动读取）
+[run]
+source = app
+omit =
+    tests/*
+    */__pycache__/*
+
+[report]
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:

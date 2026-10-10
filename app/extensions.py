@@ -121,7 +121,8 @@ def record_login_fail(ip: str, username: str, lock_seconds: int = 300) -> int:
         if rec.fail_count >= 5:
             rec.lock_until = time.time() + lock_seconds
         db.session.commit()
-        return rec.fail_count
+        # Column[int] 运行时即 int（Flask-SQLAlchemy 旧式 Column 模型的类型盲区）
+        return rec.fail_count  # type: ignore[return-value]
     except Exception:
         db.session.rollback()
         log.warning("record_login_fail 失败,跳过记录", exc_info=True)
@@ -184,9 +185,11 @@ def fetch_global_context():
             .order_by(Category.id.desc())
         ).all()
         total_art = db.session.scalar(db.select(db.func.count(Article.id)).filter(Article.status == "publish")) or 0
-        banner_list = db.session.execute(
-            db.select(Banner).filter(Banner.is_active.is_(True)).order_by(Banner.sort.desc())
-        ).scalars().all()
+        banner_list = (
+            db.session.execute(db.select(Banner).filter(Banner.is_active.is_(True)).order_by(Banner.sort.desc()))
+            .scalars()
+            .all()
+        )
         # 站点配置只有一行：一次读取（此前按字段拆成 8 条 SELECT，且分散读取
         # 有「读到另一行」的风险，见 database.get_site_config 的说明）
         site = get_site_config()
@@ -342,18 +345,19 @@ def check_and_record_rate_limit(action: str, ip: str, limit: int, window_seconds
         threshold = _rate_limit_window_str(window_seconds)
         # 清理窗口外的旧记录（惰性清理，避免表膨胀）；
         # 立即提交，确保「本次被拒」时清理结果也保留
-        db.session.execute(
-            db.delete(RateLimit).where(RateLimit.action == action, RateLimit.create_time < threshold)
-        )
+        db.session.execute(db.delete(RateLimit).where(RateLimit.action == action, RateLimit.create_time < threshold))
         db.session.commit()
         # 统计窗口内记录数
-        count = db.session.scalar(
-            db.select(db.func.count(RateLimit.id)).where(
-                RateLimit.action == action,
-                RateLimit.ip == ip,
-                RateLimit.create_time >= threshold,
+        count = (
+            db.session.scalar(
+                db.select(db.func.count(RateLimit.id)).where(
+                    RateLimit.action == action,
+                    RateLimit.ip == ip,
+                    RateLimit.create_time >= threshold,
+                )
             )
-        ) or 0
+            or 0
+        )
         if count >= limit:
             return False
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
