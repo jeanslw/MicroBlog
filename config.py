@@ -203,6 +203,10 @@ class Config:
     LOG_BACKUP_COUNT = int(os.environ.get("BLOG_LOG_BACKUP_COUNT", "5"))
     # 日志格式：auto（默认，生产 JSON / 开发测试文本）、json（ELK/Loki 采集）、text
     LOG_FORMAT = (os.environ.get("BLOG_LOG_FORMAT") or "auto").lower()
+    # 日志级别：auto（默认，跟随 BLOG_DEBUG 开关：debug 时 DEBUG、否则 INFO）、
+    # 或 DEBUG / INFO / WARNING / ERROR / CRITICAL（独立于 DEBUG 开关，
+    # 例：生产只想记 WARNING 以上 → BLOG_LOG_LEVEL=WARNING）。非法值回退 INFO。
+    LOG_LEVEL = (os.environ.get("BLOG_LOG_LEVEL") or "auto").upper()
     # 慢请求阈值（毫秒）：超过则 http_request 日志升级为 WARNING；0 = 全部告警
     SLOW_REQUEST_MS = int(os.environ.get("BLOG_SLOW_REQUEST_MS", "500"))
     # 慢 SQL 阈值（毫秒）：超过则记 slow_query WARNING（只记语句不记参数）；0 = 全部记录

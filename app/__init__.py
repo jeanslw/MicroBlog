@@ -70,8 +70,25 @@ def _setup_logging(app: Flask):
     脱离启动终端也能回溯。gunicorn 多 worker 以 O_APPEND 共享同一文件，
     单条日志不会交错损坏。文件句柄幂等挂载，测试中反复 create_app()
     或 reloader 双进程不会产生重复行。
+
+    日志级别（LOG_LEVEL，来自 BLOG_LOG_LEVEL）：
+    - auto（默认）跟随 DEBUG 开关：debug 时 DEBUG、否则 INFO；
+    - 显式 DEBUG / INFO / WARNING / ERROR / CRITICAL 则独立于 DEBUG 开关，
+      例：生产排查问题可临时 BLOG_LOG_LEVEL=DEBUG（只多记日志，
+      错误页仍由 DEBUG 开关决定是否外显堆栈）。
     """
-    level = logging.DEBUG if app.debug else logging.INFO
+    # 级别解析：显式值非法不阻断启动，回退 INFO 并在 handler 挂好后告警
+    raw_level = str(app.config.get("LOG_LEVEL") or "auto").upper()
+    bad_level = None
+    if raw_level in ("", "AUTO"):
+        level = logging.DEBUG if app.debug else logging.INFO
+    else:
+        # 临时变量承接 getattr 的 Any|None，经 isinstance 收窄后再赋给 level
+        parsed = getattr(logging, raw_level, None)
+        if not isinstance(parsed, int):
+            bad_level = raw_level
+            parsed = logging.INFO
+        level = parsed
     # 结构化日志：生产默认单行 JSON（ELK/Loki 直接解析），开发/测试可读文本；
     # BLOG_LOG_FORMAT=json|text 可强制覆盖。控制台与文件使用同一 formatter。
     formatter = build_formatter(app.config.get("LOG_FORMAT", "auto"), debug=app.debug, testing=app.testing)
@@ -114,6 +131,13 @@ def _setup_logging(app: Flask):
 
     _configure(app.logger)
     _configure(log)
+
+    if bad_level:
+        # 此时 handler 已挂好，告警不会丢；不阻断启动
+        app.logger.warning(
+            "BLOG_LOG_LEVEL 取值非法(%s)，已回退 INFO；可用值：AUTO/DEBUG/INFO/WARNING/ERROR/CRITICAL",
+            bad_level,
+        )
 
 
 def _select_locale():

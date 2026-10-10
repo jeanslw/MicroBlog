@@ -189,3 +189,84 @@ def test_slow_sql_silent_with_high_threshold(app, client, capture):
     """
     client.get("/")
     assert not [r for r in capture.records if r.getMessage() == "slow_query"]
+
+
+# ── 日志级别解析（BLOG_LOG_LEVEL / LOG_LEVEL） ────────────────
+def _apply_level(app, value):
+    """按给定 LOG_LEVEL 值重跑 _setup_logging，返回应用 logger 生效级别。"""
+    from app import _setup_logging
+
+    app.config["LOG_LEVEL"] = value
+    _setup_logging(app)  # handler 幂等挂载，二次调用只更新级别
+    return app.logger.level
+
+
+def test_log_level_auto_follows_debug_switch(app):
+    """auto（默认）：非 debug → INFO，与历史行为一致。"""
+    app.debug = False
+    assert _apply_level(app, "auto") == logging.INFO
+
+
+def test_log_level_explicit_independent_of_debug(app):
+    """显式 WARNING 独立于 DEBUG 开关生效（生产只记 WARNING 以上）。"""
+    app.debug = False
+    assert _apply_level(app, "warning") == logging.WARNING
+    # debug=True 但显式 INFO：级别仍以显式值为准，不升到 DEBUG
+    app.debug = True
+    assert _apply_level(app, "INFO") == logging.INFO
+
+
+def test_log_level_invalid_falls_back_to_info(app):
+    """非法值不阻断启动：回退 INFO（告警由 handler 挂好后输出）。"""
+    assert _apply_level(app, "VERBOSE") == logging.INFO
+    assert _apply_level(app, "debug verbose") == logging.INFO  # 含空格的整串非法
+
+
+def test_log_level_empty_follows_debug(app):
+    """空值视为 auto：跟随 DEBUG 开关。"""
+    app.debug = True
+    assert _apply_level(app, "") == logging.DEBUG
+
+
+# ── 500 错误处理：DEBUG 堆栈 / 友好错误页 开关 ────────────────
+def _add_boom_route(app):
+    """注册一个必炸路由（app fixture 为 function scope，endpoint 不会冲突）。"""
+
+    @app.route("/__boom__")
+    def _boom():  # pragma: no cover - 视图体本身不测覆盖
+        raise RuntimeError("boom-internal-detail")
+
+    return "/__boom__"
+
+
+def test_500_friendly_page_when_debug_off(app, client):
+    """非 DEBUG：返回友好错误页，堆栈/异常细节绝不外显（日志中仍完整记录）。"""
+    app.debug = False
+    # testing 默认 propagate 异常给 pytest，这里强制走 errorhandler
+    app.config["PROPAGATE_EXCEPTIONS"] = False
+    rv = client.get(_add_boom_route(app))
+    assert rv.status_code == 500
+    assert b"boom-internal-detail" not in rv.data  # 内部细节不泄漏
+    assert "服务器内部错误".encode() in rv.data  # 友好文案（模板失败也有纯 HTML 兜底）
+
+
+def test_500_stack_trace_when_debug_on(app, client):
+    """DEBUG 开（BLOG_DEBUG=True）：响应直接带堆栈，便于本地排查。"""
+    app.debug = True
+    app.config["PROPAGATE_EXCEPTIONS"] = False
+    rv = client.get(_add_boom_route(app))
+    assert rv.status_code == 500
+    assert b"RuntimeError" in rv.data
+    assert b"boom-internal-detail" in rv.data
+
+
+def test_500_json_branch(app, client):
+    """JSON 请求：返回 {"error": ...} 而非 HTML 错误页（供脚本/前端调用方）。"""
+    app.debug = False
+    app.config["PROPAGATE_EXCEPTIONS"] = False
+    rv = client.get(_add_boom_route(app), headers={"Content-Type": "application/json"})
+    assert rv.status_code == 500
+    assert rv.is_json
+    # jsonify 中文默认 \uXXXX 转义，按 JSON 解析后断言
+    assert rv.get_json()["error"] == "服务器内部错误"
+    assert b"boom-internal-detail" not in rv.data

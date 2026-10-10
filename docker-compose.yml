@@ -82,6 +82,16 @@ services:
       # 密码找回令牌有效期（秒，默认 1800）
       BLOG_RESET_TOKEN_MAX_AGE: ${BLOG_RESET_TOKEN_MAX_AGE:-1800}
 
+      # ─ 日志（写入容器 /app/logs → 宿主机 ./data/logs；gunicorn 自身日志走 docker logs） ─
+      # 级别独立于 BLOG_DEBUG 开关：auto=跟随 DEBUG（false 时 INFO）；
+      # 可选 DEBUG/INFO/WARNING/ERROR/CRITICAL（如生产只记 WARNING 以上）
+      BLOG_LOG_LEVEL: ${BLOG_LOG_LEVEL:-auto}
+      # auto=生产 JSON（ELK/Loki 直接解析）/ 开发文本；可强制 json 或 text
+      BLOG_LOG_FORMAT: ${BLOG_LOG_FORMAT:-auto}
+      # 文件轮转：单文件 10MB、保留 5 份（app.log.1 … app.log.5，超过自动滚动删除）
+      BLOG_LOG_MAX_BYTES: ${BLOG_LOG_MAX_BYTES:-10485760}
+      BLOG_LOG_BACKUP_COUNT: ${BLOG_LOG_BACKUP_COUNT:-5}
+
       # ─ SMTP 邮件（可选）：不配置时在 管理后台 → 邮件设置 中填写（后台优先） ─
       BLOG_MAIL_HOST: ${BLOG_MAIL_HOST:-}
       BLOG_MAIL_PORT: ${BLOG_MAIL_PORT:-587}
