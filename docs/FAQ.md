@@ -67,6 +67,15 @@ On native Linux Docker, bind-mounted directories are owned by root by default, w
 - Docker: `docker compose build web && docker compose --env-file .env.docker --profile full up -d`
 - Clear browser cache after template changes
 
+**Q: After an upgrade the site only shows "Site under maintenance" (HTTP 503) and neither the site nor the admin area loads?**
+That is the maintenance gate of **manual migration mode**: `BLOG_AUTO_MIGRATE=false` and the app detected that the database schema lags behind the code. Work through it in order:
+1. **Back up first** — this must happen before migrating: use the admin "Database Backup" page or run `mysqldump` on the server
+2. Log in at `/admin/login` — the login page is exempt from maintenance mode (the "Admin login" button on the upgrade page points there)
+3. Open **"Operations & Security" → "Migrate Database"** in the admin sidebar, check the current DB version / target version / pending migrations and click "Run migration"; you can also run `flask init-db` on the server (idempotent)
+4. Maintenance mode **clears itself** once the migration finishes — no restart needed (just refresh). If it still returns 503, read the service log: a `数据库迁移失败` entry means the migration did not complete — fix the cause shown in the traceback (privileges, disk, connectivity) and retry
+
+To go back to "migrate automatically on startup": set `BLOG_AUTO_MIGRATE` back to `true` (or remove the line) and restart. Note that when the database version is **higher** than the program version (code rolled back) nothing is downgraded automatically — only a warning is logged — so restore a backup matching the program version. See [Deployment Guide 2.8](DEPLOYMENT.md#28-upgrading-and-schema-migrations).
+
 **Q: `docker compose` startup fails with a missing-variable / interpolation error?**
 The current compose provides test defaults for the secret key and passwords, so after `cp .env.docker.example .env.docker` you **only need to set `MYSQL_ROOT_PASSWORD` and `MYSQL_PASSWORD`** to start (and SQLite mode `docker compose up -d web` doesn't even need that file). If errors persist, note:
 - `docker compose` implicitly reads the root-level `.env`, but the app-side config file is now `app.env` and is **not read by compose**; only a leftover legacy `.env` (e.g. with `BLOG_DB_TYPE=mysql`) can affect SQLite mode — delete it or pass `--env-file` explicitly

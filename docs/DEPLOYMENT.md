@@ -92,6 +92,7 @@ Common variables:
 | `BLOG_DB_TYPE` | `sqlite` | `sqlite` or `mysql`; when set to `mysql` with missing connection fields the app refuses to start (no silent fallback) |
 | `BLOG_MYSQL_HOST` / `BLOG_MYSQL_USER` / `BLOG_MYSQL_PWD` / `BLOG_MYSQL_DB` | - | MySQL connection info |
 | `BLOG_SQLITE_PATH` | `data/blog.db` | SQLite file path; the app refuses to start (with fix instructions) when its directory is not writable, e.g. a serverless read-only code dir — see [2.7 Deploying to Vercel](#27-deploying-to-vercel-serverless-demo-only) |
+| `BLOG_AUTO_MIGRATE` | `true` | Schema migration mode: `true` applies pending migrations automatically on startup; `false` is manual mode — the site enters maintenance (503) when migrations are pending and an admin applies them from the admin "Migrate Database" page, see [2.8 Upgrading and Schema Migrations](#28-upgrading-and-schema-migrations) |
 | `BLOG_PAGE_SIZE` | `6` | Articles per page |
 | `BLOG_STATIC_MAX_AGE` | `0` | Static file cache seconds (compose template defaults to 43200) |
 | `BLOG_SESSION_LIFETIME` | `86400` | Session lifetime in seconds (default 24h; applies to the admin login session) |
@@ -387,6 +388,31 @@ BLOG_CANONICAL_URL=https://<your Vercel domain>
 
 > Just want to try it out without a database? Set `BLOG_SQLITE_PATH=/tmp/blog.db` (data may be lost at any time — **never use this for a real site**).
 > Conclusion: Vercel fits a "read-only site + external MySQL" setup. If you need local image uploads, admin backup/restore, or dependency-free SQLite, use [2.6 Docker Compose](#26-docker-compose-deployment-recommended-for-production) or [2.5 Start the Service](#25-start-the-service).
+
+### 2.8 Upgrading and Schema Migrations
+
+The app ships a **versioned schema-migration framework**: structural changes are registered per release number, and on startup the "program version" is compared with the "database version" (the semantically highest row of the `schema_version` history table):
+
+| Comparison | Behaviour |
+|------------|-----------|
+| Program version **higher** than database version | Apply the missing migrations and append one history row per version (version + applied time + note; visible on the admin "Migrate Database" page) |
+| Both **equal** | Nothing to do |
+| Database version **higher** than the program version (code rolled back) | Log a warning and skip — the newer schema is **never touched** (after a rollback, restore a backup matching the older version; the app does not downgrade automatically) |
+
+Whether migrations run at startup is controlled by `BLOG_AUTO_MIGRATE` (bare metal: `app.env`; Docker: `.env.docker`):
+
+- **`true` (default)**: pending migrations run on startup. With multiple workers / instances the work is serialised by a database named lock (MySQL `GET_LOCK`) — only one process applies migrations, the others wait and then skip, so nothing is applied twice.
+- **`false` (manual mode)**: startup **does not touch the database at all**; as soon as pending migrations are detected the site enters maintenance mode.
+
+Maintenance mode (HTTP 503) in manual mode:
+
+- Every request except static files, `/healthz`, uploaded files, admin login/logout and the migration page receives a 503 upgrade page, which lists the current database version, the target version and the pending migrations
+- To proceed: log in at `/admin/login`, open **"Operations & Security" → "Migrate Database"** in the admin sidebar and click "Run migration" (the page reports every version applied); alternatively run `flask init-db` on the server (idempotent: creates tables + applies migrations + ensures default settings and admin)
+- Maintenance mode **clears itself** once the migration completes — **no restart needed**: the gate re-checks pending migrations on every request, so any worker reaching any entry point (this worker's admin page, another worker, or the CLI) releases everyone
+
+> **Why maintenance mode exists**: during a structural upgrade the old code may be unable to read the new schema (and vice versa), and even logging in can fail. That is why the three tables used by the login path (`admin`, `login_attempt`, `rate_limit`) **keep their structure across versions**, and the upgrade page reads no business table at all — the "log in → migrate" path therefore works whatever state the database is in.
+
+Before upgrading: export a backup from the admin "Database Backup" page and **verify it can be restored** (ideally restore it once in a scratch environment). A failed migration is logged (`数据库迁移失败` with a traceback) and **never blocks startup** — fix the cause (disk space, account privileges, …) and retry; failing to acquire the MySQL named lock (60s wait) is likewise only logged, and a restart or the next request retries.
 
 ---
 
