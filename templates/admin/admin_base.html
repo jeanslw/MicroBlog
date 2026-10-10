@@ -198,6 +198,10 @@
                            href="{{ url_for('admin.backup') }}">
                             <i class="bi bi-database"></i> {{ _('数据库备份') }}
                         </a>
+                        <a class="list-group-item list-group-item-action {% if request.endpoint == 'admin.migrate_db' %}active{% endif %}"
+                           href="{{ url_for('admin.migrate_db') }}">
+                            <i class="bi bi-arrow-repeat"></i> {{ _('迁移数据库') }}
+                        </a>
                     </div>
                 </div>
             </div>

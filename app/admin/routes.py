@@ -10,6 +10,7 @@
 
 import contextlib
 import os
+import re
 import signal
 import subprocess
 import threading
@@ -40,7 +41,15 @@ from werkzeug.utils import safe_join
 
 from app.admin import admin_bp
 from app.crypto import encrypt_secret
-from app.database import get_or_create_about_profile, get_or_create_mail_setting, get_or_create_site_setting
+from app.database import (
+    SCHEMA_VERSION,
+    get_or_create_about_profile,
+    get_or_create_mail_setting,
+    get_or_create_site_setting,
+    pending_schema_migrations,
+    run_schema_migrations,
+    sync_schema_version,
+)
 from app.extensions import (
     admin_required,
     check_login_lock,
@@ -549,8 +558,20 @@ def _mysql_creds():
 # 仅认 --ssl-mode=DISABLED。硬编码任一写法都会让另一侧以 exit 2（unknown option）直接失败。
 # 下面的候选按优先级排列，以「空参数」收尾（两种写法都不支持时交回客户端默认行为）。
 _TLS_DISABLE_CANDIDATES = (("--skip-ssl",), ("--ssl-mode=DISABLED",), ())
-# binary -> 上一次真正跑通的参数（空元组表示该客户端两种写法都不支持）
-_tls_args_cache: dict[str, tuple[str, ...]] = {}
+
+# mysqldump 的「非 root 受限账号兼容」候选（v1.3.6）。首选 = 完整兼容参数；
+# 老客户端（MySQL 8.0.21 前无 --no-tablespaces）→ 退掉它保留 GTID 参数；
+# 极老客户端（不认 --set-gtid-purged）→ 全部退回默认行为。
+#   --no-tablespaces:业务账号无 PROCESS 权限时 dump 表空间语句报错
+#   --set-gtid-purged=OFF:恢复端非 root 无 SUPER 权限处理 GTID 语句会失败
+_MYSQLDUMP_EXTRA_CANDIDATES = (
+    ("--no-tablespaces", "--set-gtid-purged=OFF"),
+    ("--set-gtid-purged=OFF",),
+    (),
+)
+
+# binary -> 上一次真正跑通的 (tls_args, extra_args) 组合
+_client_args_cache: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {}
 
 # 客户端「不认识该参数」的报错特征（MySQL: unknown option / MariaDB: unknown variable）
 _UNKNOWN_OPTION_MARKERS = ("unknown option", "unknown variable", "unrecognized option")
@@ -562,45 +583,70 @@ def _is_unknown_option_error(stderr):
     return any(marker in low for marker in _UNKNOWN_OPTION_MARKERS)
 
 
-def _tls_args_candidates(binary):
-    """本次要依次尝试的「禁用 TLS」参数列表；已确认过的客户端只试那一种。"""
-    if binary in _tls_args_cache:
-        return [_tls_args_cache[binary]]
-    return list(_TLS_DISABLE_CANDIDATES)
+def _arg_identity(arg):
+    """参数名归一化（去引导线、去 =值、小写），用于把报错参数匹配回候选组合。"""
+    return arg.lstrip("-").split("=", 1)[0].lower()
 
 
-def _run_db_client(build_cmd, binary, env, **kwargs):
+def _unknown_option_name(stderr):
+    """从客户端报错中提取「不认识」的参数名;解析不出返回 None。
+
+    形态示例：`unknown option '--no-tablespaces'` / `unknown variable 'set-gtid-purged'`。
+    """
+    m = re.search(r"unknown (?:option|variable)\s+['\"]?(-?-?[A-Za-z0-9_=-]+)", stderr)
+    return _arg_identity(m.group(1)) if m else None
+
+
+def _run_db_client(build_cmd, binary, env, extra_candidates=((),), **kwargs):
     """执行 mysql/mysqldump 子进程，返回 CompletedProcess；失败抛带客户端 stderr 的 RuntimeError。
 
-    build_cmd(tls_args) -> list[str]：用给定的「禁用 TLS」参数拼出完整命令行。
+    build_cmd(tls_args, extra_args) -> list[str]：用给定的「禁用 TLS」与「额外兼容」
+    参数拼出完整命令行。
 
-    为什么不能「探测」客户端支持哪种写法：`mysql --skip-ssl --version` 会**打印版本并以 0
-    退出**（mysql 客户端对 --version 提前返回，不再校验其余选项），于是 --skip-ssl 被误判成
-    可用，直到真正恢复时才以 exit 2 失败；而 `mysqldump --skip-ssl --version` 却会正常报错——
-    同名参数在两个客户端里的校验时机不一致，探测结论不可信。故改为行为驱动：先用首选参数
-    真跑一次，客户端报「未知选项」就换下一个候选重试。未知选项在参数解析阶段即失败，
-    不建连接、不写库、不产生任何副作用，因此重试是安全的（含恢复时携带的 dump 数据）。
-    跑通后把结论缓存，后续调用不再试错。
+    tls 候选 × extra 候选按序试错。「unknown option」时从 stderr 提取具体参数名，
+    跳过所有仍含该参数的组合（避免无谓重试）;其余错误（密码错/权限不足/连不上）
+    原样透出,不重试。跑通后缓存 (tls_args, extra_args),后续调用零试错。
+
+    为什么不能「探测」客户端支持哪种写法：`mysql --skip-ssl --version` 会**打印版本
+    并以 0 退出**（mysql 客户端对 --version 提前返回，不再校验其余选项），于是
+    --skip-ssl 被误判成可用，直到真正恢复时才以 exit 2 失败；而 `mysqldump --skip-ssl
+    --version` 却会正常报错——同名参数在两个客户端里的校验时机不一致，探测结论不可信。
+    故改为行为驱动：先用首选参数真跑一次，客户端报「未知选项」就换不含该参数的候选
+    重试。未知选项在参数解析阶段即失败，不建连接、不写库、不产生任何副作用，因此
+    重试是安全的（含恢复时携带的 dump 数据）。
     """
-    for tls_args in _tls_args_candidates(binary):
-        cmd = build_cmd(tls_args)
+    if binary in _client_args_cache:
+        combos = [_client_args_cache[binary]]
+    else:
+        combos = [(tls, extra) for tls in _TLS_DISABLE_CANDIDATES for extra in extra_candidates]
+    i = 0
+    while i < len(combos):
+        tls_args, extra_args = combos[i]
+        cmd = build_cmd(tls_args, extra_args)
         try:
             result = subprocess.run(cmd, capture_output=True, env=env, **kwargs)
         except FileNotFoundError:
             raise RuntimeError(f"未找到 {binary} 客户端，请先安装 MySQL/MariaDB 客户端（容器镜像已内置）") from None
         if result.returncode == 0:
-            _tls_args_cache[binary] = tls_args
+            _client_args_cache[binary] = (tls_args, extra_args)
             return result
         # 不使用 check=True：CalledProcessError 只带退出码、丢掉 stderr，现场只剩
         # 「returned non-zero exit status 2」这种无从下手的报错（未知选项/密码错误/
         # 权限不足都无法区分）。
         stderr = result.stderr.decode("utf-8", errors="replace").strip()
-        if tls_args and _is_unknown_option_error(stderr):
-            log.warning("%s 客户端不支持 %s，改用下一个候选参数重试", binary, " ".join(tls_args))
+        if _is_unknown_option_error(stderr):
+            bad = _unknown_option_name(stderr)
+            j = i + 1
+            if bad:
+                # 跳过所有仍包含该参数的候选组合
+                while j < len(combos) and bad in {_arg_identity(a) for a in (*combos[j][0], *combos[j][1])}:
+                    j += 1
+            log.warning("%s 客户端不支持 %s，换下一个候选参数重试", binary, bad or "该参数")
+            i = j
             continue
         raise RuntimeError(stderr or f"{binary} exited with code {result.returncode}")
-    # 候选列表以「空参数」收尾，空参数不会再触发 unknown option，故此处理论不可达；
-    # 保留兜底，避免将来调整候选列表时静默返回 None。
+    # 候选以「全空参数」收尾，理论上必有一个组合不含任何会触发 unknown option 的参数,
+    # 故此处理论不可达；保留兜底，避免将来调整候选列表时静默返回 None。
     raise RuntimeError(f"未找到 {binary} 可用的参数组合，请检查客户端版本")
 
 
@@ -644,13 +690,16 @@ def _list_backups(backup_dir):
     return files
 
 
-def _mysqldump_cmd(creds, tls_args):
-    """拼 mysqldump 命令行；tls_args 为「禁用 TLS」参数，由 _run_db_client 试错决定。
+def _mysqldump_cmd(creds, tls_args, extra_args=()):
+    """拼 mysqldump 命令行；tls_args/extra_args 由 _run_db_client 试错决定。
 
-    --single-transaction:InnoDB 一致性快照,备份不阻塞业务
+    固定参数:
+    --single-transaction:InnoDB 一致性快照,备份不阻塞业务;同时避免默认
+      --lock-tables 对非 root 账号（无 LOCK TABLES 权限）的依赖
     --skip-add-locks:dump 内不生成 LOCK TABLES,恢复端不会因元数据锁(MDL)等待挂起
     --default-character-set=utf8mb4:避免中文数据乱码
-    --no-tablespaces:业务账号无 PROCESS 权限,dump 表空间语句会报错(仅警告但污染 stderr)
+    extra_args 候选（非 root 兼容,见 _MYSQLDUMP_EXTRA_CANDIDATES）:
+      --no-tablespaces / --set-gtid-purged=OFF
     注:mysqldump 不支持 --connect-timeout（exit 7 unknown variable），
     连接失败由子进程 timeout=120 兜底；口令走 MYSQL_PWD 环境变量，不进命令行
     """
@@ -660,7 +709,7 @@ def _mysqldump_cmd(creds, tls_args):
         "--skip-add-locks",
         "--default-character-set=utf8mb4",
         *tls_args,
-        "--no-tablespaces",
+        *extra_args,
         "-h",
         creds["host"],
         "-u",
@@ -669,7 +718,7 @@ def _mysqldump_cmd(creds, tls_args):
     ]
 
 
-def _mysql_restore_cmd(creds, tls_args):
+def _mysql_restore_cmd(creds, tls_args, extra_args=()):
     """拼 mysql 恢复命令行（dump 内容从 stdin 喂入）；tls_args 语义同 _mysqldump_cmd。"""
     return [
         "mysql",
@@ -704,17 +753,17 @@ def _create_backup(backup_dir, tag=""):
         c = _mysql_creds()
         env = os.environ.copy()
         env["MYSQL_PWD"] = c["pwd"]
-        # --single-transaction:InnoDB 一致性快照,备份不阻塞业务
-        # --skip-add-locks:dump 内不生成 LOCK TABLES,恢复端不会因元数据锁(MDL)等待挂起
-        # --default-character-set=utf8mb4:避免中文数据乱码
-        # --no-tablespaces:业务账号无 PROCESS 权限,dump 表空间语句会报错(仅警告但污染 stderr)
-        # 注:mysqldump 不支持 --connect-timeout（exit 7 unknown variable），
-        # 连接失败由子进程 timeout=120 兜底
-        # 「禁用 TLS」参数由 _run_db_client 按客户端实际行为自适应：内网链路无需 TLS，
-        # MariaDB 客户端对 MySQL 8.4 的自签证书会报 2026 self-signed certificate，
-        # 故尽量禁用；写法（--skip-ssl / --ssl-mode=DISABLED）随客户端版本不同，勿硬编码
+        # 固定参数说明见 _mysqldump_cmd;「禁用 TLS」与「非 root 兼容」参数均由
+        # _run_db_client 按客户端实际行为自适应试错（内网链路无需 TLS;业务账号
+        # 可能无 PROCESS/SUPER 权限）,跑通后缓存复用,备份与恢复两条路径共享。
         inner_name = f"{db_prefix}_backup_{timestamp}.sql"
-        result = _run_db_client(partial(_mysqldump_cmd, c), "mysqldump", env, timeout=120)
+        result = _run_db_client(
+            partial(_mysqldump_cmd, c),
+            "mysqldump",
+            env,
+            extra_candidates=_MYSQLDUMP_EXTRA_CANDIDATES,
+            timeout=120,
+        )
         with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
             zf.writestr(inner_name, result.stdout)
         return zip_name
@@ -791,6 +840,41 @@ def backup_delete(name):
     except OSError:
         flash(_("删除失败"), "danger")
     return redirect(url_for("admin.backup"))
+
+
+# ── 数据库 schema 迁移（版本化迁移框架的后台入口） ──────────
+@admin_bp.route("/migrate", methods=["GET", "POST"])
+@admin_required
+def migrate_db():
+    """数据库 schema 迁移页：展示当前/目标版本与待应用迁移,支持手动触发。
+
+    迁移由 schema_version 驱动:程序版本 > 数据库版本时启动也会自动执行,
+    本页用于升级后确认状态或排查时手动重放,与启动共用 run_schema_migrations。
+    """
+    if request.method == "POST":
+        try:
+            applied = run_schema_migrations()
+        except Exception as e:
+            log.error("数据库迁移失败", exc_info=True)
+            flash(_("数据库迁移失败：%(err)s", err=e), "danger")
+            return redirect(url_for("admin.migrate_db"))
+        if applied:
+            names = "、".join(f"v{v}（{desc}）" for v, desc in applied)
+            flash(_("迁移完成：%(names)s", names=names), "success")
+        else:
+            flash(_("数据库已是最新 schema 版本，无需迁移"), "info")
+        return redirect(url_for("admin.migrate_db"))
+
+    current = sync_schema_version()
+    pending = pending_schema_migrations(current)
+    return render_template(
+        "admin/migrate_db.html",
+        current_version=current,
+        target_version=SCHEMA_VERSION,
+        pending=pending,
+        up_to_date=current is not None and not pending and current <= SCHEMA_VERSION,
+        ahead=current is not None and current > SCHEMA_VERSION,
+    )
 
 
 # ── 恢复互斥：进程内锁 + 跨进程文件锁 ─────────────────────

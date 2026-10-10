@@ -32,25 +32,30 @@ class _Completed:
 @pytest.fixture(autouse=True)
 def _clear_tls_cache():
     """跑通的参数有缓存，用例间必须清空避免串味"""
-    admin_routes._tls_args_cache.clear()
+    admin_routes._client_args_cache.clear()
     yield
-    admin_routes._tls_args_cache.clear()
+    admin_routes._client_args_cache.clear()
 
 
-def _db_client(tls_args):
+def _db_client(tls_args, extra_args=()):
     """把候选参数拼成一条类似备份/恢复的命令行"""
-    return ["mysqldump", *tls_args]
+    return ["mysqldump", *tls_args, *extra_args]
 
 
 def test_cmd_builders_place_tls_args_and_avoid_password_on_argv():
     """命令拼装：TLS 参数夹在中间、口令不进命令行（走 MYSQL_PWD 环境变量）"""
     creds = {"host": "db", "user": "blog", "pwd": "s3cret", "db": "flask_blog"}
-    dump_cmd = admin_routes._mysqldump_cmd(creds, ("--ssl-mode=DISABLED",))
+    dump_cmd = admin_routes._mysqldump_cmd(
+        creds, ("--ssl-mode=DISABLED",), ("--no-tablespaces", "--set-gtid-purged=OFF")
+    )
     assert dump_cmd[0] == "mysqldump"
     assert "--ssl-mode=DISABLED" in dump_cmd
     assert "--single-transaction" in dump_cmd and "--no-tablespaces" in dump_cmd
+    assert "--set-gtid-purged=OFF" in dump_cmd
     assert dump_cmd[-5:] == ["-h", "db", "-u", "blog", "flask_blog"]
     assert "s3cret" not in dump_cmd  # 口令不得出现在进程列表里
+    # extra_args 缺省为空:纯 TLS 维度调用不掺杂兼容参数
+    assert "--no-tablespaces" not in admin_routes._mysqldump_cmd(creds, ())
     restore_cmd = admin_routes._mysql_restore_cmd(creds, ())
     assert restore_cmd[0] == "mysql"
     assert "--connect-timeout=10" in restore_cmd
@@ -69,7 +74,7 @@ def test_prefers_skip_ssl_when_client_accepts_it(monkeypatch):
     monkeypatch.setattr(admin_routes.subprocess, "run", fake_run)
     admin_routes._run_db_client(_db_client, "mysqldump", {})
     assert calls == [["mysqldump", "--skip-ssl"]]
-    assert admin_routes._tls_args_cache["mysqldump"] == ("--skip-ssl",)
+    assert admin_routes._client_args_cache["mysqldump"] == (("--skip-ssl",), ())
 
 
 def test_mysql84_client_falls_back_to_ssl_mode(monkeypatch):
@@ -88,7 +93,7 @@ def test_mysql84_client_falls_back_to_ssl_mode(monkeypatch):
         ["mysqldump", "--skip-ssl"],
         ["mysqldump", "--ssl-mode=DISABLED"],
     ]
-    assert admin_routes._tls_args_cache["mysqldump"] == ("--ssl-mode=DISABLED",)
+    assert admin_routes._client_args_cache["mysqldump"] == (("--ssl-mode=DISABLED",), ())
 
 
 def test_no_version_probe_is_used(monkeypatch):
@@ -140,7 +145,7 @@ def test_all_tls_flags_rejected_falls_back_to_client_default(monkeypatch):
     monkeypatch.setattr(admin_routes.subprocess, "run", fake_run)
     admin_routes._run_db_client(_db_client, "mysql", {})
     assert calls[-1] == ["mysqldump"]
-    assert admin_routes._tls_args_cache["mysql"] == ()
+    assert admin_routes._client_args_cache["mysql"] == ((), ())
 
 
 def test_retry_keeps_dump_payload_for_restore(monkeypatch):
@@ -234,3 +239,71 @@ def test_create_backup_reports_client_stderr(app, monkeypatch, tmp_path):
     monkeypatch.setattr(admin_routes.subprocess, "run", fake_run)
     with pytest.raises(RuntimeError, match="Can't connect to local server"):
         admin_routes._create_backup(str(tmp_path))
+
+
+def _extra_client(tls_args, extra_args=()):
+    """带 extra 维度的命令拼装替身（模拟备份路径的真实调用形态）"""
+    return ["mysqldump", *tls_args, *extra_args]
+
+
+def test_old_client_rejecting_no_tablespaces_falls_back(monkeypatch):
+    """老客户端（MySQL 8.0.21 前无 --no-tablespaces）:退掉该参数保留 GTID 参数重试。"""
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        if "--no-tablespaces" in cmd:
+            return _Completed(returncode=2, stderr=b"mysqldump: [ERROR] unknown option '--no-tablespaces'.")
+        return _Completed(returncode=0)
+
+    monkeypatch.setattr(admin_routes.subprocess, "run", fake_run)
+    admin_routes._run_db_client(
+        _extra_client, "mysqldump", {}, extra_candidates=admin_routes._MYSQLDUMP_EXTRA_CANDIDATES
+    )
+    # 第一次带 --no-tablespaces 失败,重试保留同 TLS、退掉 --no-tablespaces
+    assert calls == [
+        ["mysqldump", "--skip-ssl", "--no-tablespaces", "--set-gtid-purged=OFF"],
+        ["mysqldump", "--skip-ssl", "--set-gtid-purged=OFF"],
+    ]
+    assert admin_routes._client_args_cache["mysqldump"] == (
+        ("--skip-ssl",),
+        ("--set-gtid-purged=OFF",),
+    )
+
+
+def test_privilege_error_is_not_retried(monkeypatch):
+    """非 root 账号权限类报错（如缺 PROCESS）不是 unknown option,不重试、stderr 原样透出。"""
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append(cmd)
+        return _Completed(
+            returncode=1,
+            stderr=b"mysqldump: Error: 'Access denied; you need (at least one of) the PROCESS privilege(s)'",
+        )
+
+    monkeypatch.setattr(admin_routes.subprocess, "run", fake_run)
+    with pytest.raises(RuntimeError, match="PROCESS privilege"):
+        admin_routes._run_db_client(
+            _extra_client, "mysqldump", {}, extra_candidates=admin_routes._MYSQLDUMP_EXTRA_CANDIDATES
+        )
+    assert len(calls) == 1
+
+
+def test_create_backup_carries_non_root_compat_flags(app, monkeypatch, tmp_path):
+    """备份命令默认带上非 root 兼容参数（首选候选）,口令仍走环境变量。"""
+    monkeypatch.setenv("BLOG_DB_TYPE", "mysql")
+    monkeypatch.setenv("BLOG_MYSQL_PWD", "s3cret-nr")
+    cmds = []
+
+    def fake_run(cmd, **kwargs):
+        cmds.append(cmd)
+        return _Completed(returncode=0, stdout=b"CREATE TABLE t (id INT);\n")
+
+    monkeypatch.setattr(admin_routes.subprocess, "run", fake_run)
+    admin_routes._create_backup(str(tmp_path))
+    assert cmds[0][0] == "mysqldump"
+    assert "--single-transaction" in cmds[0]
+    assert "--no-tablespaces" in cmds[0]
+    assert "--set-gtid-purged=OFF" in cmds[0]
+    assert "--skip-add-locks" in cmds[0]

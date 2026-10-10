@@ -1377,3 +1377,47 @@ msgstr "Comment deleted"
 msgid "回复已删除"
 msgstr "Reply deleted"
 
+
+#: v1.3.6 schema migration page
+msgid "迁移数据库"
+msgstr "Migrate Database"
+
+msgid "当程序版本高于数据库版本时，启动时会自动执行迁移；本页可查看状态并手动触发，用于版本升级后确认或排查。"
+msgstr "When the program version is newer than the database version, migrations run automatically at startup; this page shows the status and lets you trigger them manually for post-upgrade checks or troubleshooting."
+
+msgid "当前数据库版本"
+msgstr "Current database version"
+
+msgid "程序目标版本"
+msgstr "Program target version"
+
+msgid "数据库版本高于程序版本：您可能正在运行较旧的程序，请先升级程序，迁移已被跳过。"
+msgstr "The database version is newer than the program version: you may be running an older build - please upgrade the program first; migration was skipped."
+
+msgid "检测到待应用的数据库迁移，建议先「备份数据库」再执行。"
+msgstr "Pending database migrations detected. Back up the database before proceeding."
+
+msgid "目标版本"
+msgstr "Target version"
+
+msgid "迁移说明"
+msgstr "Migration description"
+
+msgid "确认执行数据库迁移？建议先备份当前数据。"
+msgstr "Run the database migration now? Backing up the current data first is recommended."
+
+msgid "执行迁移"
+msgstr "Run Migration"
+
+msgid "数据库已是最新 schema 版本，无需迁移。"
+msgstr "The database is already at the latest schema version; no migration is needed."
+
+msgid "无法读取数据库版本，请检查数据库连接后重试。"
+msgstr "Unable to read the database version; check the database connection and retry."
+
+msgid "数据库迁移失败：%(err)s"
+msgstr "Database migration failed: %(err)s"
+
+msgid "迁移完成：%(names)s"
+msgstr "Migration complete: %(names)s"
+

@@ -62,9 +62,11 @@ def app(_tmp_project_root, monkeypatch):
 
     with a.app_context():
         _db.create_all()
-        # 初始化三张单行配置表 + 管理员
-        from app.database import ensure_admin_exists, ensure_default_settings
+        # 初始化：schema 版本戳记（全新库直接戳当前版本,无待迁移）
+        # + 三张单行配置表 + 管理员
+        from app.database import ensure_admin_exists, ensure_default_settings, run_schema_migrations
 
+        run_schema_migrations()
         ensure_default_settings()
         ensure_admin_exists()
         yield a

@@ -14,6 +14,7 @@
 """
 
 import os
+from collections.abc import Callable
 
 from flask import current_app
 from sqlalchemy.exc import IntegrityError, OperationalError
@@ -73,9 +74,11 @@ def init_db():
         db.create_all()
     _migrate_admin()
     _migrate_article()
-    _migrate_site_config_split()
     _migrate_banner()
     _migrate_rate_limit()
+    # 注意:site_config → 三表拆分这类「带数据搬迁」的迁移不在这里直调,
+    # 由版本化迁移框架（run_schema_migrations / SCHEMA_VERSION）驱动,
+    # 保证启动自动执行与后台「迁移数据库」手动触发走同一条路径。
 
 
 def _migrate_admin():
@@ -225,6 +228,109 @@ def _migrate_site_config_split():
         log.info("site_config 已拆分迁移至 site_setting / mail_setting / about_profile,旧表已删除")
     except Exception as e:
         log.warning("site_config 拆分迁移失败,旧表保留待下次重试: %s", e)
+
+
+# ── Schema 版本化迁移框架（v1.3.6） ────────────────────────
+# 当前代码所预期的数据库 schema 版本。做「带数据搬迁/不兼容」的 schema 变更时:
+# 1. SCHEMA_VERSION + 1;2. 把迁移函数登记进 _SCHEMA_MIGRATIONS;
+# 3. 同步 MySQL/init.sql（新装环境直接建最新 schema）。
+# 列级兼容（老库补列/补索引,无数据搬迁）仍走 init_db 里的幂等 _migrate_*。
+SCHEMA_VERSION = 2
+
+# 版本 -> (说明, 迁移函数)。迁移函数必须幂等、失败抛异常,由框架负责戳记。
+# v1 = site_config 单表时代（v1.3.5 及以前）,v2 = 拆分为三张单行配置表。
+_SCHEMA_MIGRATIONS: dict[int, tuple[str, Callable[[], None]]] = {
+    2: ("站点配置表拆分:site_config → site_setting / mail_setting / about_profile", _migrate_site_config_split),
+}
+
+
+def get_schema_version() -> int | None:
+    """读取数据库当前 schema 版本;无版本行时返回 None,数据库异常向上抛。"""
+    from app.models import SchemaVersion
+
+    row = db.session.get(SchemaVersion, 1)
+    if row is None:
+        row = db.session.scalars(db.select(SchemaVersion).order_by(SchemaVersion.id).limit(1)).first()
+    # Column[int] 运行时即 int（旧式 Column 模型盲区,同 models 的豁免惯例）
+    return row.version if row else None  # type: ignore[return-value]
+
+
+def _stamp_schema_version(version: int) -> None:
+    """写入/更新 schema 版本戳记（单行 id=1,多 worker 并发时以先提交者为准）。"""
+    from datetime import datetime
+
+    from app.models import SchemaVersion
+
+    try:
+        row = db.session.get(SchemaVersion, 1)
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if row is None:
+            db.session.add(SchemaVersion(id=1, version=version, applied_time=now))
+        else:
+            # 同上:Column 标注为 Column[T],运行时是标量
+            row.version = version  # type: ignore[assignment]
+            row.applied_time = now  # type: ignore[assignment]
+        db.session.commit()
+    except IntegrityError:
+        # 并发 worker 已先一步戳记;以库里的为准
+        db.session.rollback()
+
+
+def sync_schema_version() -> int | None:
+    """确保版本行存在并返回数据库当前 schema 版本（无版本行时推断初始值）。
+
+    版本管理首次上线（库里没有 schema_version 行）时的推断：
+    - 存在旧 site_config 表 → v1（单表时代,有待拆分迁移）;
+    - 不存在 → 全新库（create_all / init.sql 已直接建出当前 schema）→ SCHEMA_VERSION。
+    查询异常时返回 None,由调用方决定兜底（启动流程按「跳过本步」处理）。
+    """
+
+    try:
+        current = get_schema_version()
+    except Exception as e:
+        log.warning("sync_schema_version: 读取失败: %s", e)
+        return None
+    if current is not None:
+        return current
+    inspector = db.inspect(db.engine)
+    initial = 1 if "site_config" in inspector.get_table_names() else SCHEMA_VERSION
+    _stamp_schema_version(initial)
+    log.info("schema 版本管理初始化: 数据库版本 %d,程序版本 %d", initial, SCHEMA_VERSION)
+    return initial
+
+
+def pending_schema_migrations(current: int | None = None) -> list[tuple[int, str]]:
+    """待应用的迁移列表 [(version, 说明), ...],按版本升序。
+
+    程序版本 **大于** 数据库版本（数据库比代码旧）才有待应用迁移;
+    数据库版本高于程序（代码被降级）时返回空并告警——迁移永远只把旧库
+    往前带,不用旧代码的迁移逻辑去碰比它新的库。
+    """
+    if current is None:
+        current = sync_schema_version()
+    if current is None:
+        return []
+    if current > SCHEMA_VERSION:
+        log.warning("数据库 schema 版本 (%d) 高于程序版本 (%d),请先升级程序,跳过迁移", current, SCHEMA_VERSION)
+        return []
+    return [(v, desc) for v, (desc, _) in sorted(_SCHEMA_MIGRATIONS.items()) if current < v <= SCHEMA_VERSION]
+
+
+def run_schema_migrations() -> list[tuple[int, str]]:
+    """执行所有待应用的迁移并逐级戳记;启动初始化与后台「迁移数据库」共用此入口。
+
+    触发条件（启动自动 / 后台手动同一函数）:程序 SCHEMA_VERSION **大于** 数据库
+    schema 版本。每个迁移执行成功后立刻把版本戳到该迁移的版本——中途失败时
+    已完成的迁移不会重复执行,失败的迁移下次启动/手动触发时重试。
+    返回本次实际应用了的迁移列表。
+    """
+    applied: list[tuple[int, str]] = []
+    for version, desc in pending_schema_migrations():
+        log.info("应用 schema 迁移 v%d: %s", version, desc)
+        _SCHEMA_MIGRATIONS[version][1]()
+        _stamp_schema_version(version)
+        applied.append((version, desc))
+    return applied
 
 
 def ensure_admin_exists():

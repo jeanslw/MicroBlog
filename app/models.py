@@ -211,3 +211,18 @@ class RateLimit(db.Model):
     ip = Column(String(100), nullable=False, index=True)
     action = Column(String(50), nullable=False, index=True)
     create_time = Column(String(50), nullable=False)
+
+
+class SchemaVersion(db.Model):
+    """数据库 schema 版本记录（单行,id=1）。v1.3.6 引入版本化迁移框架。
+
+    version 记录该库当前所处的 schema 版本；程序代码侧的 SCHEMA_VERSION
+    （app/database.py）**大于**它时,启动初始化或后台「迁移数据库」会把
+    _SCHEMA_MIGRATIONS 里登记的待应用迁移按版本依次执行并逐级戳记。
+    """
+
+    __tablename__ = "schema_version"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    version = Column(Integer, nullable=False, default=0)
+    applied_time = Column(String(50))
