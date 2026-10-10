@@ -40,7 +40,7 @@ from werkzeug.utils import safe_join
 
 from app.admin import admin_bp
 from app.crypto import encrypt_secret
-from app.database import get_or_create_site_config
+from app.database import get_or_create_about_profile, get_or_create_mail_setting, get_or_create_site_setting
 from app.extensions import (
     admin_required,
     check_login_lock,
@@ -178,14 +178,14 @@ def site_setting():
 @admin_bp.route("/about_setting", methods=["GET", "POST"])
 @admin_required
 def about_setting():
-    """「关于我」编辑页：头像/邮箱/GitHub/个人主页/简介,数据存 site_config.about_*"""
-    site = get_or_create_site_config()
+    """「关于我」编辑页：头像/邮箱/GitHub/个人主页/简介,数据存 about_profile 表"""
+    about = get_or_create_about_profile()
     form = AboutForm()
     # 头像输入框预填外链地址（本地上传的内部 URL 不回填,避免误改）
-    if request.method == "GET" and site.about_avatar and site.about_avatar.startswith(("http://", "https://")):
-        form.avatar_url.data = site.about_avatar
+    if request.method == "GET" and about.about_avatar and about.about_avatar.startswith(("http://", "https://")):
+        form.avatar_url.data = about.about_avatar
     if form.validate_on_submit():
-        old_avatar = site.about_avatar
+        old_avatar = about.about_avatar
         # 头像：上传优先 > 外链 URL > 清除 > 保持不变
         avatar_file = form.avatar_upload.data
         if avatar_file and avatar_file.filename:
@@ -198,32 +198,32 @@ def about_setting():
                 )
                 save_path = os.path.join(upload_dir("image", "avatar"), final_name)
                 process_and_resize_logo(avatar_file.stream, save_path, ext, max_edge=512)
-                site.about_avatar = url_for("main.uploaded_file", category="image", filename=f"avatar/{final_name}")
+                about.about_avatar = url_for("main.uploaded_file", category="image", filename=f"avatar/{final_name}")
             except Exception:
                 log.error("头像上传失败", exc_info=True)
                 flash(_("头像上传失败，请重试"), "danger")
-                return render_template("admin/about_setting.html", form=form, site=site)
+                return render_template("admin/about_setting.html", form=form, about=about)
         elif form.avatar_url.data and form.avatar_url.data.strip():
-            site.about_avatar = form.avatar_url.data.strip()
+            about.about_avatar = form.avatar_url.data.strip()
         elif form.avatar_clear.data:
-            site.about_avatar = ""
-        site.about_bio = (form.about_bio.data or "").strip()
-        site.about_email = (form.about_email.data or "").strip().lower()
-        site.about_github = (form.about_github.data or "").strip()
-        site.about_homepage = (form.about_homepage.data or "").strip()
-        site.about_nickname = (form.about_nickname.data or "").strip()
+            about.about_avatar = ""
+        about.about_bio = (form.about_bio.data or "").strip()
+        about.about_email = (form.about_email.data or "").strip().lower()
+        about.about_github = (form.about_github.data or "").strip()
+        about.about_homepage = (form.about_homepage.data or "").strip()
+        about.about_nickname = (form.about_nickname.data or "").strip()
         db.session.commit()
         # 清理被替换的旧头像文件,避免磁盘堆积
-        if old_avatar and old_avatar != site.about_avatar:
+        if old_avatar and old_avatar != about.about_avatar:
             remove_uploaded_file(old_avatar)
         flash(_("关于我信息保存完成"), "success")
         return redirect(url_for("admin.about_setting"))
-    return render_template("admin/about_setting.html", form=form, site=site)
+    return render_template("admin/about_setting.html", form=form, about=about)
 
 
 def _site_setting_view(template):
     """站点设置公共视图：panel 首页与独立站点设置页共用"""
-    site = get_or_create_site_config()
+    site = get_or_create_site_setting()
     form = SiteSettingForm(obj=site)
     if form.validate_on_submit():
         site.site_name = form.site_name.data.strip()
@@ -441,14 +441,14 @@ def reset(token):
 @admin_bp.route("/account", methods=["GET", "POST"])
 @admin_required
 def account():
-    """账户邮件设置页：上半「账户邮箱」（Admin.email），下半「SMTP 邮件设置」（site_config）。
+    """账户邮件设置页：上半「账户邮箱」（Admin.email），下半「SMTP 邮件设置」（mail_setting 表）。
 
     两个表单各自提交到自己的端点（/account 与 /mail_setting），
     互不校验对方字段,避免单表单提交误触发另一表单的验证。
     """
-    site = get_or_create_site_config()
+    mail_cfg = get_or_create_mail_setting()
     email_form = AccountForm()
-    mail_form = MailSettingForm(obj=site)
+    mail_form = MailSettingForm(obj=mail_cfg)
     if request.method == "GET":
         email_form.email.data = current_user.email  # 邮箱回显
         mail_form.mail_password.data = ""  # 密码不回显，留空表示保持原值
@@ -464,23 +464,23 @@ def account():
 @admin_bp.route("/mail_setting", methods=["GET", "POST"])
 @admin_required
 def mail_setting():
-    """SMTP 邮件配置：存 site_config，保存后优先于 app.env 的 BLOG_MAIL_* 生效。
+    """SMTP 邮件配置：存 mail_setting 表，保存后优先于 app.env 的 BLOG_MAIL_* 生效。
 
     GET 一律跳转到合并后的「账户邮件设置」页（兼容旧书签/旧链接）。
     """
     if request.method == "GET":
         return redirect(url_for("admin.account"))
-    site = get_or_create_site_config()
-    form = MailSettingForm(obj=site)
+    mail_cfg = get_or_create_mail_setting()
+    form = MailSettingForm(obj=mail_cfg)
     if form.validate_on_submit():
-        site.mail_host = (form.mail_host.data or "").strip()
-        site.mail_port = form.mail_port.data or 587
-        site.mail_user = (form.mail_user.data or "").strip()
+        mail_cfg.mail_host = (form.mail_host.data or "").strip()
+        mail_cfg.mail_port = form.mail_port.data or 587
+        mail_cfg.mail_user = (form.mail_user.data or "").strip()
         if form.mail_password.data:
-            site.mail_password = encrypt_secret(form.mail_password.data.strip())
-        site.mail_from = (form.mail_from.data or "").strip().lower()
-        site.mail_use_ssl = bool(form.mail_use_ssl.data)
-        site.mail_use_tls = bool(form.mail_use_tls.data)
+            mail_cfg.mail_password = encrypt_secret(form.mail_password.data.strip())
+        mail_cfg.mail_from = (form.mail_from.data or "").strip().lower()
+        mail_cfg.mail_use_ssl = bool(form.mail_use_ssl.data)
+        mail_cfg.mail_use_tls = bool(form.mail_use_tls.data)
         db.session.commit()
         flash(_("邮件设置已保存"), "success")
     return redirect(url_for("admin.account"))

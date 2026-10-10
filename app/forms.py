@@ -78,7 +78,7 @@ class AccountForm(FlaskForm):
 
 
 class MailSettingForm(FlaskForm):
-    """SMTP 邮件设置：数据存 site_config，保存后优先于 app.env 的 BLOG_MAIL_* 生效。"""
+    """SMTP 邮件设置：数据存 mail_setting 表，保存后优先于 app.env 的 BLOG_MAIL_* 生效。"""
 
     mail_host = StringField("SMTP 服务器", validators=[Optional(), Length(max=200)])
     mail_port = IntegerField("端口", validators=[Optional(), NumberRange(min=1, max=65535)], default=587)
@@ -143,7 +143,7 @@ class SiteSettingForm(FlaskForm):
 
 
 class AboutForm(FlaskForm):
-    """「关于我」表单：头像/邮箱/GitHub/个人主页/简介，数据存 site_config 的 about_* 字段"""
+    """「关于我」表单：头像/邮箱/GitHub/个人主页/简介，数据存 about_profile 表"""
 
     avatar_upload = FileField(
         "上传头像",

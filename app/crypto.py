@@ -1,6 +1,6 @@
 """敏感字段加密/解密工具。
 
-`site_config.mail_password` 等敏感字段以 Fernet 对称加密后落库，
+`mail_setting.mail_password` 等敏感字段以 Fernet 对称加密后落库，
 密钥由 `SECRET_KEY` 经 SHA-256 派生（不新增独立密钥管理负担）。
 
 注意：`SECRET_KEY` 必须持久化（写入 app.env 的 `BLOG_SECRET_KEY`），

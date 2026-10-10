@@ -168,7 +168,7 @@ def fetch_global_context():
     使用 current_app.app_context() 内的 db.session,
     DB 异常时返回默认值避免页面整页崩溃。
     """
-    from app.database import get_site_config
+    from app.database import get_about_profile, get_site_setting
     from app.models import Article, Banner, Category
 
     try:
@@ -190,9 +190,10 @@ def fetch_global_context():
             .scalars()
             .all()
         )
-        # 站点配置只有一行：一次读取（此前按字段拆成 8 条 SELECT，且分散读取
-        # 有「读到另一行」的风险，见 database.get_site_config 的说明）
-        site = get_site_config()
+        # 三张单行配置表各读一次（v1.3.6 拆分自 site_config）：前台全局上下文
+        # 只需要站点展示字段 + 关于我昵称，SMTP 凭据表不再进前台渲染路径。
+        # 单行读取策略见 database._get_single_row（id≠1 历史库兼容）。
+        site = get_site_setting()
         site_name = (site.site_name or "博客") if site else "博客"
         site_logo = (site.logo_path or "") if site else ""
         # 上传文件不随数据库备份迁移：文件缺失时回落为「无 Logo」，交给导航栏渲染图标。
@@ -204,7 +205,10 @@ def fetch_global_context():
         # favicon_path 存相对路径（如 static/favicon.ico）,转成可访问的 URL
         if site_favicon and not site_favicon.startswith(("http://", "https://")):
             site_favicon = "/" + site_favicon.lstrip("/")
-        about_nickname = (site.about_nickname or "") if site else ""
+        about_nickname = ""
+        about = get_about_profile()
+        if about is not None:
+            about_nickname = about.about_nickname or ""
         site_bg_style = (site.bg_style or "bg1") if site else "bg1"
         site_bg_custom = (site.bg_custom or "") if site else ""
         raw_comments_enabled = site.comments_enabled if site else None

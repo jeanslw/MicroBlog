@@ -25,7 +25,7 @@ from app.blog.queries import (
     get_sidebar_tree,
     search_articles,
 )
-from app.database import get_site_config
+from app.database import get_about_profile, get_site_setting
 from app.extensions import admin_required, db, flash_form_errors, log
 from app.forms import ArticleForm, CategoryForm
 from app.models import Admin, Article, Category, Comment, Reply
@@ -181,8 +181,8 @@ def article_detail(aid):
     if m:
         article.og_image = m.group(1)
     # 作者署名：昵称未设置时回退为管理员用户名
-    site = get_site_config()
-    author_name = (site.about_nickname or "") if site else ""
+    about = get_about_profile()
+    author_name = (about.about_nickname or "") if about else ""
     if not author_name:
         author_name = db.session.scalar(db.select(Admin.username).order_by(Admin.id).limit(1)) or ""
     category_map, archive = get_sidebar_tree()
@@ -501,16 +501,16 @@ def edit_category(cid):
 # ── 关于我 ──────────────────────────────────────────────
 @blog_bp.route("/about")
 def about():
-    """「关于我」公开页面：展示后台站点设置里填写的头像/简介/邮箱/GitHub/个人主页"""
-    site = get_site_config()
-    avatar = (site.about_avatar or "") if site else ""
+    """「关于我」公开页面：展示后台「关于我」设置里填写的头像/简介/邮箱/GitHub/个人主页"""
+    about = get_about_profile()
+    avatar = (about.about_avatar or "") if about else ""
     # 头像文件不随数据库备份迁移：文件缺失时回落为空，页面渲染占位图标而不是破图 + alt 文本
     if not asset_url_exists(avatar):
         avatar = ""
-    bio = (site.about_bio or "").strip() if site else ""
-    email = (site.about_email or "").strip() if site else ""
-    github = (site.about_github or "").strip() if site else ""
-    homepage = (site.about_homepage or "").strip() if site else ""
+    bio = (about.about_bio or "").strip() if about else ""
+    email = (about.about_email or "").strip() if about else ""
+    github = (about.about_github or "").strip() if about else ""
+    homepage = (about.about_homepage or "").strip() if about else ""
     github_href = github if github.startswith(("http://", "https://")) else f"https://{github}"
     github_display = github.split("://", 1)[-1].rstrip("/") if github else ""
     homepage_href = homepage if homepage.startswith(("http://", "https://")) else f"https://{homepage}"
@@ -571,7 +571,7 @@ def _build_feed():
     from feedgen.feed import FeedGenerator
 
     articles = get_recent_articles()
-    site = get_site_config()
+    site = get_site_setting()
     site_name = (site.site_name or "博客") if site else "博客"
     # 优先使用配置的 CANONICAL_URL,避免 Host 头注入导致订阅源链接被投毒
     base_url = (current_app.config.get("CANONICAL_URL") or request.host_url).rstrip("/")

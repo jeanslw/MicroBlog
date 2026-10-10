@@ -28,23 +28,23 @@ def send_mail(to: str, subject: str, body: str) -> None:
 
     # 后台保存的 SMTP 配置优先；未配置则回退到环境变量
     db_host = ""
-    site = None
+    mail_cfg = None
     try:
-        from app.database import get_site_config
+        from app.database import get_mail_setting
 
-        site = get_site_config()
-        db_host = (site.mail_host or "").strip() if site else ""
+        mail_cfg = get_mail_setting()
+        db_host = (mail_cfg.mail_host or "").strip() if mail_cfg else ""
     except Exception:
-        site = None
+        mail_cfg = None
 
-    if db_host and site is not None:
+    if db_host and mail_cfg is not None:
         host = db_host
-        port = int(site.mail_port or 587)
-        user = site.mail_user or ""
-        password = decrypt_secret(site.mail_password or "")
-        sender = site.mail_from or user
-        use_ssl = bool(site.mail_use_ssl)
-        use_tls = bool(site.mail_use_tls)
+        port = int(mail_cfg.mail_port or 587)
+        user = mail_cfg.mail_user or ""
+        password = decrypt_secret(mail_cfg.mail_password or "")
+        sender = mail_cfg.mail_from or user
+        use_ssl = bool(mail_cfg.mail_use_ssl)
+        use_tls = bool(mail_cfg.mail_use_tls)
     else:
         host = cfg.get("MAIL_HOST", "")
         port = int(cfg.get("MAIL_PORT", 587) or 587)

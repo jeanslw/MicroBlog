@@ -5,8 +5,9 @@
 本模块仅保留：
 - init_db(): 创建所有表 + 轻量幂等迁移
 - ensure_admin_exists(): 初始化管理员
-- ensure_site_config(): 初始化站点配置
-- get_site_config() / get_or_create_site_config(): 统一读取/创建站点配置行
+- ensure_default_settings(): 初始化三张单行配置表（site_setting/mail_setting/about_profile）
+- get_site_setting / get_mail_setting / get_about_profile: 统一读取三张单行配置表
+- get_or_create_*: 读取,缺失时创建默认行（后台各设置页使用）
 
 注：文件名从 db.py 改为 database.py，避免与 app.extensions.db 实例
 在 app 包命名空间中产生属性遮蔽（module shadowing）。
@@ -72,7 +73,7 @@ def init_db():
         db.create_all()
     _migrate_admin()
     _migrate_article()
-    _migrate_site_config()
+    _migrate_site_config_split()
     _migrate_banner()
     _migrate_rate_limit()
 
@@ -127,62 +128,103 @@ def _migrate_banner():
         log.warning("banner is_active 列迁移失败,可手动执行 ALTER TABLE: %s", e)
 
 
-def _migrate_site_config():
-    """轻量迁移：为旧版 site_config 表补齐背景相关列（幂等）。
+def _migrate_site_config_split():
+    """v1.3.6：site_config 单表拆分为 site_setting / mail_setting / about_profile（幂等）。
 
-    新装环境表结构已包含新列,直接跳过；旧库（v1.1.0 及以前）通过
-    ALTER TABLE 追加 bg_style / bg_custom,避免老数据迁移 SQLite/MySQL 报错。
+    触发场景（检测到 site_config 表存在即执行）：
+    - 旧库升级：v1.3.5 及以前的单表 site_config 拆到三张新表；
+    - 恢复旧备份：SQLite 文件替换 / MySQL dump 导入把库变回旧 schema 后，
+      gunicorn SIGHUP 重启时 create_all 重建新表，本函数再拆一次。
+      此时旧行是用户明确要恢复的权威状态，故**覆盖**新表可能残留的数据。
+
+    顺序保证：init_db 先 create_all（新表此时已存在）再跑本迁移；随后
+    ensure_default_settings 只在对应表为空时补默认行。
+
+    安全设计（用户决策：迁移后立即 DROP 旧表）：
+    1. 复制（INSERT）与行数校验在同一个 DML 事务里完成；
+    2. 校验通过（三表各恰好一行）后才执行 DROP —— MySQL 的 DDL 会隐式提交、
+       无法与 DML 同事务，因此「先校验后删」是该引擎下最接近原子性的做法；
+       校验失败则抛异常回滚，旧表原样保留，下次启动重试；
+    3. 旧库可能缺列（v1.1.x 及以前没有 bg/about/mail 列）：缺列取默认值，
+       不再像旧迁移那样逐列 ALTER 后复制。
     """
     try:
         inspector = db.inspect(db.engine)
         if "site_config" not in inspector.get_table_names():
-            return
-        cols = {c["name"] for c in inspector.get_columns("site_config")}
+            return  # 新库或已完成迁移
+        old_cols = {c["name"] for c in inspector.get_columns("site_config")}
+        row = db.session.execute(db.text("SELECT * FROM site_config ORDER BY id LIMIT 1")).mappings().first()
+
         with db.engine.begin() as conn:
-            if "bg_style" not in cols:
-                conn.execute(db.text("ALTER TABLE site_config ADD COLUMN bg_style VARCHAR(50) NOT NULL DEFAULT 'bg1'"))
-            if "bg_custom" not in cols:
-                conn.execute(db.text("ALTER TABLE site_config ADD COLUMN bg_custom VARCHAR(500) NOT NULL DEFAULT ''"))
-            if "logo_path" not in cols:
-                conn.execute(db.text("ALTER TABLE site_config ADD COLUMN logo_path VARCHAR(200) NOT NULL DEFAULT ''"))
-            # 「关于我」字段（v1.4.0 新增）
-            if "about_avatar" not in cols:
-                conn.execute(db.text("ALTER TABLE site_config ADD COLUMN about_avatar VARCHAR(500) DEFAULT ''"))
-            if "about_bio" not in cols:
-                conn.execute(db.text("ALTER TABLE site_config ADD COLUMN about_bio TEXT"))
-            if "about_email" not in cols:
-                conn.execute(db.text("ALTER TABLE site_config ADD COLUMN about_email VARCHAR(200) DEFAULT ''"))
-            if "about_github" not in cols:
-                conn.execute(db.text("ALTER TABLE site_config ADD COLUMN about_github VARCHAR(200) DEFAULT ''"))
-            if "about_homepage" not in cols:
-                conn.execute(db.text("ALTER TABLE site_config ADD COLUMN about_homepage VARCHAR(200) DEFAULT ''"))
-            if "about_nickname" not in cols:
-                conn.execute(db.text("ALTER TABLE site_config ADD COLUMN about_nickname VARCHAR(100) DEFAULT ''"))
-            # SMTP 邮件设置（后台配置优先于 app.env）
-            if "mail_host" not in cols:
-                conn.execute(db.text("ALTER TABLE site_config ADD COLUMN mail_host VARCHAR(200) DEFAULT ''"))
-            if "mail_port" not in cols:
-                conn.execute(db.text("ALTER TABLE site_config ADD COLUMN mail_port INTEGER DEFAULT 587"))
-            if "mail_user" not in cols:
-                conn.execute(db.text("ALTER TABLE site_config ADD COLUMN mail_user VARCHAR(200) DEFAULT ''"))
-            if "mail_password" not in cols:
-                conn.execute(db.text("ALTER TABLE site_config ADD COLUMN mail_password VARCHAR(200) DEFAULT ''"))
-            if "mail_from" not in cols:
-                conn.execute(db.text("ALTER TABLE site_config ADD COLUMN mail_from VARCHAR(200) DEFAULT ''"))
-            if "mail_use_ssl" not in cols:
-                conn.execute(db.text("ALTER TABLE site_config ADD COLUMN mail_use_ssl BOOLEAN NOT NULL DEFAULT 0"))
-            if "mail_use_tls" not in cols:
-                conn.execute(db.text("ALTER TABLE site_config ADD COLUMN mail_use_tls BOOLEAN NOT NULL DEFAULT 1"))
-            # 评论总开关（关闭后全站禁止新评论/回复）
-            if "comments_enabled" not in cols:
-                conn.execute(db.text("ALTER TABLE site_config ADD COLUMN comments_enabled BOOLEAN NOT NULL DEFAULT 1"))
-            # 栏目分类样式（book=书本树形 / classic=经典箭头）
-            if "sidebar_style" not in cols:
+            if row is not None:
+                # 缺列取默认值：老库可能没有 v1.2+ 新增的列
+                def val(col, default):
+                    v = row[col] if col in old_cols else default
+                    return default if v is None else v
+
+                conn.execute(db.text("DELETE FROM site_setting"))
+                conn.execute(db.text("DELETE FROM mail_setting"))
+                conn.execute(db.text("DELETE FROM about_profile"))
                 conn.execute(
-                    db.text("ALTER TABLE site_config ADD COLUMN sidebar_style VARCHAR(20) NOT NULL DEFAULT 'book'")
+                    db.text(
+                        "INSERT INTO site_setting "
+                        "(id, site_name, favicon_path, logo_path, bg_style, bg_custom, comments_enabled, sidebar_style) "
+                        "VALUES (1, :site_name, :favicon_path, :logo_path, :bg_style, :bg_custom, "
+                        ":comments_enabled, :sidebar_style)"
+                    ),
+                    {
+                        "site_name": val("site_name", "My Blog"),
+                        "favicon_path": val("favicon_path", "static/favicon.ico"),
+                        "logo_path": val("logo_path", ""),
+                        "bg_style": val("bg_style", "bg1"),
+                        "bg_custom": val("bg_custom", ""),
+                        "comments_enabled": 1 if val("comments_enabled", True) else 0,
+                        "sidebar_style": val("sidebar_style", "book"),
+                    },
                 )
+                conn.execute(
+                    db.text(
+                        "INSERT INTO mail_setting "
+                        "(id, mail_host, mail_port, mail_user, mail_password, mail_from, mail_use_ssl, mail_use_tls) "
+                        "VALUES (1, :mail_host, :mail_port, :mail_user, :mail_password, :mail_from, "
+                        ":mail_use_ssl, :mail_use_tls)"
+                    ),
+                    {
+                        "mail_host": val("mail_host", ""),
+                        "mail_port": int(val("mail_port", 587)),
+                        "mail_user": val("mail_user", ""),
+                        "mail_password": val("mail_password", ""),
+                        "mail_from": val("mail_from", ""),
+                        "mail_use_ssl": 1 if val("mail_use_ssl", False) else 0,
+                        "mail_use_tls": 1 if val("mail_use_tls", True) else 0,
+                    },
+                )
+                conn.execute(
+                    db.text(
+                        "INSERT INTO about_profile "
+                        "(id, about_avatar, about_bio, about_email, about_github, about_homepage, about_nickname) "
+                        "VALUES (1, :about_avatar, :about_bio, :about_email, :about_github, "
+                        ":about_homepage, :about_nickname)"
+                    ),
+                    {
+                        "about_avatar": val("about_avatar", ""),
+                        "about_bio": val("about_bio", ""),
+                        "about_email": val("about_email", ""),
+                        "about_github": val("about_github", ""),
+                        "about_homepage": val("about_homepage", ""),
+                        "about_nickname": val("about_nickname", ""),
+                    },
+                )
+                # 校验：三张新表各恰好一行，任何异常整体回滚（旧表保留,下次启动重试）
+                for table in ("site_setting", "mail_setting", "about_profile"):
+                    cnt = conn.execute(db.text(f"SELECT COUNT(*) FROM {table}")).scalar()
+                    if cnt != 1:
+                        raise RuntimeError(f"{table} 迁移校验失败: 期望 1 行,实际 {cnt} 行")
+            # 旧行为空也直接删空表；校验通过后 DROP 旧表
+            conn.execute(db.text("DROP TABLE site_config"))
+        log.info("site_config 已拆分迁移至 site_setting / mail_setting / about_profile,旧表已删除")
     except Exception as e:
-        log.warning("site_config 背景列迁移失败,可手动执行 ALTER TABLE: %s", e)
+        log.warning("site_config 拆分迁移失败,旧表保留待下次重试: %s", e)
 
 
 def ensure_admin_exists():
@@ -236,24 +278,33 @@ def ensure_admin_exists():
     log.info("初始管理员账号已创建: %s", admin_user)
 
 
-def ensure_site_config():
-    """确保 site_config 表存在一行默认配置"""
-    from app.models import SiteConfig
+def ensure_default_settings():
+    """确保三张单行配置表（site_setting / mail_setting / about_profile）各有一行默认配置。
 
-    try:
-        cnt = db.session.scalar(db.select(db.func.count(SiteConfig.id)))
-    except Exception as e:
-        log.warning("ensure_site_config: 查询失败: %s", e)
-        return
-    if cnt == 0:
-        db.session.add(SiteConfig(site_name="My Blog", favicon_path="static/favicon.ico"))
+    迁移（_migrate_site_config_split）已填充的表不会被覆盖；新装环境
+    （SQLite create_all / MySQL init.sql）在此补齐缺失的默认行。
+    """
+    from app.models import AboutProfile, MailSetting, SiteSetting
+
+    for model, defaults in (
+        (SiteSetting, {"site_name": "My Blog", "favicon_path": "static/favicon.ico"}),
+        (MailSetting, {}),
+        (AboutProfile, {}),
+    ):
         try:
-            db.session.commit()
-        except IntegrityError:
-            # 多 worker 并发时其他进程可能已插入；复查确认后静默跳过
-            db.session.rollback()
-            if not db.session.scalar(db.select(db.func.count(SiteConfig.id))):
-                raise
+            cnt = db.session.scalar(db.select(db.func.count(model.id)))
+        except Exception as e:
+            log.warning("ensure_default_settings: 查询失败: %s", e)
+            return
+        if cnt == 0:
+            db.session.add(model(id=1, **defaults))
+            try:
+                db.session.commit()
+            except IntegrityError:
+                # 多 worker 并发时其他进程可能已插入；复查确认后静默跳过
+                db.session.rollback()
+                if not db.session.scalar(db.select(db.func.count(model.id))):
+                    raise
 
 
 def _migrate_rate_limit():
@@ -278,36 +329,74 @@ def _migrate_rate_limit():
         log.warning("rate_limit 索引迁移失败（仅影响清理性能，不影响功能）: %s", e)
 
 
-def get_site_config():
-    """读取站点配置行：优先 id=1，兼容「只有一行但主键不是 1」的历史库。
+def _get_single_row(model):
+    """读取单行配置表：优先 id=1，兼容「只有一行但主键不是 1」的历史库。
 
-    站点配置全站只有一行。此前前台各模块用「取第一行」（SELECT ... LIMIT 1）
-    读取、后台用 db.session.get(SiteConfig, 1) 读取，两者在「唯一一行 id≠1」
-    的库上读到的不是同一行，表现为「后台改了站点名/背景，前台不生效」。
-    统一走本函数后，读与写（get_or_create_site_config）永远指向同一行。
+    单行配置表全站只有一行。此前（site_config 时代）前台各模块用「取第一行」
+    （SELECT ... LIMIT 1）读取、后台用 get(model, 1) 读取，两者在「唯一一行
+    id≠1」的库上读到的不是同一行，表现为「后台改了站点名/背景，前台不生效」
+    （v1.3.5 修复的坑）。拆表后三张表沿用同一读取策略，读写永远指向同一行。
 
-    无配置行时返回 None；数据库异常向上抛出，由调用方决定兜底策略。
+    无行时返回 None；数据库异常向上抛出，由调用方决定兜底策略。
     """
-    from app.models import SiteConfig
-
-    site = db.session.get(SiteConfig, 1)
-    if site is None:
-        site = db.session.scalars(db.select(SiteConfig).order_by(SiteConfig.id).limit(1)).first()
-    return site
+    row = db.session.get(model, 1)
+    if row is None:
+        row = db.session.scalars(db.select(model).order_by(model.id).limit(1)).first()
+    return row
 
 
-def get_or_create_site_config():
-    """读取站点配置行，缺失时创建默认行（id=1）并提交，返回该行。
+def get_site_setting():
+    """读取站点设置行（site_setting 表）。"""
+    from app.models import SiteSetting
+
+    return _get_single_row(SiteSetting)
+
+
+def get_mail_setting():
+    """读取 SMTP 邮件设置行（mail_setting 表）。"""
+    from app.models import MailSetting
+
+    return _get_single_row(MailSetting)
+
+
+def get_about_profile():
+    """读取「关于我」资料行（about_profile 表）。"""
+    from app.models import AboutProfile
+
+    return _get_single_row(AboutProfile)
+
+
+def _get_or_create_single_row(model, **defaults):
+    """读取单行配置表，缺失时创建默认行（id=1）并提交，返回该行。
 
     后台各设置页统一用它取行，避免每处各写一份「get(id=1) → 没有就新建」，
     也避免在「唯一行 id≠1」的库上又插入第二行配置。
     """
-    from app.models import SiteConfig
-
-    site = get_site_config()
-    if site is not None:
-        return site
-    site = SiteConfig(id=1, site_name="My Blog", favicon_path="static/favicon.ico")
-    db.session.add(site)
+    row = _get_single_row(model)
+    if row is not None:
+        return row
+    row = model(id=1, **defaults)
+    db.session.add(row)
     db.session.commit()
-    return site
+    return row
+
+
+def get_or_create_site_setting():
+    """读取站点设置行，缺失时创建默认行。"""
+    from app.models import SiteSetting
+
+    return _get_or_create_single_row(SiteSetting, site_name="My Blog", favicon_path="static/favicon.ico")
+
+
+def get_or_create_mail_setting():
+    """读取 SMTP 邮件设置行，缺失时创建默认行。"""
+    from app.models import MailSetting
+
+    return _get_or_create_single_row(MailSetting)
+
+
+def get_or_create_about_profile():
+    """读取「关于我」资料行，缺失时创建默认行。"""
+    from app.models import AboutProfile
+
+    return _get_or_create_single_row(AboutProfile)

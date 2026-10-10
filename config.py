@@ -74,7 +74,7 @@ def _normalize_trusted_host(entry: str) -> str:
 
 # ── 业务常量（不随环境变化，直接定义供模块导入） ───────────
 # 应用版本（SemVer）。发布新版本时更新，须与 Git Tag 保持一致。
-APP_VERSION = "1.3.5"
+APP_VERSION = "1.3.6"
 
 PAGE_SIZE = int(os.environ.get("BLOG_PAGE_SIZE", "6"))
 

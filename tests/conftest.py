@@ -62,10 +62,10 @@ def app(_tmp_project_root, monkeypatch):
 
     with a.app_context():
         _db.create_all()
-        # 初始化站点配置 + 管理员
-        from app.database import ensure_admin_exists, ensure_site_config
+        # 初始化三张单行配置表 + 管理员
+        from app.database import ensure_admin_exists, ensure_default_settings
 
-        ensure_site_config()
+        ensure_default_settings()
         ensure_admin_exists()
         yield a
         _db.session.remove()

@@ -4,7 +4,7 @@ import io
 
 from PIL import Image
 
-from app.models import SiteConfig
+from app.models import SiteSetting
 
 
 def _make_image_bytes(fmt="PNG", size=(50, 50)):
@@ -31,13 +31,13 @@ def test_site_setting_update_name(login_admin, db):
         follow_redirects=False,
     )
     assert rv.status_code == 302
-    s = db.session.get(SiteConfig, 1)
+    s = db.session.get(SiteSetting, 1)
     assert s.site_name == "我的新博客"
 
 
 def test_site_setting_empty_name_rejected(login_admin, db):
     """空站点名应被拒绝"""
-    old = db.session.get(SiteConfig, 1).site_name
+    old = db.session.get(SiteSetting, 1).site_name
     rv = login_admin.post(
         "/admin/site_setting",
         data={
@@ -48,12 +48,12 @@ def test_site_setting_empty_name_rejected(login_admin, db):
     # 校验失败留在表单页
     assert rv.status_code == 200
     # 名称不应变化
-    assert db.session.get(SiteConfig, 1).site_name == old
+    assert db.session.get(SiteSetting, 1).site_name == old
 
 
 def test_site_name_appears_in_navbar(login_admin, db):
     """修改的站点名应出现在导航栏"""
-    s = db.session.get(SiteConfig, 1)
+    s = db.session.get(SiteSetting, 1)
     s.site_name = "测试站点XYZ"
     db.session.commit()
     rv = login_admin.get("/")
@@ -164,17 +164,20 @@ def test_ensure_admin_exists_creates_admin(app, db):
     assert cnt == 1
 
 
-def test_ensure_site_config_creates_default(app, db):
-    """空 site_config 表应创建默认配置"""
-    from app.database import ensure_site_config
-    from app.models import SiteConfig
+def test_ensure_default_settings_creates_defaults(app, db):
+    """三张单行配置表清空后,ensure_default_settings 应各补一行默认配置"""
+    from app.database import ensure_default_settings
+    from app.models import AboutProfile, MailSetting, SiteSetting
 
-    db.session.query(SiteConfig).delete()
+    for model in (SiteSetting, MailSetting, AboutProfile):
+        db.session.query(model).delete()
     db.session.commit()
-    ensure_site_config()
-    s = db.session.get(SiteConfig, 1)
+    ensure_default_settings()
+    s = db.session.get(SiteSetting, 1)
     assert s is not None
     assert s.site_name == "My Blog"
+    assert db.session.get(MailSetting, 1) is not None
+    assert db.session.get(AboutProfile, 1) is not None
 
 
 def test_cli_init_db(runner):
@@ -192,7 +195,7 @@ def test_site_favicon_default(client):
 
 def test_site_favicon_custom(client, db):
     """自定义 favicon_path 应生效"""
-    s = db.session.get(SiteConfig, 1)
+    s = db.session.get(SiteSetting, 1)
     s.favicon_path = "uploads/custom.ico"
     db.session.commit()
     rv = client.get("/")

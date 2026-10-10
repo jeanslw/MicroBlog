@@ -1,6 +1,6 @@
 """「关于我」前台页面与后台独立设置页测试。"""
 
-from app.models import SiteConfig
+from app.models import AboutProfile
 
 ABOUT_FIELD_NAMES = (
     "avatar_upload",
@@ -14,7 +14,7 @@ ABOUT_FIELD_NAMES = (
 
 
 def _update_site(db, **kwargs):
-    s = db.session.get(SiteConfig, 1)
+    s = db.session.get(AboutProfile, 1)
     for k, v in kwargs.items():
         setattr(s, k, v)
     db.session.commit()
@@ -95,7 +95,7 @@ def test_about_setting_save(login_admin, db):
         follow_redirects=False,
     )
     assert rv.status_code == 302
-    s = db.session.get(SiteConfig, 1)
+    s = db.session.get(AboutProfile, 1)
     assert s.about_avatar == "https://example.com/me.png"
     assert s.about_email == "me@example.com"  # 邮箱统一转小写
     assert s.about_github == "github.com/jeanslw"
@@ -112,7 +112,7 @@ def test_about_setting_clear_avatar(login_admin, db):
         follow_redirects=False,
     )
     assert rv.status_code == 302
-    assert db.session.get(SiteConfig, 1).about_avatar == ""
+    assert db.session.get(AboutProfile, 1).about_avatar == ""
 
 
 def test_about_setting_invalid_email_rejected(login_admin, db):
@@ -124,7 +124,7 @@ def test_about_setting_invalid_email_rejected(login_admin, db):
         follow_redirects=False,
     )
     assert rv.status_code == 200
-    assert db.session.get(SiteConfig, 1).about_email == "old@example.com"
+    assert db.session.get(AboutProfile, 1).about_email == "old@example.com"
 
 
 def test_about_avatar_falls_back_when_file_missing(client, db, monkeypatch, tmp_path):

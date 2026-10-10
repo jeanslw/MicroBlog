@@ -11,7 +11,7 @@ from app.models import (
     Comment,
     LoginAttempt,
     Reply,
-    SiteConfig,
+    SiteSetting,
     VoteLog,
 )
 
@@ -94,8 +94,8 @@ def test_banner_defaults(db):
 
 
 def test_site_config_default(db):
-    """SiteConfig 默认站点名"""
-    s = SiteConfig()
+    """SiteSetting 默认站点名"""
+    s = SiteSetting()
     db.session.add(s)
     db.session.commit()
     assert s.site_name == "My Blog"

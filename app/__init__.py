@@ -216,7 +216,7 @@ def create_app(config_name: str | None = None):
 
     # ── 启动时初始化数据库与初始数据 ────────────────────
     with app.app_context():
-        from app.database import ensure_admin_exists, ensure_site_config, init_db, wait_for_database
+        from app.database import ensure_admin_exists, ensure_default_settings, init_db, wait_for_database
         from app.utils import migrate_legacy_upload_dirs
 
         # 慢 SQL 探针（幂等挂到当前引擎；阈值 BLOG_SLOW_QUERY_MS，默认 200ms）
@@ -236,7 +236,7 @@ def create_app(config_name: str | None = None):
 
         # 三个步骤相互独立：多 worker 并发启动时,任一 worker 建表/写入失败
         # 不应导致其它初始化步骤被整体跳过。
-        for _init_step in (init_db, ensure_site_config, ensure_admin_exists):
+        for _init_step in (init_db, ensure_default_settings, ensure_admin_exists):
             try:
                 _init_step()
             except Exception as e:
@@ -434,12 +434,12 @@ def register_cli(app: Flask):
     @with_appcontext
     def init_db_cmd():
         """创建所有数据库表（幂等）"""
-        from app.database import ensure_admin_exists, ensure_site_config, init_db
+        from app.database import ensure_admin_exists, ensure_default_settings, init_db
 
         init_db()
-        ensure_site_config()
+        ensure_default_settings()
         ensure_admin_exists()
-        click.echo("Initialized database and ensured admin/site_config.")
+        click.echo("Initialized database and ensured admin/settings tables.")
 
     @app.cli.command("create-admin")
     @click.option("--username", prompt=True)

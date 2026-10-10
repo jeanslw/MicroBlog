@@ -5,7 +5,7 @@ import os
 
 from PIL import Image
 
-from app.models import SiteConfig
+from app.models import SiteSetting
 
 
 def _make_image_bytes(fmt="JPEG", size=(320, 200)):
@@ -40,7 +40,7 @@ def test_site_bg_style_save(login_admin, db):
         follow_redirects=False,
     )
     assert rv.status_code == 302
-    s = db.session.get(SiteConfig, 1)
+    s = db.session.get(SiteSetting, 1)
     assert s.bg_style == "bg3"
     assert s.bg_custom == ""
 
@@ -58,7 +58,7 @@ def test_site_bg_custom_url_save(login_admin, db):
         follow_redirects=False,
     )
     assert rv.status_code == 302
-    s = db.session.get(SiteConfig, 1)
+    s = db.session.get(SiteSetting, 1)
     assert s.bg_style == "custom"
     assert s.bg_custom == url
 
@@ -89,7 +89,7 @@ def test_site_bg_upload_save(login_admin, db, monkeypatch, tmp_path):
         follow_redirects=False,
     )
     assert rv.status_code == 302
-    s = db.session.get(SiteConfig, 1)
+    s = db.session.get(SiteSetting, 1)
     assert s.bg_style == "custom"
     assert s.bg_custom.startswith("/uploads/image/backgrounds/")
     fname = os.path.basename(s.bg_custom)
@@ -99,7 +99,7 @@ def test_site_bg_upload_save(login_admin, db, monkeypatch, tmp_path):
 
 def test_site_bg_upload_invalid_rejected(login_admin, db):
     """非法扩展名背景应被拒绝，站点背景保持不变"""
-    old = db.session.get(SiteConfig, 1)
+    old = db.session.get(SiteSetting, 1)
     old_bg_style, old_bg_custom = old.bg_style, old.bg_custom
     rv = login_admin.post(
         "/admin/site_setting",
@@ -112,7 +112,7 @@ def test_site_bg_upload_invalid_rejected(login_admin, db):
         follow_redirects=False,
     )
     assert rv.status_code == 200  # 校验失败留在表单页
-    s = db.session.get(SiteConfig, 1)
+    s = db.session.get(SiteSetting, 1)
     assert s.bg_style == old_bg_style
     assert s.bg_custom == old_bg_custom
 
@@ -142,7 +142,7 @@ def test_site_logo_upload_save(login_admin, db, monkeypatch, tmp_path):
         follow_redirects=False,
     )
     assert rv.status_code == 302
-    s = db.session.get(SiteConfig, 1)
+    s = db.session.get(SiteSetting, 1)
     assert s.logo_path.startswith("/uploads/image/logo/")
     fname = os.path.basename(s.logo_path)
     saved = os.path.join(str(tmp_path / "logo" / "image" / "logo"), fname)
@@ -174,7 +174,7 @@ def test_site_logo_oversized_auto_scaled(login_admin, db, monkeypatch, tmp_path)
         follow_redirects=False,
     )
     assert rv.status_code == 302
-    s = db.session.get(SiteConfig, 1)
+    s = db.session.get(SiteSetting, 1)
     fname = os.path.basename(s.logo_path)
     saved = os.path.join(str(tmp_path / "logo2" / "image" / "logo"), fname)
     with Image.open(saved) as out:
@@ -183,7 +183,7 @@ def test_site_logo_oversized_auto_scaled(login_admin, db, monkeypatch, tmp_path)
 
 def test_site_logo_invalid_rejected(login_admin, db):
     """非法 Logo 文件应被拒绝，站点 Logo 保持不变"""
-    old = db.session.get(SiteConfig, 1)
+    old = db.session.get(SiteSetting, 1)
     old_logo = old.logo_path
     rv = login_admin.post(
         "/admin/site_setting",
@@ -196,7 +196,7 @@ def test_site_logo_invalid_rejected(login_admin, db):
         follow_redirects=False,
     )
     assert rv.status_code == 200  # 校验失败留在表单页
-    s = db.session.get(SiteConfig, 1)
+    s = db.session.get(SiteSetting, 1)
     assert s.logo_path == old_logo
 
 
@@ -208,7 +208,7 @@ def test_homepage_renders_navbar_logo(login_admin, db, monkeypatch, tmp_path):
     logo_dir = tmp_path / "uploads" / "image" / "logo"
     logo_dir.mkdir(parents=True)
     (logo_dir / "test-logo.png").write_bytes(b"x")
-    s = db.session.get(SiteConfig, 1)
+    s = db.session.get(SiteSetting, 1)
     s.logo_path = "/uploads/image/logo/test-logo.png"
     db.session.commit()
     html = login_admin.get("/").get_data(as_text=True)
@@ -226,7 +226,7 @@ def test_navbar_logo_falls_back_when_file_missing(login_admin, db, monkeypatch, 
     import app.utils as utils
 
     monkeypatch.setattr(utils, "project_root", lambda: str(tmp_path))  # uploads 目录为空
-    s = db.session.get(SiteConfig, 1)
+    s = db.session.get(SiteSetting, 1)
     s.logo_path = "/uploads/image/logo/gone.png"
     s.site_name = "My Blog"
     db.session.commit()
@@ -248,7 +248,7 @@ def test_background_assets_complete():
 
 def test_homepage_custom_bg_style_renders(login_admin, db):
     """保存 bg5 后首页 data-bg 应输出 bg5"""
-    s = db.session.get(SiteConfig, 1)
+    s = db.session.get(SiteSetting, 1)
     s.bg_style = "bg5"
     db.session.commit()
     html = login_admin.get("/").get_data(as_text=True)

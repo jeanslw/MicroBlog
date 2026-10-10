@@ -1,5 +1,23 @@
 # MicroBlog Changelog
 
+## [v1.3.6] - 2026-10-10
+
+Schema refactor: the single 20-column `site_config` row is split into three single-row tables by domain — `site_setting`, `mail_setting`, `about_profile` — with an automatic, idempotent startup migration that copies, verifies and only then drops the legacy table. Also ships the logging overhaul (configurable level, friendly-error switch, log rotation, container log volume) and removes a dead module.
+
+### Changed
+
+- **`site_config` split into three tables**: site identity/appearance (`site_setting`: name, favicon, logo, background, comments toggle, sidebar style), SMTP credentials (`mail_setting`), and the about-page profile (`about_profile`). Each table keeps the single-row (id=1) pattern, and the "the only row has id ≠ 1" legacy compatibility fixed in v1.3.5 carries over via a shared `_get_single_row` accessor. Beyond tidiness: the SMTP password no longer lives in a table that any template-rendering path reads — the front-end global context now loads only display fields plus the about nickname, and mail credentials are read exclusively by the mail sender.
+- **Startup migration `_migrate_site_config_split`** (decision: drop the legacy table immediately). Copy + row-count verification run in one DML transaction; the legacy table is dropped only after all three new tables verify exactly one row (MySQL DDL implicitly commits, so verify-then-drop is the closest achievable to atomic there). On any failure the legacy table is left untouched and the migration retries on next boot — no data can be lost between copy and drop. Restoring an older backup (SQLite file swap / MySQL dump import) that resurrects `site_config` automatically re-runs the split: the restored row **overwrites** stale rows in the new tables, because a restore is an explicit user intent. Databases as old as v1.0 (table with only `site_name`/`favicon`) migrate too — missing columns take defaults, replacing the old per-column ALTER approach. New installs get the three tables from `MySQL/init.sql` (with `INSERT IGNORE` defaults) or `create_all` + `ensure_default_settings`.
+- **Logging system upgrade**: new `BLOG_LOG_LEVEL` (auto/DEBUG/INFO/WARNING/ERROR/CRITICAL; `auto` follows DEBUG, invalid values fall back to INFO with a warning instead of blocking startup) now governs *what gets logged*, while `DEBUG` solely governs *what error pages show* — off means friendly HTML/JSON pages with the stacktrace confined to logs. Log files rotate via `RotatingFileHandler` (5 MB × 5 copies) with zero new dependencies, compatible with gunicorn multi-worker shared-append handles; docker-compose maps `./data/logs:/app/logs` so logs persist across container recreation.
+
+### Removed
+
+- Dead module `app/banner/queries.py` (`get_all_banner`): zero callers — all three real consumers query inline — and semantically wrong, as it did not filter `is_active`, so wiring it back would have resurrected withdrawn banners.
+
+### Tests
+
+- **341** tests passing (+3). The split gets a dedicated migration suite: copy-and-drop with value assertions, idempotent re-run, old-backup restore overwriting stale new-table rows, v1.0 missing-column tolerance, and legacy-table preservation on copy failure; plus single-row accessor tests for all three tables (non-default id, no second row on get_or_create, default row creation).
+
 ## [v1.3.5] - 2026-09-16
 
 Ops & UI hardening: docker-compose pre-start guard, MySQL 8.4 upgrade with auth-plugin compatibility, configurable 24-hour session lifetime, mobile collapsed-navbar search layout, touch support fix for the theme switcher, nginx version hiding, plus admin comment management and breadcrumb group fixes.Security and correctness fixes: the session key no longer falls back to the repository's public default, SQLite restore now validates and atomically replaces the database file under a cross-process lock, site settings are read and written as a single row, and rate-limit cleanup is no longer rolled back.

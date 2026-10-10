@@ -131,30 +131,53 @@ CREATE TABLE IF NOT EXISTS `banner` (
 
 
 -- --------------------------------------------------------
--- 表：site_config（站点配置）
+-- 表：site_setting（站点设置，仅一行）
+-- v1.3.6 起从 site_config 拆分：站点名/图标/Logo/背景/评论开关/侧边栏样式；
+-- 旧库升级时由应用启动迁移（app/database.py 的 _migrate_site_config_split）
+-- 自动拆分并删除 site_config，本脚本不再创建该旧表。
 -- --------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `site_config` (
+CREATE TABLE IF NOT EXISTS `site_setting` (
   `id` int NOT NULL AUTO_INCREMENT,
   `site_name` varchar(100) NOT NULL DEFAULT 'My Blog',
   `favicon_path` varchar(200) DEFAULT 'static/favicon.ico',
   `logo_path` varchar(200) DEFAULT '' COMMENT '网站 Logo 图片 URL（导航栏显示，上传时过大自动缩放）',
   `bg_style` varchar(50) DEFAULT 'bg1' COMMENT '背景风格：bg1~bg10/vdysjx/bg13 内置图库或 custom 自定义',
   `bg_custom` varchar(500) DEFAULT '' COMMENT '自定义背景图片 URL（bg_style=custom 时生效）',
+  `comments_enabled` tinyint(1) NOT NULL DEFAULT '1' COMMENT '评论总开关（0=关闭，全站禁止新评论/回复）',
+  `sidebar_style` varchar(20) NOT NULL DEFAULT 'book' COMMENT '侧边栏栏目分类样式（book=书本树形/classic=经典箭头）',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- --------------------------------------------------------
+-- 表：mail_setting（SMTP 邮件设置，仅一行）
+-- v1.3.6 起从 site_config 拆分：SMTP 凭据与前台展示字段分表存放
+-- --------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `mail_setting` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `mail_host` varchar(200) DEFAULT '' COMMENT 'SMTP 服务器（后台配置优先于 app.env）',
+  `mail_port` int DEFAULT 587 COMMENT 'SMTP 端口',
+  `mail_user` varchar(200) DEFAULT '' COMMENT 'SMTP 用户名',
+  `mail_password` varchar(200) DEFAULT '' COMMENT 'SMTP 密码/授权码（Fernet 加密后落库）',
+  `mail_from` varchar(200) DEFAULT '' COMMENT '发件人邮箱',
+  `mail_use_ssl` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否使用 SSL（465）',
+  `mail_use_tls` tinyint(1) NOT NULL DEFAULT '1' COMMENT '是否使用 STARTTLS（587）',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- --------------------------------------------------------
+-- 表：about_profile（「关于我」博主资料，仅一行）
+-- v1.3.6 起从 site_config 拆分
+-- --------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `about_profile` (
+  `id` int NOT NULL AUTO_INCREMENT,
   `about_avatar` varchar(500) DEFAULT '' COMMENT '「关于我」头像 URL（/static 上传或 http(s) 外链）',
   `about_bio` text COMMENT '「关于我」个人简介（纯文本，保留换行）',
   `about_email` varchar(200) DEFAULT '' COMMENT '「关于我」联系邮箱',
   `about_github` varchar(200) DEFAULT '' COMMENT '「关于我」GitHub 链接',
   `about_homepage` varchar(200) DEFAULT '' COMMENT '「关于我」个人主页链接',
   `about_nickname` varchar(100) DEFAULT '' COMMENT '「关于我」昵称（文章详情页署名）',
-  `mail_host` varchar(200) DEFAULT '' COMMENT 'SMTP 服务器（后台配置优先于 app.env）',
-  `mail_port` int DEFAULT 587 COMMENT 'SMTP 端口',
-  `mail_user` varchar(200) DEFAULT '' COMMENT 'SMTP 用户名',
-  `mail_password` varchar(200) DEFAULT '' COMMENT 'SMTP 密码/授权码',
-  `mail_from` varchar(200) DEFAULT '' COMMENT '发件人邮箱',
-  `mail_use_ssl` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否使用 SSL（465）',
-  `mail_use_tls` tinyint(1) NOT NULL DEFAULT '1' COMMENT '是否使用 STARTTLS（587）',
-  `comments_enabled` tinyint(1) NOT NULL DEFAULT '1' COMMENT '评论总开关（0=关闭，全站禁止新评论/回复）',
-  `sidebar_style` varchar(20) NOT NULL DEFAULT 'book' COMMENT '侧边栏栏目分类样式（book=书本树形/classic=经典箭头）',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -204,10 +227,13 @@ CREATE TABLE IF NOT EXISTS `rate_limit` (
 -- --------------------------------------------------------
 -- 初始化数据
 -- --------------------------------------------------------
--- 站点配置（仅一条）。INSERT IGNORE：脚本现在可重复执行（建表为 IF NOT EXISTS），
--- 重复导入不会因主键冲突中断，也不会覆盖已有配置
-INSERT IGNORE INTO `site_config` (`id`, `site_name`, `favicon_path`, `logo_path`, `bg_style`, `bg_custom`, `about_avatar`, `about_bio`, `about_email`, `about_github`, `about_homepage`, `about_nickname`)
-VALUES (1, 'My Blog', 'static/favicon.ico', '', 'bg1', '', '', NULL, '', '', '', '');
+-- 三张单行配置表各一条默认行（v1.3.6 拆分自 site_config）。
+-- INSERT IGNORE：脚本可重复执行（建表为 IF NOT EXISTS），重复导入不会因
+-- 主键冲突中断，也不会覆盖已有配置
+INSERT IGNORE INTO `site_setting` (`id`, `site_name`, `favicon_path`)
+VALUES (1, 'My Blog', 'static/favicon.ico');
+INSERT IGNORE INTO `mail_setting` (`id`) VALUES (1);
+INSERT IGNORE INTO `about_profile` (`id`) VALUES (1);
 
 -- ⚠️ 不在此插入初始管理员账号（避免明文密码）
 -- 请用以下任一方式创建管理员：

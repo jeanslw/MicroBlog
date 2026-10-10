@@ -39,8 +39,8 @@
                 <div class="mb-3">
                     <label class="form-label">{{ _('头像') }}</label>
                     <div class="d-flex align-items-start gap-3">
-                        {% if site.about_avatar %}
-                        <img src="{{ site.about_avatar }}" class="avatar-preview" alt="avatar">
+                        {% if about.about_avatar %}
+                        <img src="{{ about.about_avatar }}" class="avatar-preview" alt="avatar">
                         {% else %}
                         <div class="avatar-preview avatar-empty"><i class="bi bi-person"></i></div>
                         {% endif %}
@@ -65,30 +65,30 @@
                 <div class="mb-3">
                     <label class="form-label">{{ _('昵称') }}</label>
                     <input type="text" name="about_nickname" class="form-control"
-                           placeholder="{{ _('博主昵称，将显示在文章详情页与「关于我」页面') }}" value="{{ site.about_nickname }}">
+                           placeholder="{{ _('博主昵称，将显示在文章详情页与「关于我」页面') }}" value="{{ about.about_nickname }}">
                 </div>
 
                 <div class="row g-3">
                     <div class="col-md-4">
                         <label class="form-label">{{ _('邮箱') }}</label>
                         <input type="text" name="about_email" class="form-control"
-                               placeholder="you@example.com" value="{{ site.about_email }}">
+                               placeholder="you@example.com" value="{{ about.about_email }}">
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">{{ _('GitHub 链接') }}</label>
                         <input type="text" name="about_github" class="form-control"
-                               placeholder="https://github.com/username" value="{{ site.about_github }}">
+                               placeholder="https://github.com/username" value="{{ about.about_github }}">
                     </div>
                     <div class="col-md-4">
                         <label class="form-label">{{ _('个人主页') }}</label>
                         <input type="text" name="about_homepage" class="form-control"
-                               placeholder="https://example.com" value="{{ site.about_homepage }}">
+                               placeholder="https://example.com" value="{{ about.about_homepage }}">
                     </div>
                 </div>
 
                 <div class="mb-3 mt-3">
                     <label class="form-label">{{ _('个人简介') }}</label>
-                    <textarea name="about_bio" class="form-control" rows="5">{{ site.about_bio }}</textarea>
+                    <textarea name="about_bio" class="form-control" rows="5">{{ about.about_bio }}</textarea>
                     <div class="form-text">{{ _('支持多行文本，换行会保留') }}</div>
                 </div>
 

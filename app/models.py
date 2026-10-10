@@ -108,8 +108,14 @@ class Banner(db.Model):
     is_active = Column(Boolean, nullable=False, default=True)
 
 
-class SiteConfig(db.Model):
-    __tablename__ = "site_config"
+class SiteSetting(db.Model):
+    """站点设置（v1.3.6 从 site_config 拆分而来）：站点名/图标/Logo/背景/侧边栏/评论开关。
+
+    单行表（id=1）。历史库由 database._migrate_site_config_split 启动时
+    自动拆分迁移，应用代码只需通过 database.get_site_setting 访问。
+    """
+
+    __tablename__ = "site_setting"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     site_name = Column(String(100), nullable=False, default="My Blog")
@@ -120,26 +126,48 @@ class SiteConfig(db.Model):
     bg_style = Column(String(50), default="bg1")
     # 自定义背景图片 URL（bg_style=custom 时生效）
     bg_custom = Column(String(500), default="")
-    # 「关于我」内容：头像 URL（/static 上传或 http(s) 外链）/ 简介（纯文本,保留换行）/ 邮箱 / GitHub / 个人主页
+    # 评论总开关：关闭后全站禁止新评论/回复（已有评论仍可查看）
+    comments_enabled = Column(Boolean, default=True, nullable=False)
+    # 侧边栏「栏目分类」样式：book=书本树形（可展开）/ classic=经典折叠箭头
+    sidebar_style = Column(String(20), default="book", nullable=False)
+
+
+class MailSetting(db.Model):
+    """SMTP 邮件设置（v1.3.6 从 site_config 拆分而来）。
+
+    单行表（id=1）。与前台展示字段分表后，SMTP 授权码（mail_password）
+    不再与任何模板渲染路径同表。后台保存的配置优先于 app.env 的 BLOG_MAIL_*。
+    """
+
+    __tablename__ = "mail_setting"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    mail_host = Column(String(200), default="")
+    mail_port = Column(Integer, default=587)
+    mail_user = Column(String(200), default="")
+    # Fernet 加密后落库（app.crypto.encrypt_secret）
+    mail_password = Column(String(200), default="")
+    mail_from = Column(String(200), default="")
+    mail_use_ssl = Column(Boolean, default=False, nullable=False)
+    mail_use_tls = Column(Boolean, default=True, nullable=False)
+
+
+class AboutProfile(db.Model):
+    """「关于我」博主资料（v1.3.6 从 site_config 拆分而来）：前台关于页 + 文章署名。
+
+    单行表（id=1）。头像 URL（/static 上传或 http(s) 外链）/ 简介（纯文本,保留换行）/
+    邮箱 / GitHub / 个人主页 / 昵称（作为作者署名显示在文章详情页与「关于我」页面）。
+    """
+
+    __tablename__ = "about_profile"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
     about_avatar = Column(String(500), default="")
     about_bio = Column(Text, default="")
     about_email = Column(String(200), default="")
     about_github = Column(String(200), default="")
     about_homepage = Column(String(200), default="")
-    # 「关于我」昵称：作为作者署名显示在文章详情页与「关于我」页面
     about_nickname = Column(String(100), default="")
-    # SMTP 邮件设置（后台可配置，优先于 app.env 的 BLOG_MAIL_*；用于密码找回等邮件发送）
-    mail_host = Column(String(200), default="")
-    mail_port = Column(Integer, default=587)
-    mail_user = Column(String(200), default="")
-    mail_password = Column(String(200), default="")
-    mail_from = Column(String(200), default="")
-    mail_use_ssl = Column(Boolean, default=False, nullable=False)
-    mail_use_tls = Column(Boolean, default=True, nullable=False)
-    # 评论总开关：关闭后全站禁止新评论/回复（已有评论仍可查看）
-    comments_enabled = Column(Boolean, default=True, nullable=False)
-    # 侧边栏「栏目分类」样式：book=书本树形（可展开）/ classic=经典折叠箭头
-    sidebar_style = Column(String(20), default="book", nullable=False)
 
 
 class VoteLog(db.Model):
