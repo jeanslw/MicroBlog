@@ -225,15 +225,30 @@ CREATE TABLE IF NOT EXISTS `rate_limit` (
 
 
 -- --------------------------------------------------------
+-- 表：schema_version（schema 版本戳记，v1.3.6 引入版本化迁移框架）
+-- --------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `schema_version` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `version` varchar(20) NOT NULL COMMENT '数据库当前 schema 版本（真实发布号,随迁移逐级戳记）',
+  `applied_time` varchar(50) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- --------------------------------------------------------
 -- 初始化数据
 -- --------------------------------------------------------
 -- 三张单行配置表各一条默认行（v1.3.6 拆分自 site_config）。
+-- 新装环境直接建出最新 schema,schema_version 同步戳记为当前发布号,
+-- 使启动迁移无需再跑（v1.3.6 的框架对「无版本行的全新库」也会自动戳记）。
 -- INSERT IGNORE：脚本可重复执行（建表为 IF NOT EXISTS），重复导入不会因
 -- 主键冲突中断，也不会覆盖已有配置
 INSERT IGNORE INTO `site_setting` (`id`, `site_name`, `favicon_path`)
 VALUES (1, 'My Blog', 'static/favicon.ico');
 INSERT IGNORE INTO `mail_setting` (`id`) VALUES (1);
 INSERT IGNORE INTO `about_profile` (`id`) VALUES (1);
+INSERT IGNORE INTO `schema_version` (`id`, `version`, `applied_time`)
+VALUES (1, '1.3.6', NOW());
 
 -- ⚠️ 不在此插入初始管理员账号（避免明文密码）
 -- 请用以下任一方式创建管理员：

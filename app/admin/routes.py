@@ -48,6 +48,7 @@ from app.database import (
     get_or_create_site_setting,
     pending_schema_migrations,
     run_schema_migrations,
+    schema_version_cmp,
     sync_schema_version,
 )
 from app.extensions import (
@@ -867,13 +868,14 @@ def migrate_db():
 
     current = sync_schema_version()
     pending = pending_schema_migrations(current)
+    ahead = current is not None and schema_version_cmp(current, SCHEMA_VERSION) > 0
     return render_template(
         "admin/migrate_db.html",
         current_version=current,
         target_version=SCHEMA_VERSION,
         pending=pending,
-        up_to_date=current is not None and not pending and current <= SCHEMA_VERSION,
-        ahead=current is not None and current > SCHEMA_VERSION,
+        up_to_date=current is not None and not pending and not ahead,
+        ahead=ahead,
     )
 
 

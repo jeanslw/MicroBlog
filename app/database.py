@@ -14,6 +14,7 @@
 """
 
 import os
+import re
 from collections.abc import Callable
 
 from flask import current_app
@@ -230,32 +231,68 @@ def _migrate_site_config_split():
         log.warning("site_config 拆分迁移失败,旧表保留待下次重试: %s", e)
 
 
-# ── Schema 版本化迁移框架（v1.3.6） ────────────────────────
-# 当前代码所预期的数据库 schema 版本。做「带数据搬迁/不兼容」的 schema 变更时:
-# 1. SCHEMA_VERSION + 1;2. 把迁移函数登记进 _SCHEMA_MIGRATIONS;
+# ── Schema 版本化迁移框架（v1.3.6 引入） ────────────────────
+# schema 版本一律使用真实发布号（如 "1.3.6"）,不用 1、2 这类内部序号——
+# 日志和后台「迁移数据库」页所见即发布版本,排查时无需再查对照表。
+# 仅当某次发布包含「需迁移」的 schema 变更时才操作:
+# 1. 把迁移函数登记进 _SCHEMA_MIGRATIONS,键为该发布的版本号;
+# 2. SCHEMA_VERSION 升为本发布号;
 # 3. 同步 MySQL/init.sql（新装环境直接建最新 schema）。
+# 不含 schema 变更的发布（如纯补丁 1.3.7）不动 SCHEMA_VERSION——版本戳记
+# 停在最近一次 schema 发布号即可。
 # 列级兼容（老库补列/补索引,无数据搬迁）仍走 init_db 里的幂等 _migrate_*。
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = "1.3.6"
 
-# 版本 -> (说明, 迁移函数)。迁移函数必须幂等、失败抛异常,由框架负责戳记。
-# v1 = site_config 单表时代（v1.3.5 及以前）,v2 = 拆分为三张单行配置表。
-_SCHEMA_MIGRATIONS: dict[int, tuple[str, Callable[[], None]]] = {
-    2: ("站点配置表拆分:site_config → site_setting / mail_setting / about_profile", _migrate_site_config_split),
+# 版本管理首次上线时,无版本行的老库所处的基线:site_config 单表时代
+# 的最后一个发布号（该时代的库都能在 _SCHEMA_MIGRATIONS 里找到出路）。
+SCHEMA_VERSION_BASELINE = "1.3.5"
+
+# 发布号 -> (说明, 迁移函数)。迁移函数必须幂等、失败抛异常,由框架负责戳记。
+_SCHEMA_MIGRATIONS: dict[str, tuple[str, Callable[[], None]]] = {
+    "1.3.6": ("站点配置表拆分:site_config → site_setting / mail_setting / about_profile", _migrate_site_config_split),
 }
 
+# 开发期本框架曾短暂使用内部整数序号（未随任何发布交付）;老开发库里的
+# 整数行读取时映射为真实发布号,正式环境不会遇到这些值。
+_LEGACY_INT_VERSIONS = {1: SCHEMA_VERSION_BASELINE, 2: "1.3.6"}
 
-def get_schema_version() -> int | None:
-    """读取数据库当前 schema 版本;无版本行时返回 None,数据库异常向上抛。"""
+
+def _version_key(version: str) -> tuple[int, ...]:
+    """ "1.3.6" → (1, 3, 6):把发布号转为可比较的元组。
+
+    容忍 "v" 前缀;段内取前导数字（如 "6rc1" → 6）,无数字按 0。
+    """
+    parts = []
+    for seg in str(version).strip().lstrip("vV").split("."):
+        m = re.match(r"\d+", seg)
+        parts.append(int(m.group()) if m else 0)
+    return tuple(parts)
+
+
+def schema_version_cmp(a: str, b: str) -> int:
+    """比较两个发布号:a 较新 → 1,相等 → 0,a 较旧 → -1。段数不足按 0 补齐。"""
+    ka, kb = list(_version_key(a)), list(_version_key(b))
+    n = max(len(ka), len(kb))
+    ka.extend([0] * (n - len(ka)))
+    kb.extend([0] * (n - len(kb)))
+    return (ka > kb) - (ka < kb)
+
+
+def get_schema_version() -> str | None:
+    """读取数据库当前 schema 版本（发布号字符串）;无版本行返回 None,异常向上抛。"""
     from app.models import SchemaVersion
 
     row = db.session.get(SchemaVersion, 1)
     if row is None:
         row = db.session.scalars(db.select(SchemaVersion).order_by(SchemaVersion.id).limit(1)).first()
-    # Column[int] 运行时即 int（旧式 Column 模型盲区,同 models 的豁免惯例）
-    return row.version if row else None  # type: ignore[return-value]
+    if row is None:
+        return None
+    version = str(row.version)  # Column[String] 运行时即 str 标量（旧式 Column 盲区,见 models 惯例）
+    # 兼容本框架开发期写入的内部整数序号（仅老开发库可能出现）
+    return _LEGACY_INT_VERSIONS.get(int(version), version) if version.isdigit() else version
 
 
-def _stamp_schema_version(version: int) -> None:
+def _stamp_schema_version(version: str) -> None:
     """写入/更新 schema 版本戳记（单行 id=1,多 worker 并发时以先提交者为准）。"""
     from datetime import datetime
 
@@ -276,11 +313,11 @@ def _stamp_schema_version(version: int) -> None:
         db.session.rollback()
 
 
-def sync_schema_version() -> int | None:
-    """确保版本行存在并返回数据库当前 schema 版本（无版本行时推断初始值）。
+def sync_schema_version() -> str | None:
+    """确保版本行存在并返回数据库当前 schema 版本（发布号;无版本行时推断初始值）。
 
     版本管理首次上线（库里没有 schema_version 行）时的推断：
-    - 存在旧 site_config 表 → v1（单表时代,有待拆分迁移）;
+    - 存在旧 site_config 表 → 单表时代基线（SCHEMA_VERSION_BASELINE,有待拆分迁移）;
     - 不存在 → 全新库（create_all / init.sql 已直接建出当前 schema）→ SCHEMA_VERSION。
     查询异常时返回 None,由调用方决定兜底（启动流程按「跳过本步」处理）。
     """
@@ -293,14 +330,14 @@ def sync_schema_version() -> int | None:
     if current is not None:
         return current
     inspector = db.inspect(db.engine)
-    initial = 1 if "site_config" in inspector.get_table_names() else SCHEMA_VERSION
+    initial = SCHEMA_VERSION_BASELINE if "site_config" in inspector.get_table_names() else SCHEMA_VERSION
     _stamp_schema_version(initial)
-    log.info("schema 版本管理初始化: 数据库版本 %d,程序版本 %d", initial, SCHEMA_VERSION)
+    log.info("schema 版本管理初始化: 数据库版本 v%s,程序版本 v%s", initial, SCHEMA_VERSION)
     return initial
 
 
-def pending_schema_migrations(current: int | None = None) -> list[tuple[int, str]]:
-    """待应用的迁移列表 [(version, 说明), ...],按版本升序。
+def pending_schema_migrations(current: str | None = None) -> list[tuple[str, str]]:
+    """待应用的迁移列表 [(发布号, 说明), ...],按发布号升序。
 
     程序版本 **大于** 数据库版本（数据库比代码旧）才有待应用迁移;
     数据库版本高于程序（代码被降级）时返回空并告警——迁移永远只把旧库
@@ -310,23 +347,28 @@ def pending_schema_migrations(current: int | None = None) -> list[tuple[int, str
         current = sync_schema_version()
     if current is None:
         return []
-    if current > SCHEMA_VERSION:
-        log.warning("数据库 schema 版本 (%d) 高于程序版本 (%d),请先升级程序,跳过迁移", current, SCHEMA_VERSION)
+    if schema_version_cmp(current, SCHEMA_VERSION) > 0:
+        log.warning("数据库 schema 版本 (v%s) 高于程序版本 (v%s),请先升级程序,跳过迁移", current, SCHEMA_VERSION)
         return []
-    return [(v, desc) for v, (desc, _) in sorted(_SCHEMA_MIGRATIONS.items()) if current < v <= SCHEMA_VERSION]
+    cur, target = _version_key(current), _version_key(SCHEMA_VERSION)
+    return [
+        (v, desc)
+        for v, (desc, _) in sorted(_SCHEMA_MIGRATIONS.items(), key=lambda item: _version_key(item[0]))
+        if cur < _version_key(v) <= target
+    ]
 
 
-def run_schema_migrations() -> list[tuple[int, str]]:
+def run_schema_migrations() -> list[tuple[str, str]]:
     """执行所有待应用的迁移并逐级戳记;启动初始化与后台「迁移数据库」共用此入口。
 
     触发条件（启动自动 / 后台手动同一函数）:程序 SCHEMA_VERSION **大于** 数据库
-    schema 版本。每个迁移执行成功后立刻把版本戳到该迁移的版本——中途失败时
+    schema 版本。每个迁移执行成功后立刻把版本戳到该迁移的发布号——中途失败时
     已完成的迁移不会重复执行,失败的迁移下次启动/手动触发时重试。
     返回本次实际应用了的迁移列表。
     """
-    applied: list[tuple[int, str]] = []
+    applied: list[tuple[str, str]] = []
     for version, desc in pending_schema_migrations():
-        log.info("应用 schema 迁移 v%d: %s", version, desc)
+        log.info("应用 schema 迁移 v%s: %s", version, desc)
         _SCHEMA_MIGRATIONS[version][1]()
         _stamp_schema_version(version)
         applied.append((version, desc))
