@@ -163,10 +163,45 @@ def run_startup_schema_migrations(app) -> None:
       _schema_upgrade_gate 把全站请求导流到升级维护页,管理员登录后在
       「迁移数据库」页手动执行,完成后闸门自动解除。
 
-    任何异常（含多 worker 抢迁移锁超时）只记 warning 不阻断启动:
+    降级守卫(fail-fast,Sentry/NetBox 同款):数据库版本**高于**程序版本
+    → 默认抛 RuntimeError 拒绝启动——旧代码缺少新结构的迁移知识,带病启动
+    的正确性风险大于短暂不可用。读不出版本(表未建/库暂时不可达)**不拦**:
+    那是初始化或基础设施抖动,不是降级。受控场景(滚动升级窗口内新旧实例
+    并存)可设 BLOG_ALLOW_SCHEMA_AHEAD=true 放行,只告警。
+    此守卫的异常必须能抛出去(create_app 构造失败 → 进程起不来),因此
+    单独 try,绝不并入下方"跳过"逻辑。
+
+    其余异常（含多 worker 抢迁移锁超时）只记 warning 不阻断启动:
     库可能暂时不可达,启动流程不该因此整体失败。
     """
-    from app.database import pending_schema_migrations, run_schema_migrations
+    from app.database import (
+        SCHEMA_VERSION,
+        get_schema_version,
+        pending_schema_migrations,
+        run_schema_migrations,
+        schema_version_cmp,
+    )
+
+    # ── 降级守卫 ─────────────────────────────────────────────
+    try:
+        current = get_schema_version()
+    except Exception:
+        current = None
+    if current and schema_version_cmp(current, SCHEMA_VERSION) > 0:
+        if app.config.get("ALLOW_SCHEMA_AHEAD"):
+            app.logger.warning(
+                "数据库 schema 版本(v%s)高于程序版本(v%s),"
+                "BLOG_ALLOW_SCHEMA_AHEAD=true 已放行启动;请尽快完成程序升级或回退数据库",
+                current,
+                SCHEMA_VERSION,
+            )
+            return
+        raise RuntimeError(
+            f"数据库 schema 版本(v{current})高于程序版本(v{SCHEMA_VERSION}):"
+            "检测到代码被降级运行。旧代码缺少新结构的迁移知识,继续启动可能误改数据;"
+            "请恢复与数据库匹配的程序版本,或用升级前的备份回退数据库。"
+            "(如确属滚动升级窗口等受控场景,可临时设 BLOG_ALLOW_SCHEMA_AHEAD=true 放行)"
+        )
 
     try:
         if app.config.get("AUTO_SCHEMA_MIGRATE", True):

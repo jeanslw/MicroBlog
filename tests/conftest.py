@@ -17,6 +17,14 @@ os.environ.setdefault("BLOG_INIT_ADMIN_PWD", "admin123456")
 # 测试用固定 SECRET_KEY，避免不同进程随机生成
 os.environ.setdefault("BLOG_SECRET_KEY", "testing-secret-key-do-not-use-in-prod")
 
+# 对"改变测试语义"的开关强制赋值（不用 setdefault）：本机 app.env 会经
+# config.py 顶部的 dotenv 载入进程环境（如维护模式实验遗留的
+# BLOG_AUTO_MIGRATE=false），setdefault 不覆盖既有值会让整套测试跑在
+# 手动迁移语义下（test_startup_auto_mode_* 断言维护标志必然失败）。
+# 测试要求确定性的自动模式；需要手动模式的用例在用例内自行改 app.config。
+os.environ["BLOG_AUTO_MIGRATE"] = "true"
+os.environ["BLOG_ALLOW_SCHEMA_AHEAD"] = "false"
+
 # 日志目录也必须在 config 导入前重定向：LOG_DIR 在 config.py 按绝对路径
 # 计算，不随 project_root 重定向。不隔离的话每次跑全套测试，几百次
 # create_app 产生的"初始管理员账号已创建"/http_request 会写进真实 logs/app.log。

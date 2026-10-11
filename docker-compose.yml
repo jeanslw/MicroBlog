@@ -96,6 +96,9 @@ services:
       # false 时检测到待迁移项，站点进入维护状态（503 升级页），
       # 需管理员登录后在 管理后台 → 运维安全 → 迁移数据库 执行迁移
       BLOG_AUTO_MIGRATE: ${BLOG_AUTO_MIGRATE:-true}
+      # ─ 降级守卫：数据库版本高于程序版本（代码被回滚）时默认拒绝启动（fail-fast）；
+      # 受控场景（滚动升级窗口、已确认兼容的短期回滚）可临时设 true 放行，只告警 ─
+      BLOG_ALLOW_SCHEMA_AHEAD: ${BLOG_ALLOW_SCHEMA_AHEAD:-false}
 
       # ─ SMTP 邮件（可选）：不配置时在 管理后台 → 邮件设置 中填写（后台优先） ─
       BLOG_MAIL_HOST: ${BLOG_MAIL_HOST:-}

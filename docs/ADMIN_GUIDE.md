@@ -295,7 +295,7 @@ Since v1.3.6 the app records the database **schema version inside the database**
 |-----------------------------|-----------|
 | Program **>** database | Pending migrations exist → auto mode applies them immediately; manual mode enters maintenance until an admin runs them |
 | Equal | Nothing to do |
-| Program **<** database (code rolled back) | **Log a warning and skip** — older code is never allowed to touch a newer schema |
+| Program **<** database (code rolled back) | **Startup is refused by default** (fail-fast): the boot log reports a detected downgrade. Controlled scenarios (rolling-upgrade windows, a short rollback with confirmed compatibility) may temporarily set `BLOG_ALLOW_SCHEMA_AHEAD=true` to allow boot with a warning |
 
 ### 9.2 The two modes (`BLOG_AUTO_MIGRATE`)
 
@@ -319,7 +319,7 @@ Since v1.3.6 the app records the database **schema version inside the database**
 | Green "schema version is up to date" | Database version == program version | Nothing |
 | Amber "pending database migrations detected" | Migrations to run, with target version and notes | Back up, then "Run migration" |
 | Amber "database version is behind, but no applicable migration is registered in the program" | Incomplete deployment / a release gap | **Verify a complete deployment of the new version** (do not hand-edit the schema) |
-| Red "database version is higher than the program version" | The database is newer: you are running old code | Upgrade the code first (the migration was skipped) |
+| Red "database version is higher than the program version" | The database is newer: you are running old code (only reachable with `BLOG_ALLOW_SCHEMA_AHEAD=true`, otherwise startup is refused) | Upgrade the code first (the migration was skipped) |
 | Red "unable to read the database version" | Connection/privilege problem | Check the database connection and account privileges, then retry |
 
 The "Migration history" table below lists each applied version with its timestamp and note (from `schema_version`).
@@ -330,7 +330,7 @@ The "Migration history" table below lists each applied version with its timestam
 - **Concurrency-safe**: on MySQL a named lock (`GET_LOCK`) serialises migrations — one worker applies while the others time out, log a warning and skip; SQLite is single-process and needs no lock;
 - **Migrations are idempotent**: each migration can be re-run (e.g. once the `site_config` split has finished the old table is gone, so re-running is a no-op);
 - **One entry point**: startup auto-migration, the admin migration page and `flask init-db` all call the same `run_schema_migrations`, so behaviour is identical;
-- **No automatic downgrade**: the framework only brings **older databases** forward. To go back a version, restore the pre-upgrade backup (see [§8.2](#82-database-backup-and-restore-adminbackup)).
+- **No automatic downgrade**: the framework only brings **older databases** forward — and code rolled back **below** the database version refuses to start by default (fail-fast) instead of booting against an unknown schema. To go back a version, restore the pre-upgrade backup (see [§8.2](#82-database-backup-and-restore-adminbackup)); only use `BLOG_ALLOW_SCHEMA_AHEAD=true` for controlled windows such as rolling upgrades.
 
 ### 9.6 Why sign-in still works in maintenance mode
 

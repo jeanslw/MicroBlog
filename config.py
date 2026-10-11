@@ -215,6 +215,10 @@ class Config:
     # schema 迁移模式:true(默认)= 启动时自动执行待迁移;false = 手动模式,
     # 检测到待迁移项时站点进入维护模式,管理员登录后在后台「迁移数据库」页手动执行
     AUTO_SCHEMA_MIGRATE = _env_bool("BLOG_AUTO_MIGRATE", "true")
+    # 降级守卫:数据库版本高于程序版本(代码被回滚)时默认**拒绝启动**(fail-fast),
+    # 防止旧代码误碰新结构。受控场景可临时设 true 放行(只告警不拦截):
+    # 滚动升级窗口内新旧实例并存、或已确认新旧 schema 兼容的短期回滚。
+    ALLOW_SCHEMA_AHEAD = _env_bool("BLOG_ALLOW_SCHEMA_AHEAD", "false")
 
     # ── WTF ─────────────────────────────────────────────
     WTF_CSRF_ENABLED = True

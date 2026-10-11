@@ -221,6 +221,59 @@ def test_startup_step_never_blocks_startup_on_error(app, db, monkeypatch):
     assert app.config.get("SCHEMA_UPGRADE_PENDING") is None
 
 
+def test_startup_refuses_boot_when_db_ahead(app, db):
+    """降级守卫:库版本高于程序 → 默认抛 RuntimeError 拒绝启动。
+
+    fail-fast(Sentry/NetBox 同款):异常必须真的传出去——create_app 构造失败,
+    gunicorn/waitress 进程才起不来。守卫本身绝不动库。
+    """
+    db.session.add(SchemaVersion(version="99.0.0", applied_time="2026-01-01 00:00:00"))
+    db.session.commit()
+    app.config["ALLOW_SCHEMA_AHEAD"] = False
+
+    with pytest.raises(RuntimeError, match="代码被降级"):
+        run_startup_schema_migrations(app)
+
+    # 守卫只拦截、不迁移、不戳记——库保持原样,等运维决策
+    assert get_schema_version() == "99.0.0"
+    assert pending_schema_migrations(quiet=True) == []
+
+
+def test_startup_escape_hatch_allows_db_ahead(app, db, caplog):
+    """BLOG_ALLOW_SCHEMA_AHEAD=true:受控场景(滚动升级窗口)放行启动。
+
+    只告警、不动库、不置维护标志——pending 本就为空,闸门不会启用。
+    """
+    db.session.add(SchemaVersion(version="99.0.0", applied_time="2026-01-01 00:00:00"))
+    db.session.commit()
+    app.config["ALLOW_SCHEMA_AHEAD"] = True
+
+    with caplog.at_level("WARNING"):
+        run_startup_schema_migrations(app)  # 不抛异常
+
+    assert any("已放行启动" in r.message for r in caplog.records)
+    assert app.config.get("SCHEMA_UPGRADE_PENDING") is None
+    assert get_schema_version() == "99.0.0"
+
+
+def test_startup_guard_tolerates_unreadable_schema_version(app, db, monkeypatch):
+    """版本读不出(表未建/库暂时不可达)不属于降级:守卫跳过,启动流程照常。
+
+    拦截条件是「读到明确更高的版本」,读不到就交给下方既有的容错路径——
+    否则首次部署(表还没建)或数据库抖动会被误判成降级、拦死启动。
+    """
+    import app.database as database_module
+
+    def boom():
+        raise RuntimeError("schema_version 表不存在")
+
+    monkeypatch.setattr(database_module, "get_schema_version", boom)
+
+    run_startup_schema_migrations(app)  # 不抛异常,正常走迁移流程
+
+    assert app.config.get("SCHEMA_UPGRADE_PENDING") is None
+
+
 def test_gate_blocks_site_and_allows_login_paths(client, app, db):
     """维护闸门:普通页面 503 且渲染独立升级页;登录/静态资源照常放行。"""
     _reset_to_legacy()

@@ -397,7 +397,7 @@ The app ships a **versioned schema-migration framework**: structural changes are
 |------------|-----------|
 | Program version **higher** than database version | Apply the missing migrations and append one history row per version (version + applied time + note; visible on the admin "Migrate Database" page) |
 | Both **equal** | Nothing to do |
-| Database version **higher** than the program version (code rolled back) | Log a warning and skip — the newer schema is **never touched** (after a rollback, restore a backup matching the older version; the app does not downgrade automatically) |
+| Database version **higher** than the program version (code rolled back) | **Startup is refused by default** (fail-fast): the boot log clearly says a downgrade was detected — restore the program version matching the database, or roll the database back with the pre-upgrade backup. Controlled scenarios (rolling-upgrade windows where old and new instances coexist, or a short-term rollback whose schema compatibility is confirmed) may temporarily set `BLOG_ALLOW_SCHEMA_AHEAD=true` to allow boot (warning only). The app **never downgrades the database automatically** |
 
 Whether migrations run at startup is controlled by `BLOG_AUTO_MIGRATE` (bare metal: `app.env`; Docker: `.env.docker`):
 

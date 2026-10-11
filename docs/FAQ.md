@@ -74,7 +74,12 @@ That is the maintenance gate of **manual migration mode**: `BLOG_AUTO_MIGRATE=fa
 3. Open **"Operations & Security" → "Migrate Database"** in the admin sidebar, check the current DB version / target version / pending migrations and click "Run migration"; you can also run `flask init-db` on the server (idempotent)
 4. Maintenance mode **clears itself** once the migration finishes — no restart needed (just refresh). If it still returns 503, read the service log: a `数据库迁移失败` entry means the migration did not complete — fix the cause shown in the traceback (privileges, disk, connectivity) and retry
 
-To go back to "migrate automatically on startup": set `BLOG_AUTO_MIGRATE` back to `true` (or remove the line) and restart. Note that when the database version is **higher** than the program version (code rolled back) nothing is downgraded automatically — only a warning is logged — so restore a backup matching the program version. See [Deployment Guide 2.8](DEPLOYMENT.md#28-upgrading-and-schema-migrations).
+To go back to "migrate automatically on startup": set `BLOG_AUTO_MIGRATE` back to `true` (or remove the line) and restart. Note that when the database version is **higher** than the program version (code rolled back) **startup is refused by default** (the downgrade guard, see the next question); the database is never downgraded automatically. See [Deployment Guide 2.8](DEPLOYMENT.md#28-upgrading-and-schema-migrations).
+
+**Q: Startup fails and the log says a code downgrade was detected?**
+That is the **downgrade guard** (fail-fast): when the database schema version is higher than the program version, startup is refused by default — older code lacks the migration knowledge for the newer schema, and running it against that schema risks corrupting data. Two ways out:
+- **Proper rollback (recommended)**: restore the pre-upgrade backup so the database matches the program version (the admin "Database Backup" page keeps automatic backups)
+- **Controlled pass-through**: in a rolling-upgrade window (the new instance has already migrated, the old one has not been restarted yet) or a short rollback whose schema compatibility is confirmed, temporarily set `BLOG_ALLOW_SCHEMA_AHEAD=true` (warning only, no interception) — restore the "program version == database version" match as soon as possible afterwards
 
 **Q: `docker compose` startup fails with a missing-variable / interpolation error?**
 The current compose provides test defaults for the secret key and passwords, so after `cp .env.docker.example .env.docker` you **only need to set `MYSQL_ROOT_PASSWORD` and `MYSQL_PASSWORD`** to start (and SQLite mode `docker compose up -d web` doesn't even need that file). If errors persist, note:
