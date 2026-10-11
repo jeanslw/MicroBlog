@@ -76,6 +76,21 @@ def _normalize_trusted_host(entry: str) -> str:
 # 应用版本（SemVer）。发布新版本时更新，须与 Git Tag 保持一致。
 APP_VERSION = "1.3.6"
 
+# 数据库结构（schema）版本——本代码所携带的最新库结构对应的发布号。
+# 由 app/database.py 的迁移框架读取（app.database.SCHEMA_VERSION 即本常量）。
+#
+# ── 什么时候该改 SCHEMA_VERSION？─────────────────────────────
+# 仅当本次发布包含「数据库结构变更」时，才把它与 APP_VERSION 一起改成本次
+# 发布号；纯代码发布（不含库结构变更）时保持不动——它落后于 APP_VERSION
+# 是正常状态：
+#   初始：           APP_VERSION = 1.3.6, SCHEMA_VERSION = 1.3.6  （同发布）
+#   无库变更的发布：  APP_VERSION = 1.4.0, SCHEMA_VERSION = 1.3.6  （正常,勿动）
+#   有库变更的发布：  APP_VERSION = 1.4.0, SCHEMA_VERSION = 1.4.0  （立刻追平）
+# 修改它的同时还必须（缺一不可,详见 app/database.py「Schema 版本化迁移框架」）：
+#   1. 在 app/database.py 的 _SCHEMA_MIGRATIONS 登记该版本的迁移函数；
+#   2. 同步 MySQL/init.sql（新装环境直接建最新结构）。
+SCHEMA_VERSION = "1.3.6"
+
 PAGE_SIZE = int(os.environ.get("BLOG_PAGE_SIZE", "6"))
 
 # 文章/评论/上传校验

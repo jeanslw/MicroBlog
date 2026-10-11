@@ -21,6 +21,7 @@ from flask import current_app
 from sqlalchemy.exc import IntegrityError, OperationalError
 
 from app.extensions import db, log
+from config import SCHEMA_VERSION
 
 
 def wait_for_database(max_wait: int = 90, interval: float = 3.0) -> None:
@@ -304,14 +305,15 @@ def _migrate_site_config_split():
 # ── Schema 版本化迁移框架（v1.3.6 引入） ────────────────────
 # schema 版本一律使用真实发布号（如 "1.3.6"）,不用 1、2 这类内部序号——
 # 日志和后台「迁移数据库」页所见即发布版本,排查时无需再查对照表。
+# 目标版本 SCHEMA_VERSION 定义在 config.py、紧邻 APP_VERSION——发布改版本
+# 号时一定看得见它,是否需要同步递增见其注释（无库变更的发布保持不动）。
 # 仅当某次发布包含「需迁移」的 schema 变更时才操作:
 # 1. 把迁移函数登记进 _SCHEMA_MIGRATIONS,键为该发布的版本号;
-# 2. SCHEMA_VERSION 升为本发布号;
+# 2. config.py 里 SCHEMA_VERSION 升为本发布号;
 # 3. 同步 MySQL/init.sql（新装环境直接建最新 schema）。
-# 不含 schema 变更的发布（如纯补丁 1.3.7）不动 SCHEMA_VERSION——版本戳记
+# 不含 schema 变更的发布（纯补丁）不动 SCHEMA_VERSION——版本戳记
 # 停在最近一次 schema 发布号即可。
 # 列级兼容（老库补列/补索引,无数据搬迁）仍走 init_db 里的幂等 _migrate_*。
-SCHEMA_VERSION = "1.3.6"
 
 # 版本管理首次上线时,无版本行的老库所处的基线:site_config 单表时代
 # 的最后一个发布号（该时代的库都能在 _SCHEMA_MIGRATIONS 里找到出路）。
