@@ -1,4 +1,4 @@
-"""「关于我」前台页面与后台独立设置页测试。"""
+"""'关于我'前台页面与后台独立设置页测试."""
 
 from app.models import AboutProfile
 
@@ -31,8 +31,8 @@ def test_about_page_empty(client):
     assert "关于我".encode() in rv.data
     assert "暂无内容".encode() in rv.data
     body = rv.data.decode("utf-8")
-    assert 'href="/about"' in body  # 导航含「关于我」入口
-    # 「关于我」排在「全部栏目」之后
+    assert 'href="/about"' in body  # 导航含"关于我"入口
+    # "关于我"排在"全部栏目"之后
     assert body.index("全部栏目") < body.index('href="/about"')
 
 
@@ -59,7 +59,7 @@ def test_about_page_shows_configured(client, db):
     assert "暂无内容" not in body
 
 
-# ── 后台独立「关于我」设置页 ──────────────────────────────
+# ── 后台独立"关于我"设置页 ──────────────────────────────
 
 
 def test_about_setting_page_has_fields_and_menu(login_admin):
@@ -73,7 +73,7 @@ def test_about_setting_page_has_fields_and_menu(login_admin):
 
 
 def test_site_setting_page_without_about_fields(login_admin):
-    """拆分后原「站点设置」页不应再出现关于字段"""
+    """拆分后原'站点设置'页不应再出现关于字段"""
     rv = login_admin.get("/admin/site_setting")
     assert rv.status_code == 200
     body = rv.data.decode("utf-8")
@@ -128,7 +128,7 @@ def test_about_setting_invalid_email_rejected(login_admin, db):
 
 
 def test_about_avatar_falls_back_when_file_missing(client, db, monkeypatch, tmp_path):
-    """跨机恢复后头像文件缺失（库里仍有 URL）：渲染占位图标，不出现破图与 alt 文本"""
+    """跨机恢复后头像文件缺失(库里仍有 URL):渲染占位图标,不出现破图与 alt 文本"""
     import app.utils as utils
 
     monkeypatch.setattr(utils, "project_root", lambda: str(tmp_path))  # static 目录为空

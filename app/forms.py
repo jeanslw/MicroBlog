@@ -1,7 +1,7 @@
-"""Flask-WTF 表单类。
+"""Flask-WTF 表单类.
 
-所有写操作通过表单类统一校验,自动附带 CSRF token。
-字段名尽量保持与原有 HTML form 字段一致,减少模板改动。
+所有写操作通过表单类统一校验,自动附带 CSRF token.
+字段名尽量保持与原有 HTML form 字段一致,减少模板改动.
 """
 
 from flask_babel import lazy_gettext as _l
@@ -43,7 +43,7 @@ class ChangePwdForm(FlaskForm):
 
 
 class SetupForm(FlaskForm):
-    """首次安装引导：创建管理员账号 + 邮箱 + 密码"""
+    """首次安装引导:创建管理员账号 + 邮箱 + 密码"""
 
     username = StringField("账号", validators=[DataRequired(), Length(max=50)])
     email = StringField("邮箱", validators=[Optional(), Email(), Length(max=200)])
@@ -78,7 +78,7 @@ class AccountForm(FlaskForm):
 
 
 class MailSettingForm(FlaskForm):
-    """SMTP 邮件设置：数据存 mail_setting 表，保存后优先于 app.env 的 BLOG_MAIL_* 生效。"""
+    """SMTP 邮件设置:数据存 mail_setting 表,保存后优先于 app.env 的 BLOG_MAIL_* 生效."""
 
     mail_host = StringField("SMTP 服务器", validators=[Optional(), Length(max=200)])
     mail_port = IntegerField("端口", validators=[Optional(), NumberRange(min=1, max=65535)], default=587)
@@ -90,7 +90,7 @@ class MailSettingForm(FlaskForm):
     submit = SubmitField("保存")
 
 
-# 内置背景图库（与 static/backgrounds/ 及 themes.css 选择器一一对应）
+# 内置背景图库(与 static/backgrounds/ 及 themes.css 选择器一一对应)
 BG_STYLE_CHOICES = [
     ("bg1", _l("背景 1")),
     ("bg2", _l("背景 2")),
@@ -143,7 +143,7 @@ class SiteSettingForm(FlaskForm):
 
 
 class AboutForm(FlaskForm):
-    """「关于我」表单：头像/邮箱/GitHub/个人主页/简介，数据存 about_profile 表"""
+    """'关于我'表单:头像/邮箱/GitHub/个人主页/简介,数据存 about_profile 表"""
 
     avatar_upload = FileField(
         "上传头像",

@@ -1,16 +1,16 @@
-"""数据库备份/恢复子进程调用测试。
+"""数据库备份/恢复子进程调用测试.
 
-回归重点：mysql/mysqldump 客户端的「禁用 TLS」写法不统一——MariaDB 客户端
-（镜像内 default-mysql-client）与 MySQL ≤8.0 用 ``--skip-ssl``，MySQL 8.4 客户端
-已移除该写法（仅认 ``--ssl-mode=DISABLED``）。硬编码 ``--skip-ssl`` 会让 MySQL 8.4
-客户端以 exit 2（unknown option）直接失败。
+回归重点:mysql/mysqldump 客户端的'禁用 TLS'写法不统一 -- MariaDB 客户端
+(镜像内 default-mysql-client)与 MySQL ≤8.0 用 ``--skip-ssl``,MySQL 8.4 客户端
+已移除该写法(仅认 ``--ssl-mode=DISABLED``).硬编码 ``--skip-ssl`` 会让 MySQL 8.4
+客户端以 exit 2(unknown option)直接失败.
 
-更关键的是**探测不可信**：``mysql --skip-ssl --version`` 会打印版本并以 0 退出
-（mysql 客户端对 ``--version`` 提前返回、不再校验其余选项），于是 ``--skip-ssl``
-被误判为可用，直到真正恢复时才以 exit 2 失败；而 ``mysqldump --skip-ssl --version``
-却会正常报错。因此改为行为驱动：先用首选参数真跑一次，客户端报「未知选项」就换
-下一个候选重试（未知选项在参数解析阶段即失败，不连库、不写库），跑通后缓存结论；
-密码错误/权限不足等非参数类错误直接透出 stderr，不做重试。
+更关键的是**探测不可信**:``mysql --skip-ssl --version`` 会打印版本并以 0 退出
+(mysql 客户端对 ``--version`` 提前返回,不再校验其余选项),于是 ``--skip-ssl``
+被误判为可用,直到真正恢复时才以 exit 2 失败;而 ``mysqldump --skip-ssl --version``
+却会正常报错.因此改为行为驱动:先用首选参数真跑一次,客户端报'未知选项'就换
+下一个候选重试(未知选项在参数解析阶段即失败,不连库,不写库),跑通后缓存结论;
+密码错误/权限不足等非参数类错误直接透出 stderr,不做重试.
 """
 
 import zipfile
@@ -31,7 +31,7 @@ class _Completed:
 
 @pytest.fixture(autouse=True)
 def _clear_tls_cache():
-    """跑通的参数有缓存，用例间必须清空避免串味"""
+    """跑通的参数有缓存,用例间必须清空避免串味"""
     admin_routes._client_args_cache.clear()
     yield
     admin_routes._client_args_cache.clear()
@@ -43,7 +43,7 @@ def _db_client(tls_args, extra_args=()):
 
 
 def test_cmd_builders_place_tls_args_and_avoid_password_on_argv():
-    """命令拼装：TLS 参数夹在中间、口令不进命令行（走 MYSQL_PWD 环境变量）"""
+    """命令拼装:TLS 参数夹在中间,口令不进命令行(走 MYSQL_PWD 环境变量)"""
     creds = {"host": "db", "user": "blog", "pwd": "s3cret", "db": "flask_blog"}
     dump_cmd = admin_routes._mysqldump_cmd(
         creds, ("--ssl-mode=DISABLED",), ("--no-tablespaces", "--set-gtid-purged=OFF")
@@ -64,7 +64,7 @@ def test_cmd_builders_place_tls_args_and_avoid_password_on_argv():
 
 
 def test_prefers_skip_ssl_when_client_accepts_it(monkeypatch):
-    """MariaDB / MySQL ≤8.0 客户端：首选 --skip-ssl，一次跑通、不再试错"""
+    """MariaDB / MySQL ≤8.0 客户端:首选 --skip-ssl,一次跑通,不再试错"""
     calls = []
 
     def fake_run(cmd, **kwargs):
@@ -78,7 +78,7 @@ def test_prefers_skip_ssl_when_client_accepts_it(monkeypatch):
 
 
 def test_mysql84_client_falls_back_to_ssl_mode(monkeypatch):
-    """MySQL 8.4 客户端拒绝 --skip-ssl（unknown option）时自动改用 --ssl-mode=DISABLED"""
+    """MySQL 8.4 客户端拒绝 --skip-ssl(unknown option)时自动改用 --ssl-mode=DISABLED"""
     calls = []
 
     def fake_run(cmd, **kwargs):
@@ -97,7 +97,7 @@ def test_mysql84_client_falls_back_to_ssl_mode(monkeypatch):
 
 
 def test_no_version_probe_is_used(monkeypatch):
-    """不再用 `--version` 探测（mysql 客户端会忽略未知选项并以 0 退出，结论不可信）"""
+    """不再用 `--version` 探测(mysql 客户端会忽略未知选项并以 0 退出,结论不可信)"""
     calls = []
 
     def fake_run(cmd, **kwargs):
@@ -110,7 +110,7 @@ def test_no_version_probe_is_used(monkeypatch):
 
 
 def test_verified_flag_is_reused_without_retry(monkeypatch):
-    """跑通的写法写入缓存：后续调用直接使用，不再多跑一次注定失败的命令"""
+    """跑通的写法写入缓存:后续调用直接使用,不再多跑一次注定失败的命令"""
     calls = []
 
     def fake_run(cmd, **kwargs):
@@ -131,7 +131,7 @@ def test_verified_flag_is_reused_without_retry(monkeypatch):
 
 
 def test_all_tls_flags_rejected_falls_back_to_client_default(monkeypatch):
-    """两种写法都不被支持时去掉该参数，交回客户端默认行为（8.4 默认 ssl-mode=PREFERRED）"""
+    """两种写法都不被支持时去掉该参数,交回客户端默认行为(8.4 默认 ssl-mode=PREFERRED)"""
     calls = []
 
     def fake_run(cmd, **kwargs):
@@ -149,7 +149,7 @@ def test_all_tls_flags_rejected_falls_back_to_client_default(monkeypatch):
 
 
 def test_retry_keeps_dump_payload_for_restore(monkeypatch):
-    """恢复时首个候选失败会重试：dump 数据必须同样喂给重试的那次调用"""
+    """恢复时首个候选失败会重试:dump 数据必须同样喂给重试的那次调用"""
     payloads = []
     dump = b"CREATE TABLE t (id INT);\n"
 
@@ -166,7 +166,7 @@ def test_retry_keeps_dump_payload_for_restore(monkeypatch):
 
 
 def test_non_tls_failure_is_not_retried(monkeypatch):
-    """密码错误/权限不足等非参数类错误不重试，stderr 原样透出"""
+    """密码错误/权限不足等非参数类错误不重试,stderr 原样透出"""
     calls = []
 
     def fake_run(cmd, **kwargs):
@@ -191,7 +191,7 @@ def test_run_db_client_reports_missing_binary(monkeypatch):
 
 
 def test_run_db_client_falls_back_to_exit_code(monkeypatch):
-    """客户端异常退出但没输出 stderr 时，至少报出退出码"""
+    """客户端异常退出但没输出 stderr 时,至少报出退出码"""
 
     def fake_run(cmd, **kwargs):
         return _Completed(returncode=7, stderr=b"")
@@ -202,9 +202,9 @@ def test_run_db_client_falls_back_to_exit_code(monkeypatch):
 
 
 def test_create_backup_falls_back_on_mysql84_and_writes_zip(app, monkeypatch, tmp_path):
-    """MySQL 8.4 客户端：备份自动从 --skip-ssl 回退，dump 内容写入 zip"""
+    """MySQL 8.4 客户端:备份自动从 --skip-ssl 回退,dump 内容写入 zip"""
     monkeypatch.setenv("BLOG_DB_TYPE", "mysql")
-    # 显式给定凭据：避免断言受开发者本机 BLOG_MYSQL_PWD 影响
+    # 显式给定凭据:避免断言受开发者本机 BLOG_MYSQL_PWD 影响
     monkeypatch.setenv("BLOG_MYSQL_PWD", "s3cret-tls-probe")
     calls = []
     envs = []
@@ -223,14 +223,14 @@ def test_create_backup_falls_back_on_mysql84_and_writes_zip(app, monkeypatch, tm
     assert "--ssl-mode=DISABLED" in calls[-1]
     assert "--skip-ssl" not in calls[-1]
     assert "--single-transaction" in calls[-1] and "--no-tablespaces" in calls[-1]
-    # 口令走 MYSQL_PWD 环境变量而非命令行，避免出现在进程列表里
+    # 口令走 MYSQL_PWD 环境变量而非命令行,避免出现在进程列表里
     assert envs[-1]["MYSQL_PWD"] == "s3cret-tls-probe"
     with zipfile.ZipFile(tmp_path / name) as zf:
         assert zf.read(zf.namelist()[0]) == b"CREATE TABLE t (id INT);\n"
 
 
 def test_create_backup_reports_client_stderr(app, monkeypatch, tmp_path):
-    """客户端报错时把 stderr 透给用户（回归：曾经只剩 exit status 2）"""
+    """客户端报错时把 stderr 透给用户(回归:曾经只剩 exit status 2)"""
     monkeypatch.setenv("BLOG_DB_TYPE", "mysql")
 
     def fake_run(cmd, **kwargs):
@@ -242,12 +242,12 @@ def test_create_backup_reports_client_stderr(app, monkeypatch, tmp_path):
 
 
 def _extra_client(tls_args, extra_args=()):
-    """带 extra 维度的命令拼装替身（模拟备份路径的真实调用形态）"""
+    """带 extra 维度的命令拼装替身(模拟备份路径的真实调用形态)"""
     return ["mysqldump", *tls_args, *extra_args]
 
 
 def test_old_client_rejecting_no_tablespaces_falls_back(monkeypatch):
-    """老客户端（MySQL 8.0.21 前无 --no-tablespaces）:退掉该参数保留 GTID 参数重试。"""
+    """老客户端(MySQL 8.0.21 前无 --no-tablespaces):退掉该参数保留 GTID 参数重试."""
     calls = []
 
     def fake_run(cmd, **kwargs):
@@ -260,7 +260,7 @@ def test_old_client_rejecting_no_tablespaces_falls_back(monkeypatch):
     admin_routes._run_db_client(
         _extra_client, "mysqldump", {}, extra_candidates=admin_routes._MYSQLDUMP_EXTRA_CANDIDATES
     )
-    # 第一次带 --no-tablespaces 失败,重试保留同 TLS、退掉 --no-tablespaces
+    # 第一次带 --no-tablespaces 失败,重试保留同 TLS,退掉 --no-tablespaces
     assert calls == [
         ["mysqldump", "--skip-ssl", "--no-tablespaces", "--set-gtid-purged=OFF"],
         ["mysqldump", "--skip-ssl", "--set-gtid-purged=OFF"],
@@ -272,7 +272,7 @@ def test_old_client_rejecting_no_tablespaces_falls_back(monkeypatch):
 
 
 def test_privilege_error_is_not_retried(monkeypatch):
-    """非 root 账号权限类报错（如缺 PROCESS）不是 unknown option,不重试、stderr 原样透出。"""
+    """非 root 账号权限类报错(如缺 PROCESS)不是 unknown option,不重试,stderr 原样透出."""
     calls = []
 
     def fake_run(cmd, **kwargs):
@@ -291,7 +291,7 @@ def test_privilege_error_is_not_retried(monkeypatch):
 
 
 def test_create_backup_carries_non_root_compat_flags(app, monkeypatch, tmp_path):
-    """备份命令默认带上非 root 兼容参数（首选候选）,口令仍走环境变量。"""
+    """备份命令默认带上非 root 兼容参数(首选候选),口令仍走环境变量."""
     monkeypatch.setenv("BLOG_DB_TYPE", "mysql")
     monkeypatch.setenv("BLOG_MYSQL_PWD", "s3cret-nr")
     cmds = []

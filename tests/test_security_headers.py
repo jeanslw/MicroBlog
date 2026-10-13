@@ -1,7 +1,7 @@
-"""安全响应头 / 静态缓存 / 防盗链（应用层统一下发）测试。
+"""安全响应头 / 静态缓存 / 防盗链(应用层统一下发)测试.
 
-安全头由 app/__init__.py 的 after_request 钩子下发（单一事实来源），
-替代原 nginx add_header 配置；防盗链对齐原 nginx valid_referers 行为。
+安全头由 app/__init__.py 的 after_request 钩子下发(单一事实来源),
+替代原 nginx add_header 配置;防盗链对齐原 nginx valid_referers 行为.
 """
 
 EXISTING_STATIC = "/static/js/cursor-effect.js"
@@ -25,15 +25,15 @@ class TestSecurityHeaders:
         _assert_security_headers(rv)
 
     def test_csp_allows_external_media(self, client):
-        """回归防护：缺失 media-src 会回退 default-src 'self'，
-        导致文章插入的外链音视频无法播放。"""
+        """回归防护:缺失 media-src 会回退 default-src 'self',
+        导致文章插入的外链音视频无法播放."""
         rv = client.get("/")
         csp = rv.headers["Content-Security-Policy"]
         assert "media-src 'self' https:" in csp
         assert "img-src 'self' data: https:" in csp
 
     def test_error_response_also_has_headers(self, client):
-        """对齐 nginx add_header ... always：错误响应同样携带安全头。"""
+        """对齐 nginx add_header ... always:错误响应同样携带安全头."""
         rv = client.get("/definitely-not-exist")
         assert rv.status_code == 404
         _assert_security_headers(rv)
@@ -94,7 +94,7 @@ class TestHotlinkProtection:
         assert rv.status_code != 403
 
     def test_unprotected_static_not_hotlink_checked(self, client):
-        """非保护路径（如第三方库）不参与防盗链。"""
+        """非保护路径(如第三方库)不参与防盗链."""
         rv = client.get(
             EXISTING_STATIC,
             headers={"Referer": "http://evil.example.com/steal"},
@@ -131,7 +131,7 @@ class TestUploadsServing:
 
     def test_path_traversal_blocked(self, client):
         rv = client.get("/uploads/image/../../app/__init__.py")
-        # werkzeug 会规范化掉 ../ 或由 send_from_directory 拒绝，均不得返回源码
+        # werkzeug 会规范化掉 ../ 或由 send_from_directory 拒绝,均不得返回源码
         assert rv.status_code in (404, 308)
 
     def test_legacy_banner_url_redirects(self, client):
@@ -145,7 +145,7 @@ class TestUploadsServing:
         assert rv.headers["Location"].endswith("/uploads/image/logo/x.png")
 
     def test_legacy_redirect_reaches_file(self, client, _tmp_project_root):
-        """旧 URL 经 301 后能拿到真实文件（follow_redirects）"""
+        """旧 URL 经 301 后能拿到真实文件(follow_redirects)"""
         self._touch(_tmp_project_root, "banner", "old.png")
         rv = client.get("/static/banner/old.png", follow_redirects=True)
         assert rv.status_code == 200

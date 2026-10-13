@@ -1,10 +1,10 @@
-"""博客蓝图 —— 文章浏览、发布、编辑、删除。
+"""博客蓝图  --  文章浏览,发布,编辑,删除.
 
-重构要点：
+重构要点:
 - 使用 Flask-WTF 表单校验 + 自动 CSRF
 - 使用 Flask-SQLAlchemy ORM
 - 删除文章用事务,异常时显式 rollback
-- 文章正文保存原文，读取展示时经 nh3 白名单净化防存储型 XSS
+- 文章正文保存原文,读取展示时经 nh3 白名单净化防存储型 XSS
 """
 
 import re
@@ -42,13 +42,13 @@ def _safe_int(value, default=1):
 
 
 def _estimate_reading_stats(content: str):
-    """计算字数和预计阅读时长，避免对存储字段做额外数据库迁移。
+    """计算字数和预计阅读时长,避免对存储字段做额外数据库迁移.
 
-    统计规则：
+    统计规则:
     - 中文字符按 1 字计数
     - 英文/数字按单词计数
     - 过滤空白和标点
-    - 采用全文文本，不使用摘要截断值，避免 220 字截断导致统计错误
+    - 采用全文文本,不使用摘要截断值,避免 220 字截断导致统计错误
     """
     text = strip_html(content or "", max_len=None)
     if not text:
@@ -61,9 +61,9 @@ def _estimate_reading_stats(content: str):
 
 
 def _extract_toc(content: str):
-    """从正文提取 h1-h3 标题生成目录，并给标题注入 id 锚点用于跳读。
+    """从正文提取 h1-h3 标题生成目录,并给标题注入 id 锚点用于跳读.
 
-    返回 (content, items)：content 为注入 id 后的正文 HTML，items 为目录条目。
+    返回 (content, items):content 为注入 id 后的正文 HTML,items 为目录条目.
     """
     items = []
     seen = set()
@@ -104,10 +104,10 @@ def _extract_toc(content: str):
 
 
 def _auto_seo(content, title, category):
-    """生成 SEO 描述与关键词（编辑页留空时自动填充）。
+    """生成 SEO 描述与关键词(编辑页留空时自动填充).
 
-    - 描述：正文纯文本截断 160 字
-    - 关键词：优先栏目标签 tag_text，否则标题去标点分词；与标题拼接、逗号分隔、截断 300
+    - 描述:正文纯文本截断 160 字
+    - 关键词:优先栏目标签 tag_text,否则标题去标点分词;与标题拼接,逗号分隔,截断 300
     """
     description = strip_html(content or "").strip()
     if len(description) > 160:
@@ -173,14 +173,14 @@ def article_detail(aid):
     article.word_count = reading_stats["word_count"]
     article.reading_time = reading_stats["reading_minutes"]
     # 从净化后的 safe_content 提取 TOC,结果存到非映射属性 rendered_content,
-    # 不修改 mapped 的 content 列（否则每次访问都会触发一条无谓 UPDATE）
+    # 不修改 mapped 的 content 列(否则每次访问都会触发一条无谓 UPDATE)
     article.rendered_content, article.toc = _extract_toc(article.safe_content)
-    # 正文首图，供 Open Graph og:image 使用
+    # 正文首图,供 Open Graph og:image 使用
     article.og_image = ""
     m = re.search(r'<img[^>]+src=["\']([^"\']+)["\']', article.rendered_content or "")
     if m:
         article.og_image = m.group(1)
-    # 作者署名：昵称未设置时回退为管理员用户名
+    # 作者署名:昵称未设置时回退为管理员用户名
     about = get_about_profile()
     author_name = (about.about_nickname or "") if about else ""
     if not author_name:
@@ -297,13 +297,13 @@ def article_del(aid):
         if not article:
             flash(_("文章不存在"), "warning")
             return redirect(url_for("blog.index"))
-        # ORM 级联删除（评论 → 回复 通过 cascade="all, delete-orphan"）
+        # ORM 级联删除(评论 -> 回复 通过 cascade="all, delete-orphan")
         # 点赞记录手动删除
         db.session.execute(
             db.text("DELETE FROM vote_log WHERE article_id=:aid"),
             {"aid": aid},
         )
-        # 收集文章内引用的上传图片（删除前）
+        # 收集文章内引用的上传图片(删除前)
         old_urls = collect_upload_urls(article.content)
         db.session.delete(article)
         db.session.commit()
@@ -323,11 +323,11 @@ def article_del(aid):
 @blog_bp.route("/article/manage")
 @admin_required
 def article_manage():
-    """已发布文章管理：列出 status="publish" 的文章，每条提供「评论管理」「撤回(→草稿)」与删除按钮。"""
+    """已发布文章管理:列出 status="publish" 的文章,每条提供'评论管理''撤回(->草稿)'与删除按钮."""
     articles = db.session.scalars(
         db.select(Article).where(Article.status == "publish").order_by(Article.update_time.desc())
     ).all()
-    # 各文章评论数：一次分组查询，避免逐篇 count 的 N+1
+    # 各文章评论数:一次分组查询,避免逐篇 count 的 N+1
     comment_counts = dict(
         db.session.execute(db.select(Comment.article_id, func.count(Comment.id)).group_by(Comment.article_id)).all()
     )
@@ -340,7 +340,7 @@ def article_manage():
 @blog_bp.route("/article/recall/<int:aid>", methods=["POST"])
 @admin_required
 def article_recall(aid):
-    """撤回已发布文章：status 改回 "draft"，文章进入草稿箱。"""
+    """撤回已发布文章:status 改回 "draft",文章进入草稿箱."""
     article = db.session.get(Article, aid)
     if not article:
         flash(_("文章不存在"), "warning")
@@ -368,9 +368,9 @@ def drafts():
     return render_template("blog/drafts.html", drafts=draft_list)
 
 
-# ── 评论管理（后台） ────────────────────────────────────
+# ── 评论管理(后台) ────────────────────────────────────
 def _comment_redirect(aid):
-    """删除评论/回复后的回跳：文章仍在则回该文章的评论管理页,否则回文章列表"""
+    """删除评论/回复后的回跳:文章仍在则回该文章的评论管理页,否则回文章列表"""
     if aid and db.session.get(Article, aid):
         return redirect(url_for("blog.comment_manage", aid=aid))
     return redirect(url_for("blog.article_manage"))
@@ -379,7 +379,7 @@ def _comment_redirect(aid):
 @blog_bp.route("/comment/manage/<int:aid>")
 @admin_required
 def comment_manage(aid):
-    """评论管理：列出指定文章的全部评论与回复（新评论在前），供管理员逐条删除。"""
+    """评论管理:列出指定文章的全部评论与回复(新评论在前),供管理员逐条删除."""
     article = db.session.get(Article, aid)
     if not article:
         flash(_("文章不存在"), "warning")
@@ -391,7 +391,7 @@ def comment_manage(aid):
 @blog_bp.route("/comment/del/<int:cid>", methods=["POST"])
 @admin_required
 def comment_del(cid):
-    """删除评论：其下回复按 ORM 级联（cascade="all, delete-orphan"）一并删除"""
+    """删除评论:其下回复按 ORM 级联(cascade="all, delete-orphan")一并删除"""
     comment = db.session.get(Comment, cid)
     if not comment:
         flash(_("评论不存在"), "warning")
@@ -411,7 +411,7 @@ def comment_del(cid):
 @blog_bp.route("/reply/del/<int:rid>", methods=["POST"])
 @admin_required
 def reply_del(rid):
-    """删除单条回复（不影响其所属评论）"""
+    """删除单条回复(不影响其所属评论)"""
     reply = db.session.get(Reply, rid)
     if not reply:
         flash(_("评论不存在"), "warning")
@@ -455,7 +455,7 @@ def add_category():
 @blog_bp.route("/category/del/<int:cid>", methods=["POST"])
 @admin_required
 def del_category(cid):
-    """删除栏目（含其标签）：该栏目下文章恢复为未分类。"""
+    """删除栏目(含其标签):该栏目下文章恢复为未分类."""
     cat = db.session.get(Category, cid)
     if cat is None:
         flash(_("栏目不存在"), "warning")
@@ -475,7 +475,7 @@ def del_category(cid):
 @blog_bp.route("/category/edit/<int:cid>", methods=["POST"])
 @admin_required
 def edit_category(cid):
-    """重命名栏目：文章通过 category_id 关联，改名后自动跟随，无需逐篇重新归类。"""
+    """重命名栏目:文章通过 category_id 关联,改名后自动跟随,无需逐篇重新归类."""
     cat = db.session.get(Category, cid)
     if cat is None:
         flash(_("栏目不存在"), "warning")
@@ -501,10 +501,10 @@ def edit_category(cid):
 # ── 关于我 ──────────────────────────────────────────────
 @blog_bp.route("/about")
 def about():
-    """「关于我」公开页面：展示后台「关于我」设置里填写的头像/简介/邮箱/GitHub/个人主页"""
+    """'关于我'公开页面:展示后台'关于我'设置里填写的头像/简介/邮箱/GitHub/个人主页"""
     about = get_about_profile()
     avatar = (about.about_avatar or "") if about else ""
-    # 头像文件不随数据库备份迁移：文件缺失时回落为空，页面渲染占位图标而不是破图 + alt 文本
+    # 头像文件不随数据库备份迁移:文件缺失时回落为空,页面渲染占位图标而不是破图 + alt 文本
     if not asset_url_exists(avatar):
         avatar = ""
     bio = (about.about_bio or "").strip() if about else ""
@@ -534,8 +534,8 @@ def about():
 # ── 站内搜索 ────────────────────────────────────────────
 @blog_bp.route("/search")
 def search():
-    """按关键词搜索已发布文章（标题/正文模糊匹配），支持分页"""
-    # 截断超长关键词：LIKE 模式长度直接决定扫描成本，且超长输入必然无结果
+    """按关键词搜索已发布文章(标题/正文模糊匹配),支持分页"""
+    # 截断超长关键词:LIKE 模式长度直接决定扫描成本,且超长输入必然无结果
     q = (request.args.get("q") or "").strip()[: current_app.config.get("SEARCH_KEYWORD_MAX_LEN", 100)]
     page = max(_safe_int(request.args.get("page", 1), 1), 1)
     if not q:
@@ -547,16 +547,16 @@ def search():
 
 
 # ── RSS/Atom 订阅源 ─────────────────────────────────────
-_CN_TZ: tzinfo  # ZoneInfo 与固定偏移两种取值类型不同，统一标注为基类
+_CN_TZ: tzinfo  # ZoneInfo 与固定偏移两种取值类型不同,统一标注为基类
 try:
     _CN_TZ = ZoneInfo("Asia/Shanghai")
 except ZoneInfoNotFoundError:
-    # Windows / 精简容器镜像缺少 IANA 时区数据库时,退化为固定 UTC+8（与上海时区等价）
+    # Windows / 精简容器镜像缺少 IANA 时区数据库时,退化为固定 UTC+8(与上海时区等价)
     _CN_TZ = timezone(timedelta(hours=8))
 
 
 def _parse_feed_time(value: str) -> datetime | None:
-    """将 "YYYY-MM-DD HH:MM:SS" 转为带时区的 datetime，解析失败返回 None"""
+    """将 "YYYY-MM-DD HH:MM:SS" 转为带时区的 datetime,解析失败返回 None"""
     try:
         return datetime.strptime(value, "%Y-%m-%d %H:%M:%S").replace(tzinfo=_CN_TZ)
     except (TypeError, ValueError):
@@ -564,9 +564,9 @@ def _parse_feed_time(value: str) -> datetime | None:
 
 
 def _build_feed():
-    """构建订阅源对象（Atom/RSS 共用同一份数据）。
+    """构建订阅源对象(Atom/RSS 共用同一份数据).
 
-    feedgen 延迟导入：该依赖仅订阅源路由需要，避免影响其他功能启动。
+    feedgen 延迟导入:该依赖仅订阅源路由需要,避免影响其他功能启动.
     """
     from feedgen.feed import FeedGenerator
 

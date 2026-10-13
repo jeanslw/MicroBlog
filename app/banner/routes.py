@@ -1,9 +1,9 @@
-"""Banner 蓝图 —— 轮播图管理（列表/增/改/删）。
+"""Banner 蓝图  --  轮播图管理(列表/增/改/删).
 
-重构要点：
-- Flask-WTF 表单 + 文件字段校验（FileAllowed / FileSize）
-- Pillow 安全处理（解压炸弹防护 + 等比缩放）
-- 删除时 try/finally 关闭游标 → ORM 自动管理,删除文件失败不阻断
+重构要点:
+- Flask-WTF 表单 + 文件字段校验(FileAllowed / FileSize)
+- Pillow 安全处理(解压炸弹防护 + 等比缩放)
+- 删除时 try/finally 关闭游标 -> ORM 自动管理,删除文件失败不阻断
 - url_prefix="/banner",所以路由用相对路径
 """
 
@@ -58,7 +58,7 @@ def banner_add():
     save_dir = upload_dir("banner")
     save_path = os.path.join(save_dir, final_name)
 
-    # FileSize 验证器读取过 stream，重置到开头避免 PIL 无法识别
+    # FileSize 验证器读取过 stream,重置到开头避免 PIL 无法识别
     img.stream.seek(0)
     try:
         process_and_save_image(
@@ -126,7 +126,7 @@ def banner_edit(bid):
         )
         save_dir = upload_dir("banner")
         save_path = os.path.join(save_dir, final_name)
-        # FileSize 验证器读取过 stream，重置到开头避免 PIL 无法识别
+        # FileSize 验证器读取过 stream,重置到开头避免 PIL 无法识别
         img.stream.seek(0)
         try:
             process_and_save_image(
@@ -139,7 +139,7 @@ def banner_edit(bid):
             log.error("Banner 图片处理失败: %s", e, exc_info=True)
             flash(_("图片处理失败,请重试"), "danger")
             return redirect(url_for("banner.banner_list"))
-        # 删除旧文件（失败仅告警；兼容迁移前的 /static/banner 旧路径）
+        # 删除旧文件(失败仅告警;兼容迁移前的 /static/banner 旧路径)
         if banner.img_path and not remove_uploaded_file(banner.img_path):
             log.info("旧 banner 文件不存在或无需删除 bid=%s path=%s", bid, banner.img_path)
         banner.img_path = f"/uploads/banner/{final_name}"
@@ -152,13 +152,13 @@ def banner_edit(bid):
 @banner_bp.route("/del/<int:bid>", methods=["POST"])
 @admin_required
 def banner_del(bid):
-    """删除 banner 记录 + 物理文件（文件删除失败不阻断）"""
+    """删除 banner 记录 + 物理文件(文件删除失败不阻断)"""
     banner = db.session.get(Banner, bid)
     if not banner:
         flash(_("轮播图不存在"), "warning")
         return redirect(url_for("banner.banner_list"))
 
-    # 先删除物理文件（文件删除失败不阻断；兼容迁移前的 /static/banner 旧路径）
+    # 先删除物理文件(文件删除失败不阻断;兼容迁移前的 /static/banner 旧路径)
     if banner.img_path and not remove_uploaded_file(banner.img_path):
         log.info("banner 物理文件不存在或无需删除 bid=%s path=%s", bid, banner.img_path)
 
@@ -171,7 +171,7 @@ def banner_del(bid):
 @banner_bp.route("/withdraw/<int:bid>", methods=["POST"])
 @admin_required
 def banner_withdraw(bid):
-    """撤回（下架）单条轮播图：仅标记为不展示，记录与图片保留，可重新启用。"""
+    """撤回(下架)单条轮播图:仅标记为不展示,记录与图片保留,可重新启用."""
     banner = db.session.get(Banner, bid)
     if not banner:
         flash(_("轮播图不存在"), "warning")
@@ -190,7 +190,7 @@ def banner_withdraw(bid):
 @banner_bp.route("/activate/<int:bid>", methods=["POST"])
 @admin_required
 def banner_activate(bid):
-    """重新启用已撤回的轮播图，恢复首页展示。"""
+    """重新启用已撤回的轮播图,恢复首页展示."""
     banner = db.session.get(Banner, bid)
     if not banner:
         flash(_("轮播图不存在"), "warning")

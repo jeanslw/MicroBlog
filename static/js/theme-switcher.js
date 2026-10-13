@@ -1,11 +1,11 @@
 /**
  * theme-switcher.js - 背景风格切换器
- * 默认风格来自后台 SiteSetting.bg_style（base.html 输出到 body[data-bg]），
- * 前台用户可临时切换并持久化到 localStorage（key: blog-bg-style），
- * 优先于后台默认值。
+ * 默认风格来自后台 SiteSetting.bg_style(base.html 输出到 body[data-bg]),
+ * 前台用户可临时切换并持久化到 localStorage(key: blog-bg-style),
+ * 优先于后台默认值.
  *
- * 切换按钮支持拖拽（鼠标/触摸），位置持久化到 localStorage
- * （key: blog-bg-switcher-pos）；拖拽距离小于阈值视为点击，展开/收起面板。
+ * 切换按钮支持拖拽(鼠标/触摸),位置持久化到 localStorage
+ * (key: blog-bg-switcher-pos);拖拽距离小于阈值视为点击,展开/收起面板.
  */
 (function () {
     'use strict';
@@ -70,7 +70,7 @@
         updatePanelDir();
     }
 
-    // 面板方向自适应：按钮位于屏幕左半区时面板向右弹出，否则向左
+    // 面板方向自适应:按钮位于屏幕左半区时面板向右弹出,否则向左
     function updatePanelDir() {
         if (!panel) return;
         var centerX = window.innerWidth - pos.right - BTN_SIZE / 2;
@@ -90,9 +90,9 @@
         startRight = pos.right;
         startBottom = pos.bottom;
         if (toggle) toggle.classList.add('sw-dragging');
-        // 仅对鼠标事件调用 preventDefault。触摸设备上阻止 touchstart 的默认
-        // 行为会抑制浏览器后续合成的 click 事件，导致小屏点按无反应（面板
-        // 打不开）。触摸滚动冲突已由 CSS .theme-toggle 的 touch-action:none 阻止。
+        // 仅对鼠标事件调用 preventDefault.触摸设备上阻止 touchstart 的默认
+        // 行为会抑制浏览器后续合成的 click 事件,导致小屏点按无反应(面板
+        // 打不开).触摸滚动冲突已由 CSS .theme-toggle 的 touch-action:none 阻止.
         if (!e.touches) e.preventDefault();
     }
 
@@ -118,7 +118,7 @@
         if (toggle) toggle.classList.remove('sw-dragging');
         if (dragMoved) {
             savePos();
-            // 延迟复位，避免鼠标松开时立即触发的 click 打开面板
+            // 延迟复位,避免鼠标松开时立即触发的 click 打开面板
             setTimeout(function () { dragMoved = false; }, 200);
         }
     }
@@ -155,7 +155,7 @@
         }
 
         toggle.addEventListener('click', function () {
-            if (dragMoved) return; // 刚拖拽完，忽略本次点击
+            if (dragMoved) return; // 刚拖拽完,忽略本次点击
             panel.hidden = !panel.hidden;
         });
 
@@ -166,7 +166,7 @@
             }
         });
 
-        // 拖拽（鼠标 + 触摸）
+        // 拖拽(鼠标 + 触摸)
         toggle.addEventListener('mousedown', onPointerDown);
         document.addEventListener('mousemove', onPointerMove);
         document.addEventListener('mouseup', onPointerUp);

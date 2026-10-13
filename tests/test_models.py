@@ -1,4 +1,4 @@
-"""数据模型测试。"""
+"""数据模型测试."""
 
 import pytest
 from sqlalchemy.exc import IntegrityError

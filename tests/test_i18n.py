@@ -1,4 +1,4 @@
-"""国际化与通用路由测试。"""
+"""国际化与通用路由测试."""
 
 
 def test_default_locale_zh_cn(client):
@@ -26,7 +26,7 @@ def test_set_lang_zh_cn(client):
 
 
 def test_set_lang_invalid_ignored(client):
-    """非法语言代码应被忽略（不改变当前 locale）"""
+    """非法语言代码应被忽略(不改变当前 locale)"""
     client.get("/set_lang/fr")
     rv = client.get("/")
     assert rv.status_code == 200

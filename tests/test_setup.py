@@ -1,7 +1,7 @@
-"""首次安装引导页（/admin/setup）测试。
+"""首次安装引导页(/admin/setup)测试.
 
-无管理员时：所有后台路由跳转引导页；引导页创建账号并自动登录；
-已有管理员时：引导页失效跳登录页；多 worker 并发建号竞争不死。
+无管理员时:所有后台路由跳转引导页;引导页创建账号并自动登录;
+已有管理员时:引导页失效跳登录页;多 worker 并发建号竞争不死.
 """
 
 import pytest
@@ -16,7 +16,7 @@ SETUP_DATA = {
 
 @pytest.fixture()
 def no_admin(app):
-    """清空 admin 表，模拟全新部署（conftest 默认已建 admin）。"""
+    """清空 admin 表,模拟全新部署(conftest 默认已建 admin)."""
     from app.extensions import db
     from app.models import Admin
 
@@ -49,7 +49,7 @@ class TestSetupRedirects:
         assert 'name="password"' in html
 
     def test_setup_redirects_to_login_when_admin_exists(self, client):
-        """已有管理员（conftest 默认建号）→ 引导页永久失效。"""
+        """已有管理员(conftest 默认建号)-> 引导页永久失效."""
         rv = client.get("/admin/setup")
         assert rv.status_code == 302
         assert "/admin/login" in rv.headers["Location"]
@@ -67,7 +67,7 @@ class TestSetupCreateAdmin:
         admin = db.session.scalar(db.select(Admin).filter_by(username="installer"))
         assert admin is not None
         assert admin.email == "installer@example.com"
-        # 密码哈希存储，不落明文
+        # 密码哈希存储,不落明文
         assert admin.password != SETUP_DATA["password"]
 
     def test_password_mismatch_rejected(self, fresh_client, no_admin):
@@ -93,7 +93,7 @@ class TestSetupCreateAdmin:
 
 class TestSetupRace:
     def test_admin_created_by_other_process(self, fresh_client, no_admin, monkeypatch):
-        """并发安装：commit 前他人抢先建号 → 引导页优雅退出到登录页，而非 500。"""
+        """并发安装:commit 前他人抢先建号 -> 引导页优雅退出到登录页,而非 500."""
         from sqlalchemy.exc import IntegrityError
 
         from app.extensions import db

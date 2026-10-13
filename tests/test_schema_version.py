@@ -1,13 +1,13 @@
-"""schema_version 版本化迁移框架（v1.3.6）。
+"""schema_version 版本化迁移框架(v1.3.6).
 
-schema 版本一律用真实发布号（如 1.3.6）,不用 1、2 这类内部序号——日志和
-后台页面所见即发布版本。触发方向:程序 SCHEMA_VERSION **大于** 数据库
-版本 → 存在待迁移,执行;数据库版本高于程序（代码被降级）→ 告警并跳过,
-绝不用旧代码碰新库。启动初始化与后台「迁移数据库」共用
-run_schema_migrations 同一入口。
+schema 版本一律用真实发布号(如 1.3.6),不用 1,2 这类内部序号 -- 日志和
+后台页面所见即发布版本.触发方向:程序 SCHEMA_VERSION **大于** 数据库
+版本 -> 存在待迁移,执行;数据库版本高于程序(代码被降级)-> 告警并跳过,
+不用旧代码碰新库.启动初始化与后台'迁移数据库'共用
+run_schema_migrations 同一入口.
 
-版本戳记为履历表:每应用一级迁移追一行（version 主键 + applied_time +
-note）,「数据库当前版本」= 履历里语义化最高的一行。
+版本戳记为履历表:每应用一级迁移追一行(version 主键 + applied_time +
+note),'数据库当前版本'= 履历里语义化最高的一行.
 """
 
 import re
@@ -37,7 +37,7 @@ def _table_exists(name):
 
 
 def _create_legacy_site_config():
-    """造出 v1 旧库形态:site_config 表存在即可（缺列由迁移按默认值兼容）。"""
+    """造出 v1 旧库形态:site_config 表存在即可(缺列由迁移按默认值兼容)."""
     with db.engine.begin() as conn:
         conn.execute(db.text("DROP TABLE IF EXISTS site_config"))
         conn.execute(db.text("CREATE TABLE site_config (id INTEGER PRIMARY KEY, site_name VARCHAR(100))"))
@@ -45,21 +45,21 @@ def _create_legacy_site_config():
 
 
 def _reset_to_legacy():
-    """把测试库伪装成 v1 旧库:清掉版本履历 + 造出 site_config 旧表。"""
+    """把测试库伪装成 v1 旧库:清掉版本履历 + 造出 site_config 旧表."""
     db.session.query(SchemaVersion).delete()
     db.session.commit()
     _create_legacy_site_config()
 
 
 def test_fresh_db_is_stamped_current_and_has_no_pending(app, db):
-    """全新库（conftest 已跑过迁移）:直接戳当前版本,无待迁移,重复执行幂等。"""
+    """全新库(conftest 已跑过迁移):直接戳当前版本,无待迁移,重复执行幂等."""
     assert get_schema_version() == SCHEMA_VERSION
     assert pending_schema_migrations() == []
     assert run_schema_migrations() == []
 
 
 def test_legacy_db_detected_and_migrated_step_by_step(app, db):
-    """旧库（site_config 存在、无版本行）→ 推断为单表时代基线 → 迁移应用并戳记。"""
+    """旧库(site_config 存在,无版本行)-> 推断为单表时代基线 -> 迁移应用并戳记."""
     _reset_to_legacy()
 
     assert sync_schema_version() == SCHEMA_VERSION_BASELINE
@@ -72,30 +72,30 @@ def test_legacy_db_detected_and_migrated_step_by_step(app, db):
 
 
 def test_failed_migration_is_not_stamped_and_retries(app, db):
-    """P1 回归：迁移函数抛异常时框架不戳记、版本不推进，修好后重试成功。
+    """P1 回归:迁移函数抛异常时框架不戳记,版本不推进,修好后重试成功.
 
-    若迁移函数内部吞掉异常，run_schema_migrations 仍会把该版本戳成「已应用」，
-    失败就再也不会重试——用户配置静默丢失。这里验证：失败 → 版本停在基线、
-    旧表保留；修好原因后重试 → 成功戳记并推进版本。
+    若迁移函数内部吞掉异常,run_schema_migrations 仍会把该版本戳成'已应用',
+    失败就再也不会重试 -- 用户配置静默丢失.这里验证:失败 -> 版本停在基线,
+    旧表保留;修好原因后重试 -> 成功戳记并推进版本.
     """
     _reset_to_legacy()
     sync_schema_version()  # 推断基线 1.3.5 并戳记
     assert get_schema_version() == SCHEMA_VERSION_BASELINE
 
-    # 制造复制失败：新表 site_setting 意外缺失
+    # 制造复制失败:新表 site_setting 意外缺失
     with db.engine.begin() as conn:
         conn.execute(db.text("DROP TABLE site_setting"))
 
-    # 表缺失在 SQLite 抛 OperationalError、MySQL 抛 ProgrammingError,
-    # 统一以共同基类 DBAPIError 断言（不用宽泛的 Exception,见 ruff B017）
+    # 表缺失在 SQLite 抛 OperationalError,MySQL 抛 ProgrammingError,
+    # 统一以共同基类 DBAPIError 断言(不用宽泛的 Exception,见 ruff B017)
     with pytest.raises(DBAPIError):
         run_schema_migrations()
 
-    # 失败不被误标为「已应用」：版本停在基线，旧表保留
+    # 失败不被误标为"已应用":版本停在基线,旧表保留
     assert get_schema_version() == SCHEMA_VERSION_BASELINE
     assert _table_exists("site_config")
 
-    # 修好原因（重建缺失的新表）后重试即成功
+    # 修好原因(重建缺失的新表)后重试即成功
     db.create_all()
     applied = run_schema_migrations()
     assert [v for v, _ in applied] == ["1.3.6"]
@@ -104,10 +104,10 @@ def test_failed_migration_is_not_stamped_and_retries(app, db):
 
 
 def test_history_table_records_one_row_per_version(app, db):
-    """履历表:基线推断 + 迁移各追一行,含应用时间与迁移说明;同版本不重复追行。"""
+    """履历表:基线推断 + 迁移各追一行,含应用时间与迁移说明;同版本不重复追行."""
     _reset_to_legacy()
-    sync_schema_version()  # 推断基线 → 追一行 1.3.5
-    run_schema_migrations()  # 应用 1.3.6 → 再追一行
+    sync_schema_version()  # 推断基线 -> 追一行 1.3.5
+    run_schema_migrations()  # 应用 1.3.6 -> 再追一行
 
     rows = db.session.scalars(db.select(SchemaVersion).order_by(SchemaVersion.version)).all()
     assert [r.version for r in rows] == [SCHEMA_VERSION_BASELINE, SCHEMA_VERSION]
@@ -124,7 +124,7 @@ def test_history_table_records_one_row_per_version(app, db):
 
 
 def test_db_ahead_of_code_is_never_migrated(app, db, caplog):
-    """数据库版本高于程序（代码被降级）:待迁移恒为空,不执行任何迁移。"""
+    """数据库版本高于程序(代码被降级):待迁移恒为空,不执行任何迁移."""
     db.session.add(SchemaVersion(version="99.0.0", applied_time="2026-01-01 00:00:00"))
     db.session.commit()
 
@@ -132,7 +132,7 @@ def test_db_ahead_of_code_is_never_migrated(app, db, caplog):
     assert run_schema_migrations() == []
     assert get_schema_version() == "99.0.0"
 
-    # quiet=True 抑制「请先升级程序」告警（维护闸门每请求重查,避免刷屏）
+    # quiet=True 抑制"请先升级程序"告警(维护闸门每请求重查,避免刷屏)
     with caplog.at_level("WARNING", logger="blog"):
         caplog.clear()
         pending_schema_migrations(quiet=False)
@@ -143,7 +143,7 @@ def test_db_ahead_of_code_is_never_migrated(app, db, caplog):
 
 
 def test_release_version_comparison():
-    """发布号比较:语义化比较而非字典序（"1.3.10" > "1.3.6" 是关键分歧点）。"""
+    """发布号比较:语义化比较而非字典序("1.3.10" > "1.3.6" 是关键分歧点)."""
     assert schema_version_cmp("1.3.10", "1.3.6") > 0  # 字典序会给出错误结论
     assert schema_version_cmp("1.3.6", SCHEMA_VERSION) == 0
     assert schema_version_cmp("1.3.5", "1.3.6") < 0
@@ -153,9 +153,9 @@ def test_release_version_comparison():
 
 
 def test_legacy_int_stamp_is_normalized_to_release_version(app, db):
-    """本框架开发期曾短暂用过整数序号（未发布）:老开发库的整数行映射为发布号。
+    """本框架开发期曾短暂用过整数序号(未发布):老开发库的整数行映射为发布号.
 
-    正式环境遇不到;这层兼容只为开发机上的旧库不报错、可继续迁移。
+    正式环境遇不到;这层兼容只为开发机上的旧库不报错,可继续迁移.
     """
     db.session.add(SchemaVersion(version="2", applied_time="2026-01-01 00:00:00"))
     db.session.commit()
@@ -165,7 +165,7 @@ def test_legacy_int_stamp_is_normalized_to_release_version(app, db):
 
 
 def test_v1_single_row_table_is_rebuilt_into_history(app, db):
-    """开发期单行结构（id 主键）→ 履历表（version 主键）重建,保留最新戳记。"""
+    """开发期单行结构(id 主键)-> 履历表(version 主键)重建,保留最新戳记."""
     db.session.query(SchemaVersion).delete()
     db.session.commit()
     with db.engine.begin() as conn:
@@ -183,11 +183,11 @@ def test_v1_single_row_table_is_rebuilt_into_history(app, db):
     cols = {c["name"] for c in db.inspect(db.engine).get_columns("schema_version")}
     assert cols == {"version", "applied_time", "note"}
     assert not _table_exists("schema_version_v1_legacy")
-    assert get_schema_version() == "1.3.6"  # 整数 2 → 发布号 1.3.6
+    assert get_schema_version() == "1.3.6"  # 整数 2 -> 发布号 1.3.6
 
 
 def test_startup_auto_mode_applies_migrations(app, db):
-    """默认（BLOG_AUTO_MIGRATE=true）:启动步骤直接执行迁移,不置维护标志。"""
+    """默认(BLOG_AUTO_MIGRATE=true):启动步骤直接执行迁移,不置维护标志."""
     _reset_to_legacy()
 
     run_startup_schema_migrations(app)
@@ -198,7 +198,7 @@ def test_startup_auto_mode_applies_migrations(app, db):
 
 
 def test_startup_manual_mode_leaves_db_untouched_and_flags_maintenance(app, db):
-    """手动模式:启动只读不动库,置维护标志（等管理员在后台手动执行）。"""
+    """手动模式:启动只读不动库,置维护标志(等管理员在后台手动执行)."""
     _reset_to_legacy()
     app.config["AUTO_SCHEMA_MIGRATE"] = False
 
@@ -210,7 +210,7 @@ def test_startup_manual_mode_leaves_db_untouched_and_flags_maintenance(app, db):
 
 
 def test_startup_step_never_blocks_startup_on_error(app, db, monkeypatch):
-    """启动步骤遇异常只告警:数据库暂时不可用不应让整个应用起不来。"""
+    """启动步骤遇异常只告警:数据库暂时不可用不应让整个应用起不来."""
     import app.database as database_module
 
     def boom(*args, **kwargs):
@@ -222,10 +222,10 @@ def test_startup_step_never_blocks_startup_on_error(app, db, monkeypatch):
 
 
 def test_startup_refuses_boot_when_db_ahead(app, db):
-    """降级守卫:库版本高于程序 → 默认抛 RuntimeError 拒绝启动。
+    """降级守卫:库版本高于程序 -> 默认抛 RuntimeError 拒绝启动.
 
-    fail-fast(Sentry/NetBox 同款):异常必须真的传出去——create_app 构造失败,
-    gunicorn/waitress 进程才起不来。守卫本身绝不动库。
+    fail-fast(Sentry/NetBox 同款):异常必须真的传出去 -- create_app 构造失败,
+    gunicorn/waitress 进程才起不来.守卫本身不动库.
     """
     db.session.add(SchemaVersion(version="99.0.0", applied_time="2026-01-01 00:00:00"))
     db.session.commit()
@@ -234,15 +234,15 @@ def test_startup_refuses_boot_when_db_ahead(app, db):
     with pytest.raises(RuntimeError, match="代码被降级"):
         run_startup_schema_migrations(app)
 
-    # 守卫只拦截、不迁移、不戳记——库保持原样,等运维决策
+    # 守卫只拦截,不迁移,不戳记 -- 库保持原样,等运维决策
     assert get_schema_version() == "99.0.0"
     assert pending_schema_migrations(quiet=True) == []
 
 
 def test_startup_escape_hatch_allows_db_ahead(app, db, caplog):
-    """BLOG_ALLOW_SCHEMA_AHEAD=true:受控场景(滚动升级窗口)放行启动。
+    """BLOG_ALLOW_SCHEMA_AHEAD=true:受控场景(滚动升级窗口)放行启动.
 
-    只告警、不动库、不置维护标志——pending 本就为空,闸门不会启用。
+    只告警,不动库,不置维护标志 -- pending 本就为空,闸门不会启用.
     """
     db.session.add(SchemaVersion(version="99.0.0", applied_time="2026-01-01 00:00:00"))
     db.session.commit()
@@ -257,10 +257,10 @@ def test_startup_escape_hatch_allows_db_ahead(app, db, caplog):
 
 
 def test_startup_guard_tolerates_unreadable_schema_version(app, db, monkeypatch):
-    """版本读不出(表未建/库暂时不可达)不属于降级:守卫跳过,启动流程照常。
+    """版本读不出(表未建/库暂时不可达)不属于降级:守卫跳过,启动流程照常.
 
-    拦截条件是「读到明确更高的版本」,读不到就交给下方既有的容错路径——
-    否则首次部署(表还没建)或数据库抖动会被误判成降级、拦死启动。
+    拦截条件是'读到明确更高的版本',读不到就交给下方既有的容错路径 --
+    否则首次部署(表还没建)或数据库抖动会被误判成降级,拦死启动.
     """
     import app.database as database_module
 
@@ -275,7 +275,7 @@ def test_startup_guard_tolerates_unreadable_schema_version(app, db, monkeypatch)
 
 
 def test_gate_blocks_site_and_allows_login_paths(client, app, db):
-    """维护闸门:普通页面 503 且渲染独立升级页;登录/静态资源照常放行。"""
+    """维护闸门:普通页面 503 且渲染独立升级页;登录/静态资源照常放行."""
     _reset_to_legacy()
     app.config["SCHEMA_UPGRADE_PENDING"] = True
 
@@ -291,7 +291,7 @@ def test_gate_blocks_site_and_allows_login_paths(client, app, db):
 
 
 def test_gate_self_clears_when_migration_completed_elsewhere(login_admin, app, db):
-    """自恢复:另一 worker/CLI 完成迁移后,闸门下次请求自动解除（无需重启）。"""
+    """自恢复:另一 worker/CLI 完成迁移后,闸门下次请求自动解除(无需重启)."""
     _reset_to_legacy()
     app.config["SCHEMA_UPGRADE_PENDING"] = True
     assert login_admin.get("/").status_code == 503
@@ -303,7 +303,7 @@ def test_gate_self_clears_when_migration_completed_elsewhere(login_admin, app, d
 
 
 def test_manual_migration_from_admin_page_clears_gate(login_admin, app, db):
-    """手动模式全流程:登录（放行）→ 迁移页放行 → 执行迁移 → 站点恢复。"""
+    """手动模式全流程:登录(放行)-> 迁移页放行 -> 执行迁移 -> 站点恢复."""
     _reset_to_legacy()
     app.config["SCHEMA_UPGRADE_PENDING"] = True
 
@@ -316,8 +316,8 @@ def test_manual_migration_from_admin_page_clears_gate(login_admin, app, db):
 
 
 def test_admin_migrate_page_shows_status_history_and_manual_mode(login_admin, app, db):
-    """后台页面:状态卡片、迁移履历、手动模式标识与待迁移列表。"""
-    # 已是最新:显示最新提示 + 履历（至少一行当前版本）
+    """后台页面:状态卡片,迁移履历,手动模式标识与待迁移列表."""
+    # 已是最新:显示最新提示 + 履历(至少一行当前版本)
     html = login_admin.get("/admin/migrate").get_data(as_text=True)
     assert "已是最新" in html
     assert "迁移履历" in html
@@ -330,7 +330,7 @@ def test_admin_migrate_page_shows_status_history_and_manual_mode(login_admin, ap
     html = login_admin.get("/admin/migrate").get_data(as_text=True)
     assert "手动模式" in html
 
-    # 伪装旧库:显示待迁移列表,POST 手动触发后版本推进、旧表消失
+    # 伪装旧库:显示待迁移列表,POST 手动触发后版本推进,旧表消失
     app.config["AUTO_SCHEMA_MIGRATE"] = True
     _reset_to_legacy()
     html = login_admin.get("/admin/migrate").get_data(as_text=True)
@@ -344,13 +344,13 @@ def test_admin_migrate_page_shows_status_history_and_manual_mode(login_admin, ap
 
 
 def test_admin_backup_page_renders_with_history_table(login_admin):
-    """回归:履历表结构下备份页的 mysqldump/mysql 分支仍可渲染。"""
+    """回归:履历表结构下备份页的 mysqldump/mysql 分支仍可渲染."""
     rv = login_admin.get("/admin/backup")
     assert rv.status_code == 200
 
 
 def test_banner_withdraw_and_activate_stamp_update_time(login_admin, db):
-    """banner.update_time:撤回/重新启用各自刷新（撤回后它就是「撤回时间」）。"""
+    """banner.update_time:撤回/重新启用各自刷新(撤回后它就是'撤回时间')."""
     from app.models import Banner
 
     banner = Banner(img_path="/uploads/banner/x.jpg", title="轮播A", create_time="2026-01-01 00:00:00")
@@ -374,7 +374,7 @@ def test_banner_withdraw_and_activate_stamp_update_time(login_admin, db):
 
 
 def test_login_attempt_stamps_update_time(client, db):
-    """login_attempt.update_time:登录失败时刷新（v1.3.6 起该列随失败写入）。"""
+    """login_attempt.update_time:登录失败时刷新(v1.3.6 起该列随失败写入)."""
     from app.models import LoginAttempt
 
     rv = client.post("/admin/login", data={"username": "admin", "password": "wrong-password"}, follow_redirects=False)
@@ -385,7 +385,7 @@ def test_login_attempt_stamps_update_time(client, db):
 
 
 def test_account_page_shows_login_failures(login_admin, db):
-    """账户安全页展示登录失败记录（IP / 账号 / 次数 / 最近失败时间 / 锁定状态）。"""
+    """账户安全页展示登录失败记录(IP / 账号 / 次数 / 最近失败时间 / 锁定状态)."""
     from app.extensions import record_login_fail
 
     record_login_fail("10.0.0.9", "admin")

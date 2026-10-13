@@ -394,7 +394,7 @@
             </div>
         </div>
 
-        <!-- 文章下方：点赞 + 评论（并列小按钮） -->
+        <!-- 文章下方:点赞 + 评论(并列小按钮) -->
         <div class="text-center mb-4 d-flex justify-content-center gap-2">
             <form method="POST" action="{{ url_for('comment.vote', aid=article.id) }}" class="d-inline">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -413,7 +413,7 @@
             {% endif %}
         </div>
 
-        <!-- 评论弹窗（提交后随页面刷新自动关闭） -->
+        <!-- 评论弹窗(提交后随页面刷新自动关闭) -->
         {% if comments_enabled %}
         <div class="modal fade" id="commentModal" tabindex="-1" aria-labelledby="commentModalLabel" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
@@ -481,7 +481,7 @@
         {% endfor %}
     </div>
 
-    <!-- 文章目录（右侧跳读） -->
+    <!-- 文章目录(右侧跳读) -->
     {% if article.toc %}
     <div class="col-xl-2 d-none d-xl-block">
         <aside class="article-toc" id="article-toc">

@@ -1,8 +1,8 @@
-"""邮件发送工具（找回密码）。
+"""邮件发送工具(找回密码).
 
-使用 stdlib smtplib + email.message，不引入第三方依赖。
-SMTP 配置从 app.config 读取（对应 app.env 的 BLOG_MAIL_*），
-未配置或发送失败抛 MailError，由调用方捕获后提示用户。
+使用 stdlib smtplib + email.message,不引入第三方依赖.
+SMTP 配置从 app.config 读取(对应 app.env 的 BLOG_MAIL_*),
+未配置或发送失败抛 MailError,由调用方捕获后提示用户.
 """
 
 import contextlib
@@ -15,18 +15,18 @@ from app.crypto import decrypt_secret
 
 
 class MailError(Exception):
-    """邮件发送失败（未配置或 SMTP 错误）。"""
+    """邮件发送失败(未配置或 SMTP 错误)."""
 
 
 def send_mail(to: str, subject: str, body: str) -> None:
-    """发送纯文本邮件。SMTP 未配置或发送失败抛 MailError。
+    """发送纯文本邮件.SMTP 未配置或发送失败抛 MailError.
 
-    优先使用后台保存的 SMTP 配置（mail_setting.mail_host 非空即视为已配置），
-    否则回退到环境变量（app.env 的 BLOG_MAIL_*）。
+    优先使用后台保存的 SMTP 配置(mail_setting.mail_host 非空即视为已配置),
+    否则回退到环境变量(app.env 的 BLOG_MAIL_*).
     """
     cfg = current_app.config
 
-    # 后台保存的 SMTP 配置优先；未配置则回退到环境变量
+    # 后台保存的 SMTP 配置优先;未配置则回退到环境变量
     db_host = ""
     mail_cfg = None
     try:

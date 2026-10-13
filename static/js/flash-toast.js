@@ -1,6 +1,6 @@
-/* Flash 消息 → Bootstrap Toast（牛皮癣式提示，不占用页面布局）。
- * 消息由 base.html 以 <script type="application/json" id="flashData"> 注入，
- * 形如 [["success", "xxx"], ...]。使用 textContent 渲染正文，避免 XSS。 */
+/* Flash 消息 -> Bootstrap Toast(牛皮癣式提示,不占用页面布局).
+ * 消息由 base.html 以 <script type="application/json" id="flashData"> 注入,
+ * 形如 [["success", "xxx"], ...].使用 textContent 渲染正文,避免 XSS. */
 (function () {
     'use strict';
 

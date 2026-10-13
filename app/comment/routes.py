@@ -1,11 +1,11 @@
-"""评论蓝图 —— 点赞、发表评论、回复评论。
+"""评论蓝图  --  点赞,发表评论,回复评论.
 
-重构要点：
+重构要点:
 - Flask-WTF 表单校验
-- 评论内容长度限制 + 模板自动转义（不存原始 HTML 也不需要 sanitize）
+- 评论内容长度限制 + 模板自动转义(不存原始 HTML 也不需要 sanitize)
 - 点赞需校验文章存在且已发布
-- 防刷：IP + 文章 ID 去重（接受 NAT 局限,生产可换 Redis）
-- 点赞后支持回到来源页（列表/栏目等），仅放行站内相对路径防开放重定向
+- 防刷:IP + 文章 ID 去重(接受 NAT 局限,生产可换 Redis)
+- 点赞后支持回到来源页(列表/栏目等),仅放行站内相对路径防开放重定向
 """
 
 from datetime import datetime
@@ -25,14 +25,14 @@ REPLY_MAX_LEN = 2000
 
 
 def _normalize_username(raw: str) -> str:
-    """规范化用户名：strip + 截断 + 空则默认游客"""
+    """规范化用户名:strip + 截断 + 空则默认游客"""
     if not raw:
         return "游客"
     return (raw.strip() or "游客")[:USERNAME_MAX_LEN]
 
 
 def _comments_enabled() -> bool:
-    """评论总开关是否开启（site_setting.comments_enabled，未设置默认开启）。"""
+    """评论总开关是否开启(site_setting.comments_enabled,未设置默认开启)."""
     from app.database import get_site_setting
 
     site = get_site_setting()
@@ -40,14 +40,14 @@ def _comments_enabled() -> bool:
 
 
 def _vote_return_to(aid: int) -> str:
-    """点赞后的跳转目标：next 合法（站内相对路径）则返回 next,否则回文章详情页"""
+    """点赞后的跳转目标:next 合法(站内相对路径)则返回 next,否则回文章详情页"""
     return safe_redirect_path(request.form.get("next")) or url_for("blog.article_detail", aid=aid)
 
 
 @comment_bp.route("/vote/<int:aid>", methods=["POST"])
 @rate_limit("vote", limit=20, window_seconds=300)
 def vote(aid):
-    """点赞文章：校验文章存在且已发布,IP+文章去重防刷"""
+    """点赞文章:校验文章存在且已发布,IP+文章去重防刷"""
     article = db.session.get(Article, aid)
     if not article or article.status != "publish":
         flash(_("文章不存在或未发布"), "warning")
@@ -110,7 +110,7 @@ def add_comment(aid):
 @comment_bp.route("/reply/add/<int:aid>/<int:cid>", methods=["POST"])
 @rate_limit("reply", limit=10, window_seconds=300)
 def add_reply(aid, cid):
-    """回复评论：校验文章已发布 + 评论存在且关联"""
+    """回复评论:校验文章已发布 + 评论存在且关联"""
     article = db.session.get(Article, aid)
     if not article or article.status != "publish":
         flash(_("文章不存在或未发布"), "warning")

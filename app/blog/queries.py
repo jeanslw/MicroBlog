@@ -1,7 +1,7 @@
-"""博客查询层 —— 基于 SQLAlchemy ORM。
+"""博客查询层  --  基于 SQLAlchemy ORM.
 
-提供文章列表、文章详情、评论聚合等查询。
-所有返回值为 ORM 对象或字典,供模板直接使用。
+提供文章列表,文章详情,评论聚合等查询.
+所有返回值为 ORM 对象或字典,供模板直接使用.
 """
 
 import math
@@ -15,7 +15,7 @@ from app.utils import sanitize_html, strip_html
 
 
 def get_categories_with_count():
-    """获取所有栏目 + 已发布文章数（用于侧边栏/导航）"""
+    """获取所有栏目 + 已发布文章数(用于侧边栏/导航)"""
     rows = db.session.execute(
         select(
             Category.id,
@@ -32,7 +32,7 @@ def get_categories_with_count():
 
 
 def get_article_list(offset: int, limit: int, cid: int | None = None):
-    """获取已发布文章列表（分页 + 可选栏目筛选）。
+    """获取已发布文章列表(分页 + 可选栏目筛选).
 
     返回 (article_list, total_page)
     """
@@ -70,10 +70,10 @@ def get_article_list(offset: int, limit: int, cid: int | None = None):
 
 
 def get_article_comments(aid: int, newest_first: bool = False):
-    """获取某篇文章的全部评论 + 回复（批量查询避免 N+1）。
+    """获取某篇文章的全部评论 + 回复(批量查询避免 N+1).
 
-    newest_first=True 按评论时间倒序（后台「评论管理」用），默认按时间正序（前台详情页用）。
-    每条评论的回复挂到非映射属性 reply_list，供模板直接遍历。
+    newest_first=True 按评论时间倒序(后台'评论管理'用),默认按时间正序(前台详情页用).
+    每条评论的回复挂到非映射属性 reply_list,供模板直接遍历.
     """
     order_by = Comment.create_time.desc() if newest_first else Comment.create_time
     comments = db.session.scalars(select(Comment).where(Comment.article_id == aid).order_by(order_by)).all()
@@ -94,32 +94,31 @@ def get_article_comments(aid: int, newest_first: bool = False):
 
 
 def get_article_detail(aid: int):
-    """获取文章详情 + 评论 + 回复（批量查询避免 N+1）
+    """获取文章详情 + 评论 + 回复(批量查询避免 N+1)
 
     返回 (article, comments_with_replies)
-    article.safe_content 为净化后的 HTML（非映射属性,不会触发脏 UPDATE）。
-    切勿把净化结果赋回 article.content（mapped 列会变 dirty,触发无谓 UPDATE）。
+    article.safe_content 为净化后的 HTML(非映射属性,不会触发脏 UPDATE).
+    不要把净化结果赋回 article.content(mapped 列会变 dirty,触发无谓 UPDATE).
     """
     article = db.session.get(Article, aid)
     if not article:
         return None, []
 
-    # 净化 HTML 输出,防止存储型 XSS。结果存到非映射属性 safe_content,
-    # 不修改 mapped 的 content 列，避免每次详情页访问都触发一条 UPDATE。
+    # 净化 HTML 输出,防止存储型 XSS.结果存到非映射属性 safe_content,
+    # 不修改 mapped 的 content 列,避免每次详情页访问都触发一条 UPDATE.
     article.safe_content = sanitize_html(article.content)  # type: ignore[arg-type]
 
-    # 评论 + 回复（批量查询避免 N+1；前台详情页按时间正序展示）
+    # 评论 + 回复(批量查询避免 N+1;前台详情页按时间正序展示)
     return article, get_article_comments(aid)
 
 
 def search_articles(keyword: str, offset: int, limit: int):
-    """按关键词搜索已发布文章（标题/正文模糊匹配）。
+    """按关键词搜索已发布文章(标题/正文模糊匹配).
 
     返回 (article_list, total_page, total)
 
-    autoescape=True：把用户输入中的 LIKE 通配符（% _ /）转义成普通字符。
-    旧实现直接拼接 `%{keyword}%`，于是搜索「%」会命中全部文章、搜索「a_」
-    会命中「ab」等，既不符合用户预期，也让构造出的模糊查询无法走索引。
+    autoescape=True 把用户输入中的 LIKE 通配符(% _ /)转义为普通字符:
+    否则搜 '%' 会命中全部文章,搜 'a_' 会命中 'ab',且模糊查询无法走索引.
     """
     base_filter = db.and_(
         Article.status == "publish",
@@ -139,14 +138,14 @@ def search_articles(keyword: str, offset: int, limit: int):
 
 
 def get_recent_articles(limit: int = 20):
-    """获取最近发布的文章（用于 RSS/Atom 订阅源）"""
+    """获取最近发布的文章(用于 RSS/Atom 订阅源)"""
     return db.session.scalars(
         select(Article).where(Article.status == "publish").order_by(Article.create_time.desc()).limit(limit)
     ).all()
 
 
 def _split_year_month(value):
-    """从 "YYYY-MM-DD HH:MM:SS" 解析 (year, month)，异常返回 (None, None)。"""
+    """从 "YYYY-MM-DD HH:MM:SS" 解析 (year, month),异常返回 (None, None)."""
     try:
         return int(value[:4]), int(value[5:7])
     except (TypeError, ValueError, IndexError):
@@ -154,11 +153,11 @@ def _split_year_month(value):
 
 
 def get_sidebar_tree():
-    """构建侧边栏「栏目树 + 文章档案」数据。
+    """构建侧边栏'栏目树 + 文章档案'数据.
 
-    一次查询全部已发布文章的 (id, title, category_id, create_time)，内存聚合避免 N+1。
+    一次查询全部已发布文章的 (id, title, category_id, create_time),内存聚合避免 N+1.
 
-    返回 (category_map, archive)：
+    返回 (category_map, archive):
       category_map: {category_id: [(article_id, title), ...]}
       archive: [{"year": int, "count": int,
                  "months": [{"month": int, "count": int, "articles": [(id, title), ...]}, ...]}, ...]

@@ -1,4 +1,4 @@
-"""安全相关测试：CSRF、XSS 净化、URL 安全、文件名安全。"""
+"""安全相关测试:CSRF,XSS 净化,URL 安全,文件名安全."""
 
 import re
 from urllib.parse import urlparse
@@ -48,7 +48,7 @@ def test_sanitize_html_removes_onclick():
 
 
 def test_sanitize_html_keeps_media_tags():
-    """音视频标签应保留（文章插入媒体功能），但事件属性仍被剥离"""
+    """音视频标签应保留(文章插入媒体功能),但事件属性仍被剥离"""
     raw = '<video controls src="https://example.com/a.mp4"></video><audio controls src="https://example.com/a.mp3"></audio>'
     out = sanitize_html(raw)
     assert "<video" in out and "src" in out
@@ -98,10 +98,10 @@ def test_safe_url_empty():
 
 
 def test_safe_url_rejects_javascript():
-    """javascript: 等伪协议必须返回空串。
+    """javascript: 等伪协议必须返回空串.
 
-    旧实现会把它当成「无协议域名」补前缀，得到 `https://javascript:alert(1)`：
-    虽不构成 XSS（scheme 已是 https），但会把伪协议原样存库并渲染成死链。
+    旧实现会把它当成'无协议域名'补前缀,得到 `https://javascript:alert(1)`:
+    虽不构成 XSS(scheme 已是 https),但会把伪协议原样存库并渲染成死链.
     """
     assert safe_url("javascript:alert(1)") == ""
     assert safe_url("JavaScript:alert(1)") == ""
@@ -116,7 +116,7 @@ def test_safe_url_rejects_other_non_whitelisted_schemes():
 def test_safe_url_prepends_https_for_bare_host():
     assert safe_url("example.com") == "https://example.com"
     assert safe_url("example.com/path?q=1") == "https://example.com/path?q=1"
-    # 只有空白字符：视为空输入
+    # 只有空白字符:视为空输入
     assert safe_url("   ") == ""
 
 
@@ -151,8 +151,8 @@ def test_build_safe_filename_chinese():
 
 
 def test_csrf_protection_in_production(app, client, admin_user):
-    """非测试模式下 POST 应要求 CSRF token（仅在生产/开发模式验证）"""
-    # 此测试仅验证 TestingConfig 关闭 CSRF；生产模式在 IntegrationTest 中验证
+    """非测试模式下 POST 应要求 CSRF token(仅在生产/开发模式验证)"""
+    # 此测试仅验证 TestingConfig 关闭 CSRF;生产模式在 IntegrationTest 中验证
     assert app.config["WTF_CSRF_ENABLED"] is False
 
 

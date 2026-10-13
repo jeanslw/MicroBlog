@@ -1,9 +1,9 @@
-"""SQLAlchemy 数据模型 —— 对齐现有数据库 schema。
+"""SQLAlchemy 数据模型  --  对齐现有数据库 schema.
 
-设计原则：
+设计原则:
 1. 保持与 MySQL/init.sql 与历史 SQLite schema 字段一致,确保现有数据可继续使用
-2. 表名、字段类型严格对齐
-3. 不引入外键约束（原 schema 也无 FK 约束）,但关系映射用 ForeignKey 仅供 ORM 查询使用
+2. 表名,字段类型严格对齐
+3. 不引入外键约束(原 schema 也无 FK 约束),但关系映射用 ForeignKey 仅供 ORM 查询使用
 """
 
 from flask_login import UserMixin
@@ -20,7 +20,7 @@ class Admin(db.Model, UserMixin):
     id = Column(Integer, primary_key=True, autoincrement=True)
     username = Column(String(50), nullable=False, unique=True)
     password = Column(String(255), nullable=False)
-    # 邮箱（用于找回密码，可空）
+    # 邮箱(用于找回密码,可空)
     email = Column(String(200), nullable=False, default="")
 
     def __repr__(self):
@@ -50,7 +50,7 @@ class Article(db.Model):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     title = Column(String(500), nullable=False)
-    # MySQL 用 MEDIUMTEXT(16MB) 支持长文,SQLite 用 TEXT（无长度限制）
+    # MySQL 用 MEDIUMTEXT(16MB) 支持长文,SQLite 用 TEXT(无长度限制)
     content = Column(Text().with_variant(MEDIUMTEXT(), "mysql"), nullable=False)
     status = Column(String(20), default="draft")
     create_time = Column(String(50))
@@ -58,7 +58,7 @@ class Article(db.Model):
     vote_num = Column(Integer, default=0)
     is_pinned = Column(Boolean, default=False, nullable=False)
     category_id = Column(Integer, ForeignKey("category.id"))
-    # SEO 元数据：描述/关键词（留空时发布自动生成）
+    # SEO 元数据:描述/关键词(留空时发布自动生成)
     seo_description = Column(String(300), default="")
     seo_keywords = Column(String(300), default="")
 
@@ -104,17 +104,17 @@ class Banner(db.Model):
     desc_text = Column(String(200), default="")
     sort = Column(Integer, default=0)
     create_time = Column(String(50))
-    # 最近一次编辑/撤回/启用时间（撤回后它就是「撤回时间」,列表页直接可读）
+    # 最近一次编辑/撤回/启用时间(撤回后它就是"撤回时间",列表页直接可读)
     update_time = Column(String(50))
-    # 是否在首页轮播展示：True=展示中；False=已撤回（下架，保留记录可重新启用）
+    # 是否在首页轮播展示:True=展示中;False=已撤回(下架,保留记录可重新启用)
     is_active = Column(Boolean, nullable=False, default=True)
 
 
 class SiteSetting(db.Model):
-    """站点设置（v1.3.6 从 site_config 拆分而来）：站点名/图标/Logo/背景/侧边栏/评论开关。
+    """站点设置(v1.3.6 从 site_config 拆分而来):站点名/图标/Logo/背景/侧边栏/评论开关.
 
-    单行表（id=1）。历史库由 database._migrate_site_config_split 启动时
-    自动拆分迁移，应用代码只需通过 database.get_site_setting 访问。
+    单行表(id=1).历史库由 database._migrate_site_config_split 启动时
+    自动拆分迁移,应用代码只需通过 database.get_site_setting 访问.
     """
 
     __tablename__ = "site_setting"
@@ -122,23 +122,23 @@ class SiteSetting(db.Model):
     id = Column(Integer, primary_key=True, autoincrement=True)
     site_name = Column(String(100), nullable=False, default="My Blog")
     favicon_path = Column(String(200), default="static/favicon.ico")
-    # 网站 Logo 图片 URL（导航栏显示；上传时过大自动缩放）
+    # 网站 Logo 图片 URL(导航栏显示;上传时过大自动缩放)
     logo_path = Column(String(200), default="")
-    # 背景风格：bg1~bg10 / vdysjx / bg13（内置图库）或 custom（自定义）
+    # 背景风格:bg1~bg10 / vdysjx / bg13(内置图库)或 custom(自定义)
     bg_style = Column(String(50), default="bg1")
-    # 自定义背景图片 URL（bg_style=custom 时生效）
+    # 自定义背景图片 URL(bg_style=custom 时生效)
     bg_custom = Column(String(500), default="")
-    # 评论总开关：关闭后全站禁止新评论/回复（已有评论仍可查看）
+    # 评论总开关:关闭后全站禁止新评论/回复(已有评论仍可查看)
     comments_enabled = Column(Boolean, default=True, nullable=False)
-    # 侧边栏「栏目分类」样式：book=书本树形（可展开）/ classic=经典折叠箭头
+    # 侧边栏"栏目分类"样式:book=书本树形(可展开)/ classic=经典折叠箭头
     sidebar_style = Column(String(20), default="book", nullable=False)
 
 
 class MailSetting(db.Model):
-    """SMTP 邮件设置（v1.3.6 从 site_config 拆分而来）。
+    """SMTP 邮件设置(v1.3.6 从 site_config 拆分而来).
 
-    单行表（id=1）。与前台展示字段分表后，SMTP 授权码（mail_password）
-    不再与任何模板渲染路径同表。后台保存的配置优先于 app.env 的 BLOG_MAIL_*。
+    单行表(id=1).与前台展示字段分表后,SMTP 授权码(mail_password)
+    不再与任何模板渲染路径同表.后台保存的配置优先于 app.env 的 BLOG_MAIL_*.
     """
 
     __tablename__ = "mail_setting"
@@ -147,7 +147,7 @@ class MailSetting(db.Model):
     mail_host = Column(String(200), default="")
     mail_port = Column(Integer, default=587)
     mail_user = Column(String(200), default="")
-    # Fernet 加密后落库（app.crypto.encrypt_secret）
+    # Fernet 加密后落库(app.crypto.encrypt_secret)
     mail_password = Column(String(200), default="")
     mail_from = Column(String(200), default="")
     mail_use_ssl = Column(Boolean, default=False, nullable=False)
@@ -155,10 +155,10 @@ class MailSetting(db.Model):
 
 
 class AboutProfile(db.Model):
-    """「关于我」博主资料（v1.3.6 从 site_config 拆分而来）：前台关于页 + 文章署名。
+    """'关于我'博主资料(v1.3.6 从 site_config 拆分而来):前台关于页 + 文章署名.
 
-    单行表（id=1）。头像 URL（/static 上传或 http(s) 外链）/ 简介（纯文本,保留换行）/
-    邮箱 / GitHub / 个人主页 / 昵称（作为作者署名显示在文章详情页与「关于我」页面）。
+    单行表(id=1).头像 URL(/static 上传或 http(s) 外链)/ 简介(纯文本,保留换行)/
+    邮箱 / GitHub / 个人主页 / 昵称(作为作者署名显示在文章详情页与'关于我'页面).
     """
 
     __tablename__ = "about_profile"
@@ -184,7 +184,7 @@ class VoteLog(db.Model):
 
 
 class LoginAttempt(db.Model):
-    """登录失败计数（跨 worker 共享,替代进程内字典）"""
+    """登录失败计数(跨 worker 共享,替代进程内字典)"""
 
     __tablename__ = "login_attempt"
     # 与 MySQL/init.sql 对齐:同一 IP + 用户名只有一条计数记录
@@ -195,20 +195,20 @@ class LoginAttempt(db.Model):
     username = Column(String(100), nullable=False)
     fail_count = Column(Integer, default=0, nullable=False)
     lock_until = Column(Integer, default=0, nullable=False)
-    # 最近一次登录失败时间（账户安全页可视化排查爆破尝试）
+    # 最近一次登录失败时间(账户安全页可视化排查爆破尝试)
     update_time = Column(String(50))
 
 
 class RateLimit(db.Model):
-    """通用频率限制记录（按 IP + 动作），用于评论/回复/点赞/找回密码防刷。
+    """通用频率限制记录(按 IP + 动作),用于评论/回复/点赞/找回密码防刷.
 
-    每次动作插入一条带时间戳的记录；统计窗口内的记录数判断是否超限。
-    窗口外的旧记录由 check_and_record_rate_limit 惰性清理，避免表无限膨胀。
+    每次动作插入一条带时间戳的记录;统计窗口内的记录数判断是否超限.
+    窗口外的旧记录由 check_and_record_rate_limit 惰性清理,避免表无限膨胀.
     """
 
     __tablename__ = "rate_limit"
-    # 惰性清理按 (action, create_time) 过滤、计数按 (action, ip, create_time) 过滤，
-    # 复合索引让清理不再退化为全表扫描（与 MySQL/init.sql 的 idx_action_time 对齐）
+    # 惰性清理按 (action, create_time) 过滤,计数按 (action, ip, create_time) 过滤,
+    # 复合索引让清理不再退化为全表扫描(与 MySQL/init.sql 的 idx_action_time 对齐)
     __table_args__ = (Index("idx_action_time", "action", "create_time"),)
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -218,11 +218,11 @@ class RateLimit(db.Model):
 
 
 class SchemaVersion(db.Model):
-    """数据库 schema 版本履历（每行一次戳记,version 为真实发布号主键）。
+    """数据库 schema 版本履历(每行一次戳记,version 为真实发布号主键).
 
-    v1.3.6 引入版本化迁移框架。「数据库当前版本」= 履历中语义化最高的
-    一行；每次迁移成功立刻追加一行（版本 + 时间 + 说明）,后台「迁移
-    数据库」页展示完整履历,不必翻日志。
+    v1.3.6 引入版本化迁移框架.'数据库当前版本'= 履历中语义化最高的
+    一行;每次迁移成功立刻追加一行(版本 + 时间 + 说明),后台'迁移
+    数据库'页展示完整履历,不必翻日志.
     """
 
     __tablename__ = "schema_version"

@@ -1,16 +1,16 @@
-"""数据库初始化工具。
+"""数据库初始化工具.
 
 原 db.py 提供裸 SQL 连接管理 + 自建表 + DictCursor 适配层,
-重构后由 Flask-SQLAlchemy 统一负责连接池、ORM、schema 同步。
-本模块仅保留：
+重构后由 Flask-SQLAlchemy 统一负责连接池,ORM,schema 同步.
+本模块仅保留:
 - init_db(): 创建所有表 + 轻量幂等迁移
 - ensure_admin_exists(): 初始化管理员
-- ensure_default_settings(): 初始化三张单行配置表（site_setting/mail_setting/about_profile）
+- ensure_default_settings(): 初始化三张单行配置表(site_setting/mail_setting/about_profile)
 - get_site_setting / get_mail_setting / get_about_profile: 统一读取三张单行配置表
-- get_or_create_*: 读取,缺失时创建默认行（后台各设置页使用）
+- get_or_create_*: 读取,缺失时创建默认行(后台各设置页使用)
 
-注：文件名从 db.py 改为 database.py，避免与 app.extensions.db 实例
-在 app 包命名空间中产生属性遮蔽（module shadowing）。
+注:文件名从 db.py 改为 database.py,避免与 app.extensions.db 实例
+在 app 包命名空间中产生属性遮蔽(module shadowing).
 """
 
 import os
@@ -25,13 +25,13 @@ from config import SCHEMA_VERSION
 
 
 def wait_for_database(max_wait: int = 90, interval: float = 3.0) -> None:
-    """启动前等待数据库可连通（仅 MySQL 需要等待,SQLite 首次探测即成功）。
+    """启动前等待数据库可连通(仅 MySQL 需要等待,SQLite 首次探测即成功).
 
-    MySQL 容器首次启动要执行初始化（30s 以上），若应用先于数据库就绪启动,
-    建表/初始数据写入会一次性失败且启动期内不再重试。此处有限重试兜底，
-    同时覆盖非容器直跑（waitress/gunicorn 连接本机或远程 MySQL）的场景。
-    超时后抛出最后一次异常,由进程管理器（gunicorn worker 重启 / 容器重启策略）
-    继续重试。
+    MySQL 容器首次启动要执行初始化(30s 以上),若应用先于数据库就绪启动,
+    建表/初始数据写入会一次性失败且启动期内不再重试.此处有限重试兜底,
+    同时覆盖非容器直跑(waitress/gunicorn 连接本机或远程 MySQL)的场景.
+    超时后抛出最后一次异常,由进程管理器(gunicorn worker 重启 / 容器重启策略)
+    继续重试.
     """
     import time
 
@@ -58,12 +58,12 @@ def wait_for_database(max_wait: int = 90, interval: float = 3.0) -> None:
 
 
 def init_db():
-    """创建所有表（已存在则跳过,幂等）。
+    """创建所有表(已存在则跳过,幂等).
 
-    仅对开发/SQLite 首次启动有意义；MySQL 生产环境推荐用 init.sql + Flask-Migrate。
-    多 worker（如 gunicorn -w 4）并发启动时可能抢建同一张表,
-    对 "table already exists" 做一次重试（此时表已被其他 worker 建好,
-    create_all 的 checkfirst 会跳过已存在的表）。
+    仅对开发/SQLite 首次启动有意义;MySQL 生产环境推荐用 init.sql + Flask-Migrate.
+    多 worker(如 gunicorn -w 4)并发启动时可能抢建同一张表,
+    对 "table already exists" 做一次重试(此时表已被其他 worker 建好,
+    create_all 的 checkfirst 会跳过已存在的表).
     """
     # 触发所有模型注册
     from app import models  # noqa: F401
@@ -80,17 +80,17 @@ def init_db():
     _migrate_banner()
     _migrate_rate_limit()
     _migrate_login_attempt()
-    # 注意:site_config → 三表拆分这类「带数据搬迁」的迁移不在这里直调,
-    # 由版本化迁移框架（run_schema_migrations / SCHEMA_VERSION）驱动,
-    # 保证启动自动执行与后台「迁移数据库」手动触发走同一条路径。
+    # 注意:site_config -> 三表拆分这类"带数据搬迁"的迁移不在这里直调,
+    # 由版本化迁移框架(run_schema_migrations / SCHEMA_VERSION)驱动,
+    # 保证启动自动执行与后台"迁移数据库"手动触发走同一条路径.
 
 
 def _migrate_schema_version():
-    """schema_version v1（开发期单行 id 主键）→ v2 履历表（version 主键、含 note）。
+    """schema_version v1(开发期单行 id 主键)-> v2 履历表(version 主键,含 note).
 
     v1 结构只存在于 v1.3.6 开发期,从未随正式版交付;此迁移仅为开发机老库
-    平滑过渡:读出最新戳记 → 整表重建 → 回写。整数戳记经 _LEGACY_INT_VERSIONS
-    归一化为真实发布号。
+    平滑过渡:读出最新戳记 -> 整表重建 -> 回写.整数戳记经 _LEGACY_INT_VERSIONS
+    归一化为真实发布号.
     """
     try:
         inspector = db.inspect(db.engine)
@@ -100,8 +100,8 @@ def _migrate_schema_version():
         if "id" not in cols and "note" in cols:
             return  # 已是 v2 履历结构
         # 注:create_all 先于本函数执行,但旧表已存在时 create_all 会跳过,
-        # 所以走到这里时拿的一定是 v1 旧结构,可安全重建。
-        # 表改名语法分引擎:MySQL 用 RENAME TABLE,SQLite 用 ALTER TABLE ... RENAME TO。
+        # 所以走到这里时拿的一定是 v1 旧结构,可安全重建.
+        # 表改名语法分引擎:MySQL 用 RENAME TABLE,SQLite 用 ALTER TABLE ... RENAME TO.
         with db.engine.begin() as conn:
             old_rows = conn.execute(db.text("SELECT version, applied_time FROM schema_version ORDER BY id ASC")).all()
             if db.engine.dialect.name == "mysql":
@@ -126,7 +126,7 @@ def _migrate_schema_version():
 
 
 def _migrate_admin():
-    """轻量迁移：为旧版 admin 表补齐 email 列（幂等）。"""
+    """轻量迁移:为旧版 admin 表补齐 email 列(幂等)."""
     try:
         inspector = db.inspect(db.engine)
         if "admin" not in inspector.get_table_names():
@@ -140,7 +140,7 @@ def _migrate_admin():
 
 
 def _migrate_article():
-    """兼容旧表：为 article 补齐 is_pinned / SEO 描述 / 关键词列，避免老库首页 500。"""
+    """兼容旧表:为 article 补齐 is_pinned / SEO 描述 / 关键词列,避免老库首页 500."""
     try:
         inspector = db.inspect(db.engine)
         if "article" not in inspector.get_table_names():
@@ -158,10 +158,10 @@ def _migrate_article():
 
 
 def _migrate_banner():
-    """轻量迁移：为旧版 banner 表补齐 is_active（撤回/下架）/ update_time 列（幂等）。
+    """轻量迁移:为旧版 banner 表补齐 is_active(撤回/下架)/ update_time 列(幂等).
 
-    新装环境表结构已包含该列,直接跳过；旧库通过 ALTER TABLE 追加,
-    避免老数据迁移 SQLite/MySQL 报错。
+    新装环境表结构已包含该列,直接跳过;旧库通过 ALTER TABLE 追加,
+    避免老数据迁移 SQLite/MySQL 报错.
     """
     try:
         inspector = db.inspect(db.engine)
@@ -178,9 +178,9 @@ def _migrate_banner():
 
 
 def _migrate_login_attempt():
-    """轻量迁移：为旧版 login_attempt 表补齐 update_time 列（幂等）。
+    """轻量迁移:为旧版 login_attempt 表补齐 update_time 列(幂等).
 
-    update_time = 最近一次登录失败时间,供账户安全页可视化排查爆破尝试。
+    update_time = 最近一次登录失败时间,供账户安全页可视化排查爆破尝试.
     """
     try:
         inspector = db.inspect(db.engine)
@@ -195,29 +195,27 @@ def _migrate_login_attempt():
 
 
 def _migrate_site_config_split():
-    """v1.3.6：site_config 单表拆分为 site_setting / mail_setting / about_profile（幂等）。
+    """v1.3.6:site_config 单表拆分为 site_setting / mail_setting / about_profile(幂等).
 
-    触发场景（检测到 site_config 表存在即执行）：
-    - 旧库升级：v1.3.5 及以前的单表 site_config 拆到三张新表；
-    - 恢复旧备份：SQLite 文件替换 / MySQL dump 导入把库变回旧 schema 后，
-      gunicorn SIGHUP 重启时 create_all 重建新表，本函数再拆一次。
-      此时旧行是用户明确要恢复的权威状态，故**覆盖**新表可能残留的数据。
+    检测到 site_config 表存在即执行:
+    - 旧库升级:v1.3.5 及以前的单表拆到三张新表;
+    - 恢复旧备份:SQLite 文件替换 / MySQL dump 导入把库变回旧 schema 后,
+      gunicorn SIGHUP 重启时 create_all 重建新表,本函数再拆一次;此时旧行
+      是用户明确要恢复的权威状态,故覆盖新表的残留数据.
 
-    顺序保证：init_db 先 create_all（新表此时已存在）再跑本迁移；随后
-    ensure_default_settings 只在对应表为空时补默认行。
+    顺序:init_db 先 create_all(新表已存在)再跑本迁移,随后
+    ensure_default_settings 只在对应表为空时补默认行.
 
-    安全设计（用户决策：迁移后立即 DROP 旧表）：
-    1. 读旧行（SELECT）、复制（INSERT）、行数校验与 DROP 旧表全部在**同一条
-       连接/事务**里顺序完成——绝不跨连接读写。若用 db.session 读旧行、engine
-       另一连接 DROP，MySQL 下会话未提交事务会持有 site_config 的共享 MDL，
-       DROP 需要排他 MDL，会阻塞到 lock_wait_timeout 才失败；
-    2. 校验通过（三表各恰好一行）后才执行 DROP —— MySQL 的 DDL 会隐式提交、
-       无法与 DML 同事务，因此「先校验后删」是该引擎下最接近原子性的做法；
-    3. 任何失败都**向上抛出**（不吞异常）：由版本化迁移框架负责「不戳记、
-       下次启动/手动触发重试」。若在这里吞掉异常，run_schema_migrations 仍会
-       把该版本戳成「已应用」，失败就再也不会重试，用户配置静默丢失；
-    4. 旧库可能缺列（v1.1.x 及以前没有 bg/about/mail 列）：缺列取默认值，
-       不再像旧迁移那样逐列 ALTER 后复制。
+    安全设计(用户决策:迁移后立即 DROP 旧表):
+    1. 读旧行,复制,行数校验与 DROP 全部在**同一条连接/事务**内顺序完成:
+       若用 db.session 读旧行而由 engine 另一连接 DROP,MySQL 下未提交事务
+       持有 site_config 的共享 MDL,DROP 需排他 MDL,会阻塞到 lock_wait_timeout;
+    2. 三表各恰好一行才执行 DROP -- MySQL 的 DDL 隐式提交,无法与 DML 同事务,
+       '先校验后删'是该引擎下最接近原子性的做法;
+    3. 任何失败都向上抛出,由版本化迁移框架负责'不戳记,下次重试';在此吞掉
+       异常会让 run_schema_migrations 把版本戳成已应用,用户配置静默丢失;
+    4. 旧库可能缺列(v1.1.x 及以前没有 bg/about/mail 列):缺列取默认值,
+       不再逐列 ALTER 后复制.
     """
     inspector = db.inspect(db.engine)
     if "site_config" not in inspector.get_table_names():
@@ -225,7 +223,7 @@ def _migrate_site_config_split():
     old_cols = {c["name"] for c in inspector.get_columns("site_config")}
 
     def _int_or(raw, default):
-        """旧库 mail_port 可能是空串/非数字（极老 VARCHAR schema）：转 int 失败回退默认。"""
+        """旧库 mail_port 可能是空串/非数字(极老 VARCHAR schema):转 int 失败回退默认."""
         try:
             return int(raw)
         except (TypeError, ValueError):
@@ -234,7 +232,7 @@ def _migrate_site_config_split():
     with db.engine.begin() as conn:
         row = conn.execute(db.text("SELECT * FROM site_config ORDER BY id LIMIT 1")).mappings().first()
         if row is not None:
-            # 缺列取默认值：老库可能没有 v1.2+ 新增的列
+            # 缺列取默认值:老库可能没有 v1.2+ 新增的列
             def val(col, default):
                 v = row[col] if col in old_cols else default
                 return default if v is None else v
@@ -292,47 +290,45 @@ def _migrate_site_config_split():
                     "about_nickname": val("about_nickname", ""),
                 },
             )
-            # 校验：三张新表各恰好一行，任何异常整体回滚（旧表保留,下次启动重试）
+            # 校验:三张新表各恰好一行,任何异常整体回滚(旧表保留,下次启动重试)
             for table in ("site_setting", "mail_setting", "about_profile"):
                 cnt = conn.execute(db.text(f"SELECT COUNT(*) FROM {table}")).scalar()
                 if cnt != 1:
                     raise RuntimeError(f"{table} 迁移校验失败: 期望 1 行,实际 {cnt} 行")
-        # 旧行为空也直接删空表；校验通过后 DROP 旧表
+        # 旧行为空也直接删空表;校验通过后 DROP 旧表
         conn.execute(db.text("DROP TABLE site_config"))
     log.info("site_config 已拆分迁移至 site_setting / mail_setting / about_profile,旧表已删除")
 
 
-# ── Schema 版本化迁移框架（v1.3.6 引入） ────────────────────
-# schema 版本一律使用真实发布号（如 "1.3.6"）,不用 1、2 这类内部序号——
-# 日志和后台「迁移数据库」页所见即发布版本,排查时无需再查对照表。
-# 目标版本 SCHEMA_VERSION 定义在 config.py、紧邻 APP_VERSION——发布改版本
-# 号时一定看得见它,是否需要同步递增见其注释（无库变更的发布保持不动）。
-# 仅当某次发布包含「需迁移」的 schema 变更时才操作:
-# 1. 把迁移函数登记进 _SCHEMA_MIGRATIONS,键为该发布的版本号;
-# 2. config.py 里 SCHEMA_VERSION 升为本发布号;
-# 3. 同步 MySQL/init.sql（新装环境直接建最新 schema）。
-# 不含 schema 变更的发布（纯补丁）不动 SCHEMA_VERSION——版本戳记
-# 停在最近一次 schema 发布号即可。
-# 列级兼容（老库补列/补索引,无数据搬迁）仍走 init_db 里的幂等 _migrate_*。
+# ── Schema 版本化迁移框架(v1.3.6 引入) ────────────────────
+# schema 版本一律用真实发布号(如 "1.3.6"),不用 1,2 这类内部序号:日志与后台
+# "迁移数据库"页所见即发布版本,排查时无需再查对照表.
+# 某次发布含"需迁移"的 schema 变更时才操作:
+# 1. 迁移函数登记进 _SCHEMA_MIGRATIONS,键为该发布的版本号;
+# 2. config.py 的 SCHEMA_VERSION 升为该版本号;
+# 3. 同步 MySQL/init.sql(新装环境直接建最新 schema).
+# 不含 schema 变更的发布(纯补丁)不动 SCHEMA_VERSION,版本戳记停在最近一次
+# schema 发布号即可;列级兼容(老库补列/补索引,无数据搬迁)仍走 init_db 里
+# 的幂等 _migrate_*.
 
 # 版本管理首次上线时,无版本行的老库所处的基线:site_config 单表时代
-# 的最后一个发布号（该时代的库都能在 _SCHEMA_MIGRATIONS 里找到出路）。
+# 的最后一个发布号(该时代的库都能在 _SCHEMA_MIGRATIONS 里找到出路).
 SCHEMA_VERSION_BASELINE = "1.3.5"
 
-# 发布号 -> (说明, 迁移函数)。迁移函数必须幂等、失败抛异常,由框架负责戳记。
+# 发布号 -> (说明, 迁移函数).迁移函数必须幂等,失败抛异常,由框架负责戳记.
 _SCHEMA_MIGRATIONS: dict[str, tuple[str, Callable[[], None]]] = {
     "1.3.6": ("站点配置表拆分:site_config → site_setting / mail_setting / about_profile", _migrate_site_config_split),
 }
 
-# 开发期本框架曾短暂使用内部整数序号（未随任何发布交付）;老开发库里的
-# 整数行读取时映射为真实发布号,正式环境不会遇到这些值。
+# 开发期本框架曾短暂使用内部整数序号(未随任何发布交付);老开发库里的
+# 整数行读取时映射为真实发布号,正式环境不会遇到这些值.
 _LEGACY_INT_VERSIONS = {1: SCHEMA_VERSION_BASELINE, 2: "1.3.6"}
 
 
 def _version_key(version: str) -> tuple[int, ...]:
-    """ "1.3.6" → (1, 3, 6):把发布号转为可比较的元组。
+    """ "1.3.6" -> (1, 3, 6):把发布号转为可比较的元组.
 
-    容忍 "v" 前缀;段内取前导数字（如 "6rc1" → 6）,无数字按 0。
+    容忍 "v" 前缀;段内取前导数字(如 "6rc1" -> 6),无数字按 0.
     """
     parts = []
     for seg in str(version).strip().lstrip("vV").split("."):
@@ -342,7 +338,7 @@ def _version_key(version: str) -> tuple[int, ...]:
 
 
 def schema_version_cmp(a: str, b: str) -> int:
-    """比较两个发布号:a 较新 → 1,相等 → 0,a 较旧 → -1。段数不足按 0 补齐。"""
+    """比较两个发布号:a 较新 -> 1,相等 -> 0,a 较旧 -> -1.段数不足按 0 补齐."""
     ka, kb = list(_version_key(a)), list(_version_key(b))
     n = max(len(ka), len(kb))
     ka.extend([0] * (n - len(ka)))
@@ -351,9 +347,9 @@ def schema_version_cmp(a: str, b: str) -> int:
 
 
 def get_schema_version() -> str | None:
-    """读取数据库当前 schema 版本 = 履历表中语义化最高的一行;无行返回 None。
+    """读取数据库当前 schema 版本 = 履历表中语义化最高的一行;无行返回 None.
 
-    「最高」按语义化比较（_version_key）而非字典序——"1.3.10" > "1.3.6"。
+    '最高'按语义化比较(_version_key)而非字典序 -- "1.3.10" > "1.3.6".
     """
     from app.models import SchemaVersion
 
@@ -364,16 +360,16 @@ def get_schema_version() -> str | None:
     if not versions:
         return None
     max_ver = max(versions, key=_version_key)
-    # 兼容本框架开发期写入的内部整数序号（仅老开发库可能出现,
-    # 含 SQLite TEXT 亲和列把 int 读成 "2" 的情况）
+    # 兼容本框架开发期写入的内部整数序号(仅老开发库可能出现,
+    # 含 SQLite TEXT 亲和列把 int 读成 "2" 的情况)
     return _LEGACY_INT_VERSIONS.get(int(max_ver), max_ver) if max_ver.isdigit() else max_ver
 
 
 def _stamp_schema_version(version: str, note: str = "") -> None:
-    """向履历表幂等戳记一行（主键 version;同版本重复戳记只刷新时间/说明）。
+    """向履历表幂等戳记一行(主键 version;同版本重复戳记只刷新时间/说明).
 
     多 worker 并发戳同一行时以内置 IntegrityError 兜底:后提交者回滚,
-    以库里的为准——两份戳记语义等价,无所谓谁赢。
+    以库里的为准 -- 两份戳记语义等价,无所谓谁赢.
     """
     from datetime import datetime
 
@@ -398,12 +394,12 @@ def _stamp_schema_version(version: str, note: str = "") -> None:
 
 
 def sync_schema_version() -> str | None:
-    """确保版本行存在并返回数据库当前 schema 版本（发布号;无版本行时推断初始值）。
+    """确保版本行存在并返回数据库当前 schema 版本(发布号;无版本行时推断初始值).
 
-    版本管理首次上线（库里没有 schema_version 行）时的推断：
-    - 存在旧 site_config 表 → 单表时代基线（SCHEMA_VERSION_BASELINE,有待拆分迁移）;
-    - 不存在 → 全新库（create_all / init.sql 已直接建出当前 schema）→ SCHEMA_VERSION。
-    查询异常时返回 None,由调用方决定兜底（启动流程按「跳过本步」处理）。
+    版本管理首次上线(库里没有 schema_version 行)时的推断:
+    - 存在旧 site_config 表 -> 单表时代基线(SCHEMA_VERSION_BASELINE,有待拆分迁移);
+    - 不存在 -> 全新库(create_all / init.sql 已直接建出当前 schema)-> SCHEMA_VERSION.
+    查询异常时返回 None,由调用方决定兜底(启动流程按'跳过本步'处理).
     """
 
     try:
@@ -421,12 +417,12 @@ def sync_schema_version() -> str | None:
 
 
 def pending_schema_migrations(current: str | None = None, quiet: bool = False) -> list[tuple[str, str]]:
-    """待应用的迁移列表 [(发布号, 说明), ...],按发布号升序。
+    """待应用的迁移列表 [(发布号, 说明), ...],按发布号升序.
 
-    程序版本 **大于** 数据库版本（数据库比代码旧）才有待应用迁移;
-    数据库版本高于程序（代码被降级）时返回空并告警——迁移永远只把旧库
-    往前带,不用旧代码的迁移逻辑去碰比它新的库。
-    quiet=True 抑制告警日志（维护闸门每次请求都重查,避免刷屏）。
+    程序版本 **大于** 数据库版本(数据库比代码旧)才有待应用迁移;
+    数据库版本高于程序(代码被降级)时返回空并告警 -- 迁移永远只把旧库
+    往前带,不用旧代码的迁移逻辑去碰比它新的库.
+    quiet=True 抑制告警日志(维护闸门每次请求都重查,避免刷屏).
     """
     if current is None:
         current = sync_schema_version()
@@ -448,12 +444,12 @@ _MIGRATION_LOCK_NAME = "microblog_schema_migration"
 
 
 def _acquire_migration_lock(timeout: int = 60):
-    """MySQL 命名锁,防止多 worker 并发启动 / 手动与自动迁移同时执行。
+    """MySQL 命名锁,防止多 worker 并发启动 / 手动与自动迁移同时执行.
 
     GET_LOCK 是连接级锁:持锁期间该连接不归还连接池,RELEASE_LOCK 或连接
-    断开（进程崩溃）自动释放。返回持有锁的连接,调用方须在 finally 中传给
-    _release_migration_lock。非 MySQL（测试 SQLite,单进程）无此原语,返回 None。
-    取锁超时抛 RuntimeError,由调用方决定跳过或向用户报错。
+    断开(进程崩溃)自动释放.返回持有锁的连接,调用方须在 finally 中传给
+    _release_migration_lock.非 MySQL(测试 SQLite,单进程)无此原语,返回 None.
+    取锁超时抛 RuntimeError,由调用方决定跳过或向用户报错.
     """
     if db.engine.dialect.name != "mysql":
         return None
@@ -478,15 +474,15 @@ def _release_migration_lock(conn) -> None:
 
 
 def run_schema_migrations() -> list[tuple[str, str]]:
-    """执行所有待应用的迁移并逐级戳记;启动初始化与后台「迁移数据库」共用此入口。
+    """执行所有待应用的迁移并逐级戳记;启动初始化与后台'迁移数据库'共用此入口.
 
-    触发条件（启动自动 / 后台手动同一函数）:程序 SCHEMA_VERSION **大于** 数据库
-    schema 版本。每个迁移执行成功后立刻把版本戳到该迁移的发布号（履历表追一行,
-    说明随戳记入档）——中途失败时已完成的迁移不会重复执行,失败的迁移下次
-    启动/手动触发时重试。返回本次实际应用了的迁移列表。
+    触发条件(启动自动 / 后台手动同一函数):程序 SCHEMA_VERSION **大于** 数据库
+    schema 版本.每个迁移执行成功后立刻把版本戳到该迁移的发布号(履历表追一行,
+    说明随戳记入档) -- 中途失败时已完成的迁移不会重复执行,失败的迁移下次
+    启动/手动触发时重试.返回本次实际应用了的迁移列表.
 
-    MySQL 下全程持有命名锁（_acquire_migration_lock）:多 worker 并发启动时
-    只有抢到锁的 worker 真正执行,其余超时后由启动链 catch 记 warning 跳过。
+    MySQL 下全程持有命名锁(_acquire_migration_lock):多 worker 并发启动时
+    只有抢到锁的 worker 真正执行,其余超时后由启动链 catch 记 warning 跳过.
     """
     lock_conn = _acquire_migration_lock()
     try:
@@ -503,12 +499,12 @@ def run_schema_migrations() -> list[tuple[str, str]]:
 
 
 def ensure_admin_exists():
-    """如果 admin 表为空且 BLOG_INIT_ADMIN_PWD 已设置,自动创建管理员。
+    """如果 admin 表为空且 BLOG_INIT_ADMIN_PWD 已设置,自动创建管理员.
 
-    覆盖三种场景：
-    - SQLite 首次部署（表已建但 admin 未创建）
-    - MySQL 首次部署（init.sql 建表后无管理员）
-    - 补建场景（之前未设密码,现在补设）
+    覆盖三种场景:
+    - SQLite 首次部署(表已建但 admin 未创建)
+    - MySQL 首次部署(init.sql 建表后无管理员)
+    - 补建场景(之前未设密码,现在补设)
     """
     from werkzeug.security import generate_password_hash
 
@@ -527,9 +523,9 @@ def ensure_admin_exists():
         return  # 已有管理员
 
     if not admin_pwd:
-        # 不设置密码是完全正常的路径：首次安装通过 /admin/setup 引导页
-        # 在浏览器中创建管理员（无管理员时访问任意后台路由会自动跳转）。
-        # 此处仅记录说明性日志；设置密码则为无头部署（Docker/CI）自动建号。
+        # 不设置密码是完全正常的路径:首次安装通过 /admin/setup 引导页
+        # 在浏览器中创建管理员(无管理员时访问任意后台路由会自动跳转).
+        # 此处仅记录说明性日志;设置密码则为无头部署(Docker/CI)自动建号.
         log.info(
             "admin 表为空且未设置 BLOG_INIT_ADMIN_PWD,跳过自动建号;"
             "请访问 /admin/setup 引导页创建管理员(或设置该环境变量后重启自动创建)。"
@@ -542,8 +538,8 @@ def ensure_admin_exists():
         db.session.commit()
     except IntegrityError:
         # gunicorn 多 worker 并发启动时,其他 worker 可能已用同名账号先一步提交
-        # （username 唯一约束）。回滚后复查：确认管理员已存在即视为初始化完成,
-        # 这是预期的竞争结果,不是错误；复查仍为空才说明是其它异常。
+        # (username 唯一约束).回滚后复查:确认管理员已存在即视为初始化完成,
+        # 这是预期的竞争结果,不是错误;复查仍为空才说明是其它异常.
         db.session.rollback()
         existing = db.session.scalar(db.select(db.func.count(Admin.id)))
         if existing and existing > 0:
@@ -554,10 +550,10 @@ def ensure_admin_exists():
 
 
 def ensure_default_settings():
-    """确保三张单行配置表（site_setting / mail_setting / about_profile）各有一行默认配置。
+    """确保三张单行配置表(site_setting / mail_setting / about_profile)各有一行默认配置.
 
-    迁移（_migrate_site_config_split）已填充的表不会被覆盖；新装环境
-    （SQLite create_all / MySQL init.sql）在此补齐缺失的默认行。
+    迁移(_migrate_site_config_split)已填充的表不会被覆盖;新装环境
+    (SQLite create_all / MySQL init.sql)在此补齐缺失的默认行.
     """
     from app.models import AboutProfile, MailSetting, SiteSetting
 
@@ -576,19 +572,19 @@ def ensure_default_settings():
             try:
                 db.session.commit()
             except IntegrityError:
-                # 多 worker 并发时其他进程可能已插入；复查确认后静默跳过
+                # 多 worker 并发时其他进程可能已插入;复查确认后静默跳过
                 db.session.rollback()
                 if not db.session.scalar(db.select(db.func.count(model.id))):
                     raise
 
 
 def _migrate_rate_limit():
-    """为 rate_limit 补 (action, create_time) 复合索引（幂等）。
+    """为 rate_limit 补 (action, create_time) 复合索引(幂等).
 
-    限流每次请求都会按 action + 时间窗口做一次 DELETE 清理，旧库若只有
-    (ip, action) 索引，清理条件里的 create_time 用不上索引，会退化为全表
-    扫描；表越大每次请求越慢。新库由模型 RateLimit.__table_args__ 直接建好，
-    这里兜住已有的旧库。失败只告警：缺索引不影响功能正确性。
+    限流每次请求都会按 action + 时间窗口做一次 DELETE 清理,旧库若只有
+    (ip, action) 索引,清理条件里的 create_time 用不上索引,会退化为全表
+    扫描;表越大每次请求越慢.新库由模型 RateLimit.__table_args__ 直接建好,
+    这里兜住已有的旧库.失败只告警:缺索引不影响功能正确性.
     """
     try:
         inspector = db.inspect(db.engine)
@@ -605,14 +601,14 @@ def _migrate_rate_limit():
 
 
 def _get_single_row(model):
-    """读取单行配置表：优先 id=1，兼容「只有一行但主键不是 1」的历史库。
+    """读取单行配置表:优先 id=1,兼容'只有一行但主键不是 1'的历史库.
 
-    单行配置表全站只有一行。此前（site_config 时代）前台各模块用「取第一行」
-    （SELECT ... LIMIT 1）读取、后台用 get(model, 1) 读取，两者在「唯一一行
-    id≠1」的库上读到的不是同一行，表现为「后台改了站点名/背景，前台不生效」
-    （v1.3.5 修复的坑）。拆表后三张表沿用同一读取策略，读写永远指向同一行。
+    单行配置表全站只有一行.此前(site_config 时代)前台各模块用'取第一行'
+    (SELECT ... LIMIT 1)读取,后台用 get(model, 1) 读取,两者在'唯一一行
+    id≠1'的库上读到的不是同一行,表现为'后台改了站点名/背景,前台不生效'
+    (v1.3.5 修复的坑).拆表后三张表沿用同一读取策略,读写永远指向同一行.
 
-    无行时返回 None；数据库异常向上抛出，由调用方决定兜底策略。
+    无行时返回 None;数据库异常向上抛出,由调用方决定兜底策略.
     """
     row = db.session.get(model, 1)
     if row is None:
@@ -621,31 +617,31 @@ def _get_single_row(model):
 
 
 def get_site_setting():
-    """读取站点设置行（site_setting 表）。"""
+    """读取站点设置行(site_setting 表)."""
     from app.models import SiteSetting
 
     return _get_single_row(SiteSetting)
 
 
 def get_mail_setting():
-    """读取 SMTP 邮件设置行（mail_setting 表）。"""
+    """读取 SMTP 邮件设置行(mail_setting 表)."""
     from app.models import MailSetting
 
     return _get_single_row(MailSetting)
 
 
 def get_about_profile():
-    """读取「关于我」资料行（about_profile 表）。"""
+    """读取'关于我'资料行(about_profile 表)."""
     from app.models import AboutProfile
 
     return _get_single_row(AboutProfile)
 
 
 def _get_or_create_single_row(model, **defaults):
-    """读取单行配置表，缺失时创建默认行（id=1）并提交，返回该行。
+    """读取单行配置表,缺失时创建默认行(id=1)并提交,返回该行.
 
-    后台各设置页统一用它取行，避免每处各写一份「get(id=1) → 没有就新建」，
-    也避免在「唯一行 id≠1」的库上又插入第二行配置。
+    后台各设置页统一用它取行,避免每处各写一份'get(id=1) -> 没有就新建',
+    也避免在'唯一行 id≠1'的库上又插入第二行配置.
     """
     row = _get_single_row(model)
     if row is not None:
@@ -657,21 +653,21 @@ def _get_or_create_single_row(model, **defaults):
 
 
 def get_or_create_site_setting():
-    """读取站点设置行，缺失时创建默认行。"""
+    """读取站点设置行,缺失时创建默认行."""
     from app.models import SiteSetting
 
     return _get_or_create_single_row(SiteSetting, site_name="My Blog", favicon_path="static/favicon.ico")
 
 
 def get_or_create_mail_setting():
-    """读取 SMTP 邮件设置行，缺失时创建默认行。"""
+    """读取 SMTP 邮件设置行,缺失时创建默认行."""
     from app.models import MailSetting
 
     return _get_or_create_single_row(MailSetting)
 
 
 def get_or_create_about_profile():
-    """读取「关于我」资料行，缺失时创建默认行。"""
+    """读取'关于我'资料行,缺失时创建默认行."""
     from app.models import AboutProfile
 
     return _get_or_create_single_row(AboutProfile)

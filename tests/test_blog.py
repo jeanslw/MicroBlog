@@ -1,4 +1,4 @@
-"""博客文章与栏目功能测试。"""
+"""博客文章与栏目功能测试."""
 
 from app.models import Article, Category
 
@@ -25,7 +25,7 @@ def test_article_detail(client, article):
 
 
 def test_article_detail_has_reading_metadata(client, article):
-    """文章详情页应展示阅读进度、字数与时长信息"""
+    """文章详情页应展示阅读进度,字数与时长信息"""
     article.content = "<p>" + "这是正文内容。" * 120 + "</p>"
     from app.extensions import db
 
@@ -39,7 +39,7 @@ def test_article_detail_has_reading_metadata(client, article):
 
 
 def test_article_reading_stats_use_full_content(client, article):
-    """字数统计应基于完整正文，而不是摘要截断后的前 220 字。"""
+    """字数统计应基于完整正文,而不是摘要截断后的前 220 字."""
     article.content = "<p>" + ("这是中文正文内容。" * 80) + "</p>"
     from app.extensions import db
 
@@ -69,7 +69,7 @@ def test_category_filter(client, article, category):
 
 
 def test_category_invalid_id(client):
-    """非整数栏目 ID 应返回 404（路由 <int:cid> 不匹配）"""
+    """非整数栏目 ID 应返回 404(路由 <int:cid> 不匹配)"""
     rv = client.get("/category/abc")
     assert rv.status_code == 404
 
@@ -95,7 +95,7 @@ def test_drafts_shows_drafts(login_admin, draft, article):
 
 
 def test_article_new_form(login_admin, category):
-    """新建文章表单可访问，且提供 Markdown 文件上传入口"""
+    """新建文章表单可访问,且提供 Markdown 文件上传入口"""
     rv = login_admin.get("/article/new")
     assert rv.status_code == 200
     assert "新建文章".encode() in rv.data
@@ -321,7 +321,7 @@ def test_del_category_requires_login(client, category):
 
 
 def test_draft_detail_requires_login(client, draft):
-    """匿名访问草稿详情应重定向（草稿仅后台可见）"""
+    """匿名访问草稿详情应重定向(草稿仅后台可见)"""
     rv = client.get(f"/article/{draft.id}", follow_redirects=False)
     assert rv.status_code == 302
 

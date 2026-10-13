@@ -1,4 +1,4 @@
-"""UI 主题与背景设置单元测试（内置图库 / 自定义 URL / 上传背景）。"""
+"""UI 主题与背景设置单元测试(内置图库 / 自定义 URL / 上传背景)."""
 
 import io
 import os
@@ -30,7 +30,7 @@ def test_site_setting_page_shows_bg_gallery(login_admin):
 
 
 def test_site_bg_style_save(login_admin, db):
-    """保存内置风格 bg3 应生效，且 bg_custom 被清空"""
+    """保存内置风格 bg3 应生效,且 bg_custom 被清空"""
     rv = login_admin.post(
         "/admin/site_setting",
         data={
@@ -74,7 +74,7 @@ def test_site_bg_upload_save(login_admin, db, monkeypatch, tmp_path):
         d.mkdir(parents=True, exist_ok=True)
         return str(d)
 
-    # 重定向上传目录，避免污染真实 uploads/ 目录
+    # 重定向上传目录,避免污染真实 uploads/ 目录
     monkeypatch.setattr(admin_routes, "upload_dir", fake_upload_dir)
 
     img = _make_image_bytes("JPEG")
@@ -98,7 +98,7 @@ def test_site_bg_upload_save(login_admin, db, monkeypatch, tmp_path):
 
 
 def test_site_bg_upload_invalid_rejected(login_admin, db):
-    """非法扩展名背景应被拒绝，站点背景保持不变"""
+    """非法扩展名背景应被拒绝,站点背景保持不变"""
     old = db.session.get(SiteSetting, 1)
     old_bg_style, old_bg_custom = old.bg_style, old.bg_custom
     rv = login_admin.post(
@@ -150,7 +150,7 @@ def test_site_logo_upload_save(login_admin, db, monkeypatch, tmp_path):
 
 
 def test_site_logo_oversized_auto_scaled(login_admin, db, monkeypatch, tmp_path):
-    """超大 Logo（1200x600）上传后应自动缩放到长边不超过 400"""
+    """超大 Logo(1200x600)上传后应自动缩放到长边不超过 400"""
     from app.admin import routes as admin_routes
 
     def fake_upload_dir(category="image", subdir=""):
@@ -182,7 +182,7 @@ def test_site_logo_oversized_auto_scaled(login_admin, db, monkeypatch, tmp_path)
 
 
 def test_site_logo_invalid_rejected(login_admin, db):
-    """非法 Logo 文件应被拒绝，站点 Logo 保持不变"""
+    """非法 Logo 文件应被拒绝,站点 Logo 保持不变"""
     old = db.session.get(SiteSetting, 1)
     old_logo = old.logo_path
     rv = login_admin.post(
@@ -201,7 +201,7 @@ def test_site_logo_invalid_rejected(login_admin, db):
 
 
 def test_homepage_renders_navbar_logo(login_admin, db, monkeypatch, tmp_path):
-    """设置 Logo（且文件确实存在）后首页导航栏应输出 <img class="navbar-logo">"""
+    """设置 Logo(且文件确实存在)后首页导航栏应输出 <img class="navbar-logo">"""
     import app.utils as utils
 
     monkeypatch.setattr(utils, "project_root", lambda: str(tmp_path))
@@ -217,11 +217,11 @@ def test_homepage_renders_navbar_logo(login_admin, db, monkeypatch, tmp_path):
 
 
 def test_navbar_logo_falls_back_when_file_missing(login_admin, db, monkeypatch, tmp_path):
-    """跨机恢复后 Logo 文件缺失（库里仍有 URL）：导航栏回落内置图标
+    """跨机恢复后 Logo 文件缺失(库里仍有 URL):导航栏回落内置图标
 
-    回归：Logo 缺失时浏览器会把 ``<img alt="站点名">`` 的 alt 文本画出来，
-    与紧随其后的 ``<span>站点名</span>`` 叠加，页面上看起来就是
-    「My Blog My Blog」——像是数据库里的站点名被写了两遍。
+    回归:Logo 缺失时浏览器会把 ``<img alt="站点名">`` 的 alt 文本画出来,
+    与紧随其后的 ``<span>站点名</span>`` 叠加,页面上看起来就是
+    'My Blog My Blog' -- 像是数据库里的站点名被写了两遍.
     """
     import app.utils as utils
 
@@ -238,7 +238,7 @@ def test_navbar_logo_falls_back_when_file_missing(login_admin, db, monkeypatch, 
 
 
 def test_background_assets_complete():
-    """内置背景图库文件齐全（供 themes.css 引用）"""
+    """内置背景图库文件齐全(供 themes.css 引用)"""
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     bg_dir = os.path.join(root, "static", "backgrounds")
     assert os.path.isdir(bg_dir), "static/backgrounds 目录应存在"

@@ -1,4 +1,4 @@
-"""Banner 轮播图功能测试。"""
+"""Banner 轮播图功能测试."""
 
 import io
 
@@ -107,7 +107,7 @@ def test_banner_add_invalid_format(login_admin, db):
 
 
 def test_banner_edit_metadata(login_admin, db):
-    """仅编辑文字字段（不换图）应成功"""
+    """仅编辑文字字段(不换图)应成功"""
     b = Banner(img_path="/uploads/banner/old.jpg", title="旧", create_time="2026-01-01 00:00:00")
     db.session.add(b)
     db.session.commit()
@@ -198,7 +198,7 @@ def test_banner_add_requires_login(client):
 
 
 def test_banner_withdraw_success(login_admin, db):
-    """撤回（下架）后记录保留,is_active=False"""
+    """撤回(下架)后记录保留,is_active=False"""
     b = Banner(
         img_path="/uploads/banner/a.jpg",
         title="a",
@@ -248,7 +248,7 @@ def test_banner_withdraw_requires_login(client):
 
 
 def test_banner_activate_success(login_admin, db):
-    """启用（上架）后 is_active=True"""
+    """启用(上架)后 is_active=True"""
     b = Banner(
         img_path="/uploads/banner/b.jpg",
         title="b",

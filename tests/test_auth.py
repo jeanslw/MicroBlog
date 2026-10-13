@@ -1,4 +1,4 @@
-"""认证与登录安全测试。"""
+"""认证与登录安全测试."""
 
 
 def test_login_page_get(client):
@@ -66,7 +66,7 @@ def test_login_brute_force_lock(client, admin_user, db):
                 "password": "wrong",
             },
         )
-    # 第 6 次应被锁定（429 或重定向到登录并提示）
+    # 第 6 次应被锁定(429 或重定向到登录并提示)
     rv = client.post(
         "/admin/login",
         data={
@@ -78,7 +78,7 @@ def test_login_brute_force_lock(client, admin_user, db):
     # 锁定时即便正确密码也不应通过
     assert rv.status_code in (429, 200, 302)
     if rv.status_code == 302:
-        # 仅在未锁定情况下才能 302；本测试期望被锁
+        # 仅在未锁定情况下才能 302;本测试期望被锁
         with client.session_transaction() as s:
             assert "_user_id" not in s
 
@@ -113,7 +113,7 @@ def test_admin_routes_require_login(client):
 
 
 def test_admin_panel_accessible(login_admin):
-    """登录后管理后台页可访问，且包含各管理功能入口链接"""
+    """登录后管理后台页可访问,且包含各管理功能入口链接"""
     rv = login_admin.get("/admin/panel")
     assert rv.status_code == 200
     for url in [
@@ -139,7 +139,7 @@ def test_change_pwd_success(login_admin, db, admin_user):
         follow_redirects=False,
     )
     assert rv.status_code == 302
-    # 密码已变更，且应已退出登录
+    # 密码已变更,且应已退出登录
     with login_admin.session_transaction() as s:
         assert "_user_id" not in s
 
@@ -235,7 +235,7 @@ def test_login_next_internal_path_ok(client, admin_user):
 
 
 def test_home_nav_shows_admin_link_when_logged_in(login_admin):
-    """登录后首页导航显示「管理」入口；导航栏不再有退出按钮（退出统一收进后台侧边栏）"""
+    """登录后首页导航显示'管理'入口;导航栏不再有退出按钮(退出统一收进后台侧边栏)"""
     rv = login_admin.get("/")
     assert rv.status_code == 200
     body = rv.data.decode("utf-8")
@@ -246,7 +246,7 @@ def test_home_nav_shows_admin_link_when_logged_in(login_admin):
 
 
 def test_home_nav_hides_logout_when_anonymous(client, admin_user):
-    """未登录时首页导航不应出现「退出登录」"""
+    """未登录时首页导航不应出现'退出登录'"""
     rv = client.get("/")
     assert rv.status_code == 200
     assert 'action="/admin/logout"' not in rv.data.decode("utf-8")

@@ -7,7 +7,7 @@
 
 {% block extra_css %}
 <style>
-    /* 首页文章预览区样式（纯文本摘要） */
+    /* 首页文章预览区样式(纯文本摘要) */
     .article-preview {
         display: -webkit-box;
         -webkit-line-clamp: 4;  /* 显示4行 */
@@ -75,7 +75,7 @@
             <div class="col-12">
                 <div class="card blog-card p-4 h-100">
                     <div class="card-body p-0">
-                        <!-- 标题可点击跳转详情，标题前带小号火焰图标 -->
+                        <!-- 标题可点击跳转详情,标题前带小号火焰图标 -->
                         <h5 class="fw-bold d-flex align-items-center gap-1 mb-1">
                             <i class="bi bi-fire text-danger fs-6"></i>
                             {% if art.is_pinned %}<span class="badge bg-danger text-white fs-7">[{{ _('置顶') }}]</span>{% endif %}
@@ -86,7 +86,7 @@
                         <p class="text-muted small">
                             <i class="bi bi-calendar3"></i> {{ art.create_time }}
                         </p>
-                        <!-- 文章摘要：纯文本，超出用... -->
+                        <!-- 文章摘要:纯文本,超出用... -->
                         <div class="article-preview">{{ art.brief }}</div>
                     </div>
                     <div class="mt-3 d-flex flex-wrap gap-2 align-items-center">

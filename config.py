@@ -1,4 +1,4 @@
-"""应用配置 —— Flask 标准的 Config 类模式。
+"""应用配置  --  Flask 标准的 Config 类模式.
 
 通过环境变量 BLOG_ENV 切换:
 - 未设置/development  -> DevelopmentConfig
@@ -6,7 +6,7 @@
 - testing             -> TestingConfig
 
 所有配置通过 app.config.from_object() 加载,业务常量也写入 app.config,
-其他模块读取时用 current_app.config['KEY'] 或直接 import 对应常量。
+其他模块读取时用 current_app.config['KEY'] 或直接 import 对应常量.
 """
 
 import os
@@ -15,11 +15,11 @@ import tempfile
 import warnings
 from typing import ClassVar
 
-# ── 应用侧环境变量文件（裸机 / 本地运行） ──────────────────────────
-# 约定：项目根目录 app.env 为应用侧配置文件（不入库；模板 app.env.example）。
-# 兼容：仅当 app.env 不存在时回退读取旧版 .env，并提示迁移。
-# 与 Docker 分离：容器内变量由 docker-compose 注入（编排侧用 .env.docker），
-# 两个文件互不影响，详见 docs/部署文档.md。
+# ── 应用侧环境变量文件(裸机 / 本地运行) ──────────────────────────
+# 约定:项目根目录 app.env 为应用侧配置文件(不入库;模板 app.env.example).
+# 兼容:仅当 app.env 不存在时回退读取旧版 .env,并提示迁移.
+# 与 Docker 分离:容器内变量由 docker-compose 注入(编排侧用 .env.docker),
+# 两个文件互不影响,详见 docs/部署文档.md.
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 APP_ENV_FILE = os.path.join(_BASE_DIR, "app.env")
 LEGACY_ENV_FILE = os.path.join(_BASE_DIR, ".env")
@@ -27,7 +27,7 @@ LEGACY_ENV_FILE = os.path.join(_BASE_DIR, ".env")
 try:
     from dotenv import load_dotenv
 
-    # override=False：已存在的进程环境变量优先（与 export / Docker 行为一致）
+    # override=False:已存在的进程环境变量优先(与 export / Docker 行为一致)
     if os.path.exists(APP_ENV_FILE):
         load_dotenv(APP_ENV_FILE)
     elif os.path.exists(LEGACY_ENV_FILE):
@@ -39,8 +39,8 @@ try:
         )
 except ImportError:
     # python-dotenv 未安装时 app.env/.env 会被静默忽略,多 worker 下还会因随机
-    # SECRET_KEY 导致登录/CSRF 随机失败。若根目录存在配置文件则明确告警,
-    # 避免这种"配置写了却没生效"的隐蔽故障。
+    # SECRET_KEY 导致登录/CSRF 随机失败.若根目录存在配置文件则明确告警,
+    # 避免这种"配置写了却没生效"的隐蔽故障.
     for _env_path in (APP_ENV_FILE, LEGACY_ENV_FILE):
         if os.path.exists(_env_path):
             warnings.warn(
@@ -58,37 +58,36 @@ def _env_bool(name: str, default: str = "false") -> bool:
 
 
 def _normalize_trusted_host(entry: str) -> str:
-    """把白名单条目归一化为纯主机名：兼容完整 URL（http://host:port）与裸域名两种写法。
+    """把白名单条目归一化为纯主机名:兼容完整 URL(http://host:port)与裸域名两种写法.
 
-    统一去端口（IPv6 保留 [方括号] 形式），与请求 Host 的比对逻辑保持一致。
+    统一去端口(IPv6 保留 [方括号] 形式),与请求 Host 的比对逻辑保持一致.
     """
     from urllib.parse import urlsplit
 
     entry = entry.strip().lower()
     if "://" in entry:
         entry = urlsplit(entry).netloc or ""
-    # 去端口（IPv6 保留 [方括号] 形式）
+    # 去端口(IPv6 保留 [方括号] 形式)
     entry = entry.split("]", 1)[0] + "]" if entry.startswith("[") else entry.split(":", 1)[0]
     return entry
 
 
-# ── 业务常量（不随环境变化，直接定义供模块导入） ───────────
-# 应用版本（SemVer）。发布新版本时更新，须与 Git Tag 保持一致。
+# ── 业务常量(不随环境变化,直接定义供模块导入) ───────────
+# 应用版本(SemVer).发布新版本时更新,须与 Git Tag 保持一致.
 APP_VERSION = "1.3.6"
 
-# 数据库结构（schema）版本——本代码所携带的最新库结构对应的发布号。
-# 由 app/database.py 的迁移框架读取（app.database.SCHEMA_VERSION 即本常量）。
+# 数据库结构(schema)版本 -- 本代码所携带的最新库结构对应的发布号,
+# 由 app/database.py 的迁移框架读取(app.database.SCHEMA_VERSION 即本常量).
 #
-# ── 什么时候该改 SCHEMA_VERSION？─────────────────────────────
-# 仅当本次发布包含「数据库结构变更」时，才把它与 APP_VERSION 一起改成本次
-# 发布号；纯代码发布（不含库结构变更）时保持不动——它落后于 APP_VERSION
-# 是正常状态：
-#   初始：           APP_VERSION = 1.3.6, SCHEMA_VERSION = 1.3.6  （同发布）
-#   无库变更的发布：  APP_VERSION = 1.4.0, SCHEMA_VERSION = 1.3.6  （正常,勿动）
-#   有库变更的发布：  APP_VERSION = 1.4.0, SCHEMA_VERSION = 1.4.0  （立刻追平）
-# 修改它的同时还必须（缺一不可,详见 app/database.py「Schema 版本化迁移框架」）：
-#   1. 在 app/database.py 的 _SCHEMA_MIGRATIONS 登记该版本的迁移函数；
-#   2. 同步 MySQL/init.sql（新装环境直接建最新结构）。
+# ── 何时修改 ────────────────────────────────────────────────
+# 仅当本次发布含"库结构变更"时,才随 APP_VERSION 一并改为本次发布号;
+# 纯代码发布保持不动 -- 落后于 APP_VERSION 属正常状态:
+#   初始:           APP_VERSION = 1.3.6, SCHEMA_VERSION = 1.3.6  (同发布)
+#   无库变更的发布:  APP_VERSION = 1.4.0, SCHEMA_VERSION = 1.3.6  (正常)
+#   有库变更的发布:  APP_VERSION = 1.4.0, SCHEMA_VERSION = 1.4.0  (追平)
+# 改它须同步两处(缺一不可,详见 app/database.py"Schema 版本化迁移框架"):
+#   1. 在 app/database.py 的 _SCHEMA_MIGRATIONS 登记该版本迁移函数;
+#   2. 同步 MySQL/init.sql(新装环境直接建最新结构).
 SCHEMA_VERSION = "1.3.6"
 
 PAGE_SIZE = int(os.environ.get("BLOG_PAGE_SIZE", "6"))
@@ -112,18 +111,18 @@ BANNER_MAX_WIDTH = 1920
 PIL_MAX_IMAGE_PIXELS = 50_000_000  # Pillow 解压炸弹防护
 
 
-# ── 会话密钥（SECRET_KEY）解析 ──────────────────────────────
-# 优先级：BLOG_SECRET_KEY 环境变量 > BLOG_SECRET_KEY_FILE 指向的密钥文件 > 随机值（仅开发）。
-# 文件方式供容器/密钥管理使用（Docker secrets、K8s Secret 挂载、compose 入口脚本
-# 自动生成的 ./data/.secret_key）：密钥本体不出现在 docker inspect、
-# /proc/<pid>/environ 与进程环境快照里，泄露面比环境变量小。
-# 仓库内公开的默认密钥（旧版 docker-compose 的 BLOG_SECRET_KEY 默认值）在
-# 生产环境一律拒绝启动 —— 它是公开的，谁都能据此伪造签名 Cookie 冒充管理员。
+# ── 会话密钥(SECRET_KEY)解析 ──────────────────────────────
+# 优先级:BLOG_SECRET_KEY 环境变量 > BLOG_SECRET_KEY_FILE 指向的密钥文件 > 随机值(仅开发).
+# 文件方式供容器/密钥管理使用(Docker secrets,K8s Secret 挂载,compose 入口脚本
+# 自动生成的 ./data/.secret_key):密钥本体不出现在 docker inspect,
+# /proc/<pid>/environ 与进程环境快照里,泄露面比环境变量小.
+# 仓库内公开的默认密钥(旧版 docker-compose 的 BLOG_SECRET_KEY 默认值)在
+# 生产环境一律拒绝启动  --  它是公开的,谁都能据此伪造签名 Cookie 冒充管理员.
 INSECURE_DEFAULT_SECRET_KEYS = ("insecure-compose-default-key-CHANGE-ME-0123456789abcdef",)
 
 
 def _read_secret_key_file(path: str) -> str:
-    """读取密钥文件（去掉首尾空白）；不可读时告警并返回空串。"""
+    """读取密钥文件(去掉首尾空白);不可读时告警并返回空串."""
     if not path:
         return ""
     try:
@@ -138,7 +137,7 @@ def _read_secret_key_file(path: str) -> str:
 
 
 def _resolve_secret_key() -> str:
-    """解析生效的 SECRET_KEY 原始值；完全未配置时返回空串（由调用方决定回退）。"""
+    """解析生效的 SECRET_KEY 原始值;完全未配置时返回空串(由调用方决定回退)."""
     env_key = (os.environ.get("BLOG_SECRET_KEY") or "").strip()
     if env_key:
         return env_key
@@ -149,104 +148,104 @@ _RESOLVED_SECRET_KEY = _resolve_secret_key()
 
 
 class Config:
-    """基类配置（所有环境共享）"""
+    """基类配置(所有环境共享)"""
 
     # ── Flask ───────────────────────────────────────────
-    # 未配置任何来源时用一次性随机值兜底（仅开发/测试可接受：进程重启后
-    # 登录态与加密字段即失效，生产环境由 get_config() 直接拒绝启动）。
+    # 未配置任何来源时用一次性随机值兜底(仅开发/测试可接受:进程重启后
+    # 登录态与加密字段即失效,生产环境由 get_config() 直接拒绝启动).
     SECRET_KEY = _RESOLVED_SECRET_KEY or secrets.token_hex(32)
     DEBUG = _env_bool("BLOG_DEBUG", "false")
     TESTING = False
 
-    # ── 站点外链域名（防 Host 头注入） ────────────────────
-    # 用于生成邮件重置链接、RSS/Atom 订阅源、sitemap 等绝对 URL。
-    # 生产环境务必配置（如 https://blog.example.com），不依赖请求 Host 头，
-    # 避免攻击者伪造 Host 头向管理员邮件投毒外站链接。
-    # 留空时回退到 request.host_url（仅开发便捷，不推荐生产）。
+    # ── 站点外链域名(防 Host 头注入) ────────────────────
+    # 用于生成邮件重置链接,RSS/Atom 订阅源,sitemap 等绝对 URL.
+    # 生产环境须配置(如 https://blog.example.com),不依赖请求 Host 头,
+    # 避免攻击者伪造 Host 头向管理员邮件投毒外站链接.
+    # 留空时回退到 request.host_url(仅开发便捷,不推荐生产).
     CANONICAL_URL = (os.environ.get("BLOG_CANONICAL_URL") or "").rstrip("/")
-    # Host 白名单（逗号分隔，环境变量 BLOG_TRUSTED_HOSTS）。
-    # 设置后，非白名单 Host 的请求将被拒绝（400）；留空表示不校验（仅开发便捷）。
-    # 注意：配置键刻意不用 TRUSTED_HOSTS —— Flask 3.1 会原生消费该同名键，
-    # 在请求上下文阶段（早于 before_request）直接拒绝，且无法为 /healthz 等
-    # 容器健康探针按路径豁免。这里由应用在 before_request 自行校验。
+    # Host 白名单(逗号分隔,环境变量 BLOG_TRUSTED_HOSTS).
+    # 设置后,非白名单 Host 的请求将被拒绝(400);留空表示不校验(仅开发便捷).
+    # 注意:配置键不用 TRUSTED_HOSTS  --  Flask 3.1 会原生消费该同名键,
+    # 在请求上下文阶段(早于 before_request)直接拒绝,且无法为 /healthz 等
+    # 容器健康探针按路径豁免.这里由应用在 before_request 自行校验.
     HOST_WHITELIST: ClassVar[list[str]] = [
         h for h in (_normalize_trusted_host(x) for x in (os.environ.get("BLOG_TRUSTED_HOSTS") or "").split(",")) if h
     ]
 
-    # ── 安全响应头（app/__init__.py after_request 统一下发） ──
-    # 单一事实来源：安全头随代码进版本库、有测试覆盖，与部署方式
-    # （nginx/直连/Docker）无关。⚠️ 切勿再在 nginx add_header 重复配置 CSP ——
-    # 浏览器对多份 CSP 取交集执行，配置稍有出入就会出现"莫名拦资源"。
+    # ── 安全响应头(app/__init__.py after_request 统一下发) ──
+    # 单一事实来源:安全头随代码进版本库,有测试覆盖,与部署方式
+    # (nginx/直连/Docker)无关. 不要再在 nginx add_header 重复配置 CSP  --
+    # 浏览器对多份 CSP 取交集执行,配置稍有出入就会出现"莫名拦资源".
     CSP_POLICY = (
-        # default-src 兜底本站资源；图片/音视频放行外链
-        # （媒体缺 media-src 会回退 'self'，导致文章外链音视频无法播放）
+        # default-src 兜底本站资源;图片/音视频放行外链
+        # (媒体缺 media-src 会回退 'self',导致文章外链音视频无法播放)
         "default-src 'self'; "
         "img-src 'self' data: https:; "
         "media-src 'self' https:; "
-        # 内联样式/脚本为当前模板依赖，如需收紧可改 nonce 方案
+        # 内联样式/脚本为当前模板依赖,如需收紧可改 nonce 方案
         "style-src 'self' 'unsafe-inline'; "
         "script-src 'self' 'unsafe-inline'; "
         "font-src 'self' data:; "
         "frame-ancestors 'self'"
     )
-    # 防盗链保护的静态路径前缀（对齐原 nginx valid_referers：空 Referer 放行、
-    # 同源/白名单 Host 放行，其余 403）
+    # 防盗链保护的静态路径前缀(对齐原 nginx valid_referers:空 Referer 放行,
+    # 同源/白名单 Host 放行,其余 403)
     HOTLINK_PROTECTED_PREFIXES: ClassVar[tuple[str, ...]] = ("/uploads/banner/", "/uploads/image/")
 
     # ── Session / Cookie ────────────────────────────────
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = "Lax"
-    # 本地明文 HTTP 调试可显式设置 BLOG_COOKIE_SECURE=false；生产默认仍为 true。
+    # 本地明文 HTTP 调试可显式设置 BLOG_COOKIE_SECURE=false;生产默认仍为 true.
     SESSION_COOKIE_SECURE = _env_bool("BLOG_COOKIE_SECURE", "false")
-    # Session 有效期（秒，环境变量 BLOG_SESSION_LIFETIME）：
-    # 登录时 session.permanent = True，此配置决定管理后台登录态多久过期
+    # Session 有效期(秒,环境变量 BLOG_SESSION_LIFETIME):
+    # 登录时 session.permanent = True,此配置决定管理后台登录态多久过期
     PERMANENT_SESSION_LIFETIME = int(os.environ.get("BLOG_SESSION_LIFETIME", "86400"))  # 默认 24 小时
-    # 注：Flask 要求 timedelta；由 app/__init__.py 在 from_object 之后转换，
-    # 此处不再保留未使用的 *_DELTA 中间属性（历史上从无代码读取它）。
+    # 注:Flask 要求 timedelta;由 app/__init__.py 在 from_object 之后转换,
+    # 此处不再保留未使用的 *_DELTA 中间属性(历史上从无代码读取它).
 
     # ── 静态文件 ────────────────────────────────────────
     SEND_FILE_MAX_AGE_DEFAULT = int(os.environ.get("BLOG_STATIC_MAX_AGE", "0"))
-    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB（Flask 整体请求上限）
+    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB(Flask 整体请求上限)
 
     # ── 日志文件 ────────────────────────────────────────
-    # 无论 python run.py / waitress / gunicorn / uWSGI 启动，应用日志
-    # （启动初始化、告警、未捕获异常、请求访问记录）都同时写入控制台和文件。
-    # 默认项目根 logs/app.log；容器内默认 /app/logs（compose 映射到宿主机
-    # ./data/logs）。可用 BLOG_LOG_DIR 覆盖；轮转：单文件 10MB，保留 5 份。
+    # 无论 python run.py / waitress / gunicorn / uWSGI 启动,应用日志
+    # (启动初始化,告警,未捕获异常,请求访问记录)都同时写入控制台和文件.
+    # 默认项目根 logs/app.log;容器内默认 /app/logs(compose 映射到宿主机
+    # ./data/logs).可用 BLOG_LOG_DIR 覆盖;轮转:单文件 10MB,保留 5 份.
     LOG_DIR = os.environ.get("BLOG_LOG_DIR") or os.path.join(_BASE_DIR, "logs")
     LOG_MAX_BYTES = int(os.environ.get("BLOG_LOG_MAX_BYTES", str(10 * 1024 * 1024)))
     LOG_BACKUP_COUNT = int(os.environ.get("BLOG_LOG_BACKUP_COUNT", "5"))
-    # 日志格式：auto（默认，生产 JSON / 开发测试文本）、json（ELK/Loki 采集）、text
+    # 日志格式:auto(默认,生产 JSON / 开发测试文本),json(ELK/Loki 采集),text
     LOG_FORMAT = (os.environ.get("BLOG_LOG_FORMAT") or "auto").lower()
-    # 日志级别：auto（默认，跟随 BLOG_DEBUG 开关：debug 时 DEBUG、否则 INFO）、
-    # 或 DEBUG / INFO / WARNING / ERROR / CRITICAL（独立于 DEBUG 开关，
-    # 例：生产只想记 WARNING 以上 → BLOG_LOG_LEVEL=WARNING）。非法值回退 INFO。
+    # 日志级别:auto(默认,跟随 BLOG_DEBUG 开关:debug 时 DEBUG,否则 INFO),
+    # 或 DEBUG / INFO / WARNING / ERROR / CRITICAL(独立于 DEBUG 开关,
+    # 例:生产只想记 WARNING 以上 -> BLOG_LOG_LEVEL=WARNING).非法值回退 INFO.
     LOG_LEVEL = (os.environ.get("BLOG_LOG_LEVEL") or "auto").upper()
-    # 慢请求阈值（毫秒）：超过则 http_request 日志升级为 WARNING；0 = 全部告警
+    # 慢请求阈值(毫秒):超过则 http_request 日志升级为 WARNING;0 = 全部告警
     SLOW_REQUEST_MS = int(os.environ.get("BLOG_SLOW_REQUEST_MS", "500"))
-    # 慢 SQL 阈值（毫秒）：超过则记 slow_query WARNING（只记语句不记参数）；0 = 全部记录
+    # 慢 SQL 阈值(毫秒):超过则记 slow_query WARNING(只记语句不记参数);0 = 全部记录
     SLOW_QUERY_MS = int(os.environ.get("BLOG_SLOW_QUERY_MS", "200"))
 
     # schema 迁移模式:true(默认)= 启动时自动执行待迁移;false = 手动模式,
-    # 检测到待迁移项时站点进入维护模式,管理员登录后在后台「迁移数据库」页手动执行
+    # 检测到待迁移项时站点进入维护模式,管理员登录后在后台"迁移数据库"页手动执行
     AUTO_SCHEMA_MIGRATE = _env_bool("BLOG_AUTO_MIGRATE", "true")
     # 降级守卫:数据库版本高于程序版本(代码被回滚)时默认**拒绝启动**(fail-fast),
-    # 防止旧代码误碰新结构。受控场景可临时设 true 放行(只告警不拦截):
-    # 滚动升级窗口内新旧实例并存、或已确认新旧 schema 兼容的短期回滚。
+    # 防止旧代码误碰新结构.受控场景可临时设 true 放行(只告警不拦截):
+    # 滚动升级窗口内新旧实例并存,或已确认新旧 schema 兼容的短期回滚.
     ALLOW_SCHEMA_AHEAD = _env_bool("BLOG_ALLOW_SCHEMA_AHEAD", "false")
 
     # ── WTF ─────────────────────────────────────────────
     WTF_CSRF_ENABLED = True
-    WTF_CSRF_TIME_LIMIT = None  # 不设过期（避免长时间编辑后提交失败）
+    WTF_CSRF_TIME_LIMIT = None  # 不设过期(避免长时间编辑后提交失败)
     WTF_I18N_ENABLED = False
 
     # ── 站内搜索 ────────────────────────────────────────
-    # 关键词长度上限：LIKE 模式越长扫描成本越高，超长输入也必然无结果
+    # 关键词长度上限:LIKE 模式越长扫描成本越高,超长输入也必然无结果
     SEARCH_KEYWORD_MAX_LEN = 100
 
     # ── Babel ───────────────────────────────────────────
     BABEL_DEFAULT_LOCALE = "zh_CN"
-    # translations/ 位于项目根目录（config.py 所在目录），非 app/ 子目录
+    # translations/ 位于项目根目录(config.py 所在目录),非 app/ 子目录
     BABEL_TRANSLATION_DIRECTORIES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "translations")
     BABEL_LOCALES = ("zh_CN", "en")
 
@@ -255,12 +254,12 @@ class Config:
     INIT_ADMIN_PASSWORD = os.environ.get("BLOG_INIT_ADMIN_PWD", "")
 
     # ── 反向代理 ────────────────────────────────────────
-    # 信任的反向代理层数（X-Forwarded-For / X-Forwarded-Proto）
+    # 信任的反向代理层数(X-Forwarded-For / X-Forwarded-Proto)
     PROXY_FIX_X_FOR = int(os.environ.get("BLOG_PROXY_XFOR", "0"))
     PROXY_FIX_X_PROTO = int(os.environ.get("BLOG_PROXY_XPROTO", "0"))
     PROXY_FIX_X_HOST = int(os.environ.get("BLOG_PROXY_XHOST", "0"))
 
-    # ── 邮件（找回密码） ────────────────────────────────
+    # ── 邮件(找回密码) ────────────────────────────────
     MAIL_HOST = os.environ.get("BLOG_MAIL_HOST", "")
     MAIL_PORT = int(os.environ.get("BLOG_MAIL_PORT", "587") or "587")
     MAIL_USER = os.environ.get("BLOG_MAIL_USER", "")
@@ -268,14 +267,14 @@ class Config:
     MAIL_FROM = os.environ.get("BLOG_MAIL_FROM", "")
     MAIL_USE_SSL = _env_bool("BLOG_MAIL_USE_SSL", "false")
     MAIL_USE_TLS = _env_bool("BLOG_MAIL_USE_TLS", "true")
-    # 密码找回令牌有效期（秒）
+    # 密码找回令牌有效期(秒)
     RESET_TOKEN_MAX_AGE = int(os.environ.get("BLOG_RESET_TOKEN_MAX_AGE", "1800"))
 
-    # ── 业务常量（镜像模块级常量，随 from_object 进入 app.config） ──
-    # 真正的定义在本文件顶部（供 `from config import ...` 直接导入）；此处显式
-    # 声明 ClassVar 并引用同名模块常量，使 app.config.from_object() 能把这些键
-    # 写入 app.config，替代原先在类定义后 `Config.X = X` 的动态挂载
-    # （动态属性 mypy 无法识别，且类的公开接口应在类体内可见）。
+    # ── 业务常量(镜像模块级常量,随 from_object 进入 app.config) ──
+    # 真正的定义在本文件顶部(供 `from config import ...` 直接导入);此处显式
+    # 声明 ClassVar 并引用同名模块常量,使 app.config.from_object() 能把这些键
+    # 写入 app.config,替代原先在类定义后 `Config.X = X` 的动态挂载
+    # (动态属性 mypy 无法识别,且类的公开接口应在类体内可见).
     APP_VERSION: ClassVar[str] = APP_VERSION
     PAGE_SIZE: ClassVar[int] = PAGE_SIZE
     UPLOAD_ALLOWED_EXT: ClassVar[tuple[str, ...]] = UPLOAD_ALLOWED_EXT
@@ -289,40 +288,40 @@ class Config:
 
 class DevelopmentConfig(Config):
     DEBUG = True
-    # SQLALCHEMY_DATABASE_URI 由下方 _resolve_db_uri_for_class 按 BLOG_DB_TYPE 统一解析，
-    # 此处不再内联赋值，避免与 MySQL/sqlite 分支逻辑重复。
+    # SQLALCHEMY_DATABASE_URI 由下方 _resolve_db_uri_for_class 按 BLOG_DB_TYPE 统一解析,
+    # 此处不再内联赋值,避免与 MySQL/sqlite 分支逻辑重复.
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 
 class ProductionConfig(Config):
     DEBUG = False
-    # 生产默认强制 Secure Cookie；仅本地明文 HTTP 调试时通过环境变量显式关闭。
+    # 生产默认强制 Secure Cookie;仅本地明文 HTTP 调试时通过环境变量显式关闭.
     SESSION_COOKIE_SECURE = _env_bool("BLOG_COOKIE_SECURE", "true")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
 
 def _prepare_sqlite_dir(abs_path: str) -> str:
-    """确保 SQLite 库文件的父目录存在且可写，返回最终的库文件绝对路径。
+    """确保 SQLite 库文件的父目录存在且可写,返回最终的库文件绝对路径.
 
-    SQLite 引擎只创建库文件、不创建父目录，这里先补齐目录，避免全新部署
-    （data/ 缺失）时首启报 unable to open database file。
+    SQLite 引擎只创建库文件,不创建父目录,这里先补齐目录,避免全新部署
+    (data/ 缺失)时首启报 unable to open database file.
 
-    只读文件系统（Serverless 平台）必须显式报错而不是静默换位置：
-    Vercel/Lambda 的函数代码目录（Vercel 为 /var/task）是只读的，仅 /tmp 可写。
-    若仍按默认相对路径 data/blog.db 建库，会在 import config 阶段抛
-    `OSError: [Errno 30] Read-only file system: '/var/task/data'`，表现为
-    「无法导入 wsgi.py、进程退出状态 1」这类与真实原因无关的启动崩溃；
-    而把 SQLite 悄悄改写到 /tmp 同样危险——每个 Serverless 实例的 /tmp 互相
-    独立且非持久化，库文件会随实例回收消失（管理员写的文章/配置全部丢失），
-    且多实例并发时各实例看到的是不同的库。因此这里直接抛出可操作的配置错误。
+    只读文件系统(Serverless 平台)必须显式报错而不是静默换位置:
+    Vercel/Lambda 的函数代码目录(Vercel 为 /var/task)是只读的,仅 /tmp 可写.
+    若仍按默认相对路径 data/blog.db 建库,会在 import config 阶段抛
+    `OSError: [Errno 30] Read-only file system: '/var/task/data'`,表现为
+    '无法导入 wsgi.py,进程退出状态 1'这类与真实原因无关的启动崩溃;
+    而把 SQLite 悄悄改写到 /tmp 同样危险 -- 每个 Serverless 实例的 /tmp 互相
+    独立且非持久化,库文件会随实例回收消失(管理员写的文章/配置全部丢失),
+    且多实例并发时各实例看到的是不同的库.因此这里直接抛出可操作的配置错误.
     """
     directory = os.path.dirname(abs_path)
     if not directory:
         return abs_path
     try:
         os.makedirs(directory, exist_ok=True)
-        # 目录已存在时 makedirs 不校验可写性（只读挂载 / 只读代码目录都返回成功），
-        # 用一次真实写入探测，把故障挡在启动阶段而不是首个写请求。
+        # 目录已存在时 makedirs 不校验可写性(只读挂载 / 只读代码目录都返回成功),
+        # 用一次真实写入探测,把故障挡在启动阶段而不是首个写请求.
         with tempfile.NamedTemporaryFile(prefix=".sqlite_write_probe", dir=directory):
             pass
     except OSError as exc:
@@ -338,14 +337,14 @@ def _prepare_sqlite_dir(abs_path: str) -> str:
     return abs_path
 
 
-# 在类外部预先计算并设置 SQLALCHEMY_DATABASE_URI（Flask-SQLAlchemy
-# 通过 from_object 读取类属性）。
+# 在类外部预先计算并设置 SQLALCHEMY_DATABASE_URI(Flask-SQLAlchemy
+# 通过 from_object 读取类属性).
 def _resolve_db_uri_for_class(cls):
-    """解析数据库连接 URI。
+    """解析数据库连接 URI.
 
-    BLOG_DB_TYPE=mysql 时，若 host/user/db_name 等关键字段缺失则直接抛
-    RuntimeError，禁止静默回退到 SQLite（避免数据写到意料之外的位置，
-    导致备份/恢复走错分支、数据丢失等隐蔽故障）。
+    BLOG_DB_TYPE=mysql 时,若 host/user/db_name 等关键字段缺失则直接抛
+    RuntimeError,禁止静默回退到 SQLite(避免数据写到意料之外的位置,
+    导致备份/恢复走错分支,数据丢失等隐蔽故障).
     """
     db_type = (os.environ.get("BLOG_DB_TYPE") or "sqlite").strip().lower()
     if db_type == "mysql":
@@ -380,11 +379,11 @@ class TestingConfig(Config):
     WTF_CSRF_ENABLED = False  # 测试关闭 CSRF 方便 test_client
     SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    # 测试环境封闭：不受开发者 app.env 的 Host 白名单影响
+    # 测试环境封闭:不受开发者 app.env 的 Host 白名单影响
     HOST_WHITELIST: ClassVar[list[str]] = []
     CANONICAL_URL = ""
     # 测试密钥由 tests/conftest.py 通过 BLOG_SECRET_KEY 环境变量注入,
-    # 不再在代码中硬编码,避免 CI 密钥扫描误报。
+    # 不再在代码中硬编码,避免 CI 密钥扫描误报.
 
 
 # 配置字典
@@ -397,16 +396,16 @@ config_map = {
 
 
 def get_config():
-    """根据 BLOG_ENV 返回对应配置类。
+    """根据 BLOG_ENV 返回对应配置类.
 
-    生产环境（ProductionConfig）必须显式提供会话密钥，否则直接报错：
-    - 完全未设置（BLOG_SECRET_KEY 与 BLOG_SECRET_KEY_FILE 都没有）→ 报错，
-      避免静默使用随机密钥导致登录态失效与加密字段（SMTP 密码）无法解密；
-    - 仍等于仓库里公开的默认密钥 → 报错，该值人人可见，可据此伪造签名 Cookie
-      冒充管理员；容器部署由 docker-entrypoint.sh 自动生成随机密钥并写入
-      ./data/.secret_key（BLOG_SECRET_KEY_FILE），无需人工干预。
+    生产环境(ProductionConfig)必须显式提供会话密钥,否则直接报错:
+    - 完全未设置(BLOG_SECRET_KEY 与 BLOG_SECRET_KEY_FILE 都没有)-> 报错,
+      避免静默使用随机密钥导致登录态失效与加密字段(SMTP 密码)无法解密;
+    - 仍等于仓库里公开的默认密钥 -> 报错,该值人人可见,可据此伪造签名 Cookie
+      冒充管理员;容器部署由 docker-entrypoint.sh 自动生成随机密钥并写入
+      ./data/.secret_key(BLOG_SECRET_KEY_FILE),无需人工干预.
 
-    非生产环境沿用随机兜底，仅对「公开默认密钥」发出告警。
+    非生产环境沿用随机兜底,仅对'公开默认密钥'发出告警.
     """
     env = os.environ.get("BLOG_ENV", "development").lower()
     cls = config_map.get(env, config_map["default"])

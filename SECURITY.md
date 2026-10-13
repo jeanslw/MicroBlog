@@ -6,7 +6,8 @@ This project is maintained by an individual with limited resources, so security 
 
 | Version | Supported |
 | ------- | --------- |
-| v1.2.x | ✅ Currently supported, will receive security updates |
+| v1.3.x | ✅ Currently supported, will receive security updates |
+| v1.2.x | ❌ No longer supported, please upgrade to the latest version |
 | v1.1.x and below | ❌ No longer supported, please upgrade to the latest version |
 
 **Note**: Only the latest stable release receives security fixes. Please subscribe to Releases in this repository to stay informed.

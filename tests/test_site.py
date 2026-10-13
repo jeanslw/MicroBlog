@@ -1,4 +1,4 @@
-"""站点设置与图片上传功能测试。"""
+"""站点设置与图片上传功能测试."""
 
 import io
 
@@ -10,7 +10,7 @@ from app.models import SiteSetting
 def _make_image_bytes(fmt="PNG", size=(50, 50)):
     buf = io.BytesIO()
     Image.new("RGB", size, "white").save(buf, format=fmt)
-    buf.seek(0)  # 重置流位置，避免 PIL 读取到空数据
+    buf.seek(0)  # 重置流位置,避免 PIL 读取到空数据
     return buf
 
 

@@ -1,4 +1,4 @@
-"""评论、点赞、回复功能测试。"""
+"""评论,点赞,回复功能测试."""
 
 from app.models import Comment, Reply, VoteLog
 
@@ -40,7 +40,7 @@ def test_vote_nonexistent_article(client):
 
 
 def test_vote_from_article_list_returns_to_source(client, article, db):
-    """列表页点赞后应回到来源页（而非跳文章详情）"""
+    """列表页点赞后应回到来源页(而非跳文章详情)"""
     rv = client.post(
         f"/vote/{article.id}",
         data={"next": "/?page=2"},
@@ -55,7 +55,7 @@ def test_vote_from_article_list_returns_to_source(client, article, db):
 
 
 def test_vote_ignores_external_next(client, article):
-    """next 指向站外时忽略并回详情页（防开放重定向）"""
+    """next 指向站外时忽略并回详情页(防开放重定向)"""
     rv = client.post(
         f"/vote/{article.id}",
         data={"next": "https://evil.example.com/steal"},
@@ -226,7 +226,7 @@ def test_comments_displayed_on_detail(client, article, db):
     assert "看完了".encode() in rv.data
 
 
-# ── 后台评论管理（删除评论/回复） ────────────────────────
+# ── 后台评论管理(删除评论/回复) ────────────────────────
 def test_comment_manage_requires_login(client, article):
     """未登录访问评论管理应跳转登录页"""
     rv = client.get(f"/comment/manage/{article.id}", follow_redirects=False)
@@ -248,7 +248,7 @@ def test_comment_manage_lists_comments_and_replies(login_admin, article, db):
     assert "待删除评论".encode() in rv.data
     assert "访客乙".encode() in rv.data
     assert "待删除回复".encode() in rv.data
-    # 删除按钮指向评论删除接口（带二次确认）
+    # 删除按钮指向评论删除接口(带二次确认)
     assert f'action="/comment/del/{c.id}"'.encode() in rv.data
 
 
@@ -260,7 +260,7 @@ def test_comment_manage_nonexistent_article(login_admin):
 
 
 def test_comment_delete_cascades_replies(login_admin, article, db):
-    """删除评论时其下的回复应一并删除，并回到该文章的评论管理页"""
+    """删除评论时其下的回复应一并删除,并回到该文章的评论管理页"""
     c = Comment(article_id=article.id, username="u", content="c", create_time="2026-01-01 00:00:00")
     db.session.add(c)
     db.session.commit()
@@ -312,7 +312,7 @@ def test_comment_delete_nonexistent(login_admin):
 
 
 def test_article_manage_shows_comment_count_and_entry(login_admin, article, db):
-    """文章列表应显示评论数，并提供「评论管理」入口"""
+    """文章列表应显示评论数,并提供'评论管理'入口"""
     db.session.add(Comment(article_id=article.id, username="u", content="c", create_time="2026-01-01 00:00:00"))
     db.session.commit()
 

@@ -45,9 +45,9 @@
             -webkit-backdrop-filter: blur(10px);
             border-radius: 14px;
         }
-        /* 侧边栏树形菜单（栏目分类 / 文章档案），首页与文章详情页共用。
-           颜色走 --sidebar-* / --article-* 变量（文章详情页阅读主题定义），未定义时用浅色回退值，
-           修复详情页深色阅读主题下「2026年」等 tree-toggle 文字与背景重合的问题。 */
+        /* 侧边栏树形菜单(栏目分类 / 文章档案),首页与文章详情页共用.
+           颜色走 --sidebar-* / --article-* 变量(文章详情页阅读主题定义),未定义时用浅色回退值,
+           修复详情页深色阅读主题下"2026年"等 tree-toggle 文字与背景重合的问题. */
         .sidebar-nav { font-size: 15px; }
         .tree-toggle { color: var(--sidebar-text, #495057); text-decoration: none; }
         .tree-toggle:hover { color: var(--article-link, #0d6efd); }
@@ -62,11 +62,11 @@
             color: var(--article-link, #0d6efd);
             background: var(--sidebar-item-hover, rgba(13,110,253,.08));
         }
-        /* —— 栏目分类「书本树形」样式（后台站点设置可选 书本/经典） —— */
+        /* ---------- 栏目分类"书本树形"样式(后台站点设置可选 书本/经典) ---------- */
         .cat-toggle { min-width: 1.25rem; display: inline-flex; align-items: center; justify-content: center;
             color: var(--sidebar-muted, #6c757d); transition: color .15s ease; }
         a.cat-toggle:hover { color: var(--article-link, #0d6efd); }
-        /* 收起=闭合书本，展开=填充书本，替代旧「>」箭头 */
+        /* 收起=闭合书本,展开=填充书本,替代旧">"箭头 */
         .cat-book-open { display: none; }
         .tree-toggle[aria-expanded="true"] .cat-book { display: none; }
         .tree-toggle[aria-expanded="true"] .cat-book-open { display: inline-block; }
@@ -83,7 +83,7 @@
 </head>
 <body data-bg="{{ site_bg_style }}"{% if site_bg_custom %} style="--custom-bg: url('{{ site_bg_custom }}')"{% endif %}>
 <script>
-/* 首帧即应用用户保存的背景风格，避免先渲染默认 bg1 再闪到经典风格 */
+/* 首帧即应用用户保存的背景风格,避免先渲染默认 bg1 再闪到经典风格 */
 (function () {
     var supported = ['bg1', 'bg2', 'bg3', 'bg4', 'bg5', 'bg6', 'bg7', 'bg8', 'bg9', 'bg10',
                      'vdysjx', 'bg13', 'custom', 'classic'];
@@ -94,9 +94,9 @@
     }
 })();
 </script>
-<!-- 动态背景层（风格由 themes.css + theme-switcher.js 控制） -->
+<!-- 动态背景层(风格由 themes.css + theme-switcher.js 控制) -->
 <div class="bg-layer" id="bgLayer" aria-hidden="true"></div>
-<!-- Flash Toast 容器（牛皮癣式提示，不占用页面布局） -->
+<!-- Flash Toast 容器(牛皮癣式提示,不占用页面布局) -->
 <div class="toast-container position-fixed top-0 end-0 p-3" id="flashToastContainer"
      style="z-index:3000;" aria-live="polite" aria-atomic="true"></div>
 <nav class="navbar navbar-expand-lg navbar-dark py-1 mb-2">

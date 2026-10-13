@@ -120,7 +120,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }));
     refresh();
 
-    // 栏目分类样式单选卡：点击勾选并移动高亮（输入框隐藏，必须有 JS 反馈否则看起来"选不了"）
+    // 栏目分类样式单选卡:点击勾选并移动高亮(输入框隐藏,必须有 JS 反馈否则看起来"选不了")
     const styleOpts = document.querySelectorAll('.style-option');
     styleOpts.forEach(o => o.addEventListener('click', function () {
         const radio = this.querySelector('input[type="radio"]');
@@ -134,7 +134,7 @@ document.addEventListener('DOMContentLoaded', function () {
 .bg-option { cursor: pointer; border: 2px solid rgba(0,0,0,.12); border-radius: 8px;
     padding: 4px; display: block; text-align: center; transition: border-color .15s; }
 .bg-option.active { border-color: #0d6efd; box-shadow: 0 0 0 2px rgba(13,110,253,.25); }
-/* 背景图库自适应网格：每格最小约 130px，行数随面板宽度自动增减（大屏 ≥5 格/行） */
+/* 背景图库自适应网格:每格最小约 130px,行数随面板宽度自动增减(大屏 ≥5 格/行) */
 .bg-gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: .5rem; }
 .bg-thumb { display: block; width: 100%; height: 52px; border-radius: 5px;
     background-size: cover; background-position: center; }

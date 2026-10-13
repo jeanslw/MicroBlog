@@ -2,7 +2,7 @@
 
 {% block content %}
 <style>
-    /* 左侧管理菜单：毛玻璃半透明 */
+    /* 左侧管理菜单:毛玻璃半透明 */
     .admin-sidebar {
         position: sticky;
         top: 20px;
@@ -64,27 +64,27 @@
         background-color: rgba(220, 53, 69, .12) !important;
         color: #dc3545;
     }
-    /* 左侧管理菜单列：lg+ 在原 col-lg-2（16.7%）基础上适当加宽，
-       clamp 限制极值避免小屏过窄/超宽屏过宽；右侧 .col 自动占满剩余空间 */
+    /* 左侧管理菜单列:lg+ 在原 col-lg-2(16.7%)基础上适当加宽,
+       clamp 限制极值避免小屏过窄/超宽屏过宽;右侧 .col 自动占满剩余空间 */
     @media (min-width: 992px) {
         .admin-aside {
             flex: 0 0 auto;
             width: clamp(240px, 21%, 420px);
         }
     }
-    /* <576px 时菜单变为左侧抽屉（offcanvas-sm）：透明背景承托毛玻璃卡片，
-       宽度随屏幕自适应；>=576px 恢复为左侧固定栏，内容始终在菜单右侧 */
+    /* <576px 时菜单变为左侧抽屉(offcanvas-sm):透明背景承托毛玻璃卡片,
+       宽度随屏幕自适应;>=576px 恢复为左侧固定栏,内容始终在菜单右侧 */
     .admin-aside {
         --bs-offcanvas-width: min(85vw, 320px);
         --bs-offcanvas-bg: transparent;
         --bs-offcanvas-border-width: 0;
     }
-    /* 右侧内容列必须允许收缩（min-width:0）：草稿卡摘要 text-truncate 的
-       nowrap 会撑大列的 min-content，把整个内容列挤到菜单下方换行 */
+    /* 右侧内容列必须允许收缩(min-width:0):草稿卡摘要 text-truncate 的
+       nowrap 会撑大列的 min-content,把整个内容列挤到菜单下方换行 */
     .admin-content-col {
         min-width: 0;
     }
-    /* 右侧内容区统一毛玻璃卡片 —— 双类选择器提升优先级，覆盖 Bootstrap .card */
+    /* 右侧内容区统一毛玻璃卡片  --  双类选择器提升优先级,覆盖 Bootstrap .card */
     .admin-panel-card.card {
         background-color: rgba(255, 255, 255, .55) !important;
         -webkit-backdrop-filter: blur(14px) saturate(160%) !important;
@@ -93,7 +93,7 @@
         box-shadow: 0 8px 32px rgba(0, 0, 0, .12) !important;
         border-radius: 14px !important;
     }
-    /* 统一确认弹窗：毛玻璃 */
+    /* 统一确认弹窗:毛玻璃 */
     .admin-modal-glass {
         background-color: rgba(255, 255, 255, .72) !important;
         -webkit-backdrop-filter: blur(18px) saturate(160%) !important;
@@ -103,13 +103,13 @@
         border-radius: 14px;
     }
 </style>
-<!-- 菜单抽屉按钮（仅 <576px 显示；>=576px 菜单固定在左侧栏） -->
+<!-- 菜单抽屉按钮(仅 <576px 显示;>=576px 菜单固定在左侧栏) -->
 <button class="btn btn-primary d-sm-none mb-3" type="button" data-bs-toggle="offcanvas"
         data-bs-target="#adminSidebar" aria-controls="adminSidebar">
     <i class="bi bi-list"></i> {{ _('管理菜单') }}
 </button>
 <div class="row g-4">
-    <!-- 左侧菜单区：<576px 为抽屉，>=576px 固定左栏，内容区始终位于其右侧 -->
+    <!-- 左侧菜单区:<576px 为抽屉,>=576px 固定左栏,内容区始终位于其右侧 -->
     <aside class="admin-aside offcanvas-sm offcanvas-start col-sm-4 col-md-3"
            id="adminSidebar" tabindex="-1" aria-label="{{ _('管理菜单') }}">
         <div class="offcanvas-header">
@@ -215,7 +215,7 @@
     </section>
 </div>
 
-<!-- 通用确认弹窗（替代原生 confirm） -->
+<!-- 通用确认弹窗(替代原生 confirm) -->
 <div class="modal fade" id="adminConfirmModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content admin-modal-glass">

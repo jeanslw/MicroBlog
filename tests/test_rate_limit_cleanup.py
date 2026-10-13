@@ -1,9 +1,9 @@
-"""限流记录惰性清理的回归（P1）。
+"""限流记录惰性清理的回归(P1).
 
-旧实现把「清理窗口外旧记录」与「插入本次计数」放在同一个事务里，超限时用
-``rollback()`` 表示「本次不计数」—— 结果把清理一起回滚了：越是被限流的
-IP/动作，过期记录越清不掉，``rate_limit`` 表只增不减（且每次请求的清理 SQL
-都要全表扫描）。现在清理先单独提交，判定后仅提交本次插入。
+旧实现把'清理窗口外旧记录'与'插入本次计数'放在同一个事务里,超限时用
+``rollback()`` 表示'本次不计数' --  结果把清理一起回滚了:越是被限流的
+IP/动作,过期记录越清不掉,``rate_limit`` 表只增不减(且每次请求的清理 SQL
+都要全表扫描).现在清理先单独提交,判定后仅提交本次插入.
 """
 
 from datetime import datetime, timedelta
@@ -39,7 +39,7 @@ def test_records_stop_growing_once_limit_reached(app, db):
 
 
 def test_window_expiry_allows_new_requests(app, db):
-    """窗口滑出后应重新放行（阈值按当前时间重算）。"""
+    """窗口滑出后应重新放行(阈值按当前时间重算)."""
     db.session.add(RateLimit(ip="8.8.8.8", action="reply", create_time=_stamp(10)))
     db.session.commit()
 

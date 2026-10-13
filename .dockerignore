@@ -19,14 +19,14 @@ __pycache__/
 .venv
 venv
 
-# 环境变量（绝不打入镜像）
+# 环境变量(不打入镜像)
 .env
 .env.*
 app.env
-# 应用侧变量模板（app.env.example）不含密钥，保留在镜像内便于查阅配置项
+# 应用侧变量模板(app.env.example)不含密钥,保留在镜像内便于查阅配置项
 !app.env.example
 
-# 本地数据（容器内自建或挂载卷）
+# 本地数据(容器内自建或挂载卷)
 data/
 logs/
 backups/
@@ -37,17 +37,17 @@ MyBlog_Admin_Panel.png
 MyBlog_Admin_Panel_ZH-CN.png
 
 
-# 测试与 CI（构建运行时不需要）
+# 测试与 CI(构建运行时不需要)
 tests/
 .github/
 nginx/
 
-# 构建期配置（运行时不需要）
+# 构建期配置(运行时不需要)
 pyproject.toml
 pytest.ini
 messages.pot
 
-# Docker 自身文件，避免循环
+# Docker 自身文件,避免循环
 Dockerfile
 docker-compose.yml
 .dockerignore

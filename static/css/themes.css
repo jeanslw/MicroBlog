@@ -1,11 +1,11 @@
 /* ============================================================
    themes.css - 图片动态背景 + 玻璃拟态透明 UI + 风格切换器
-   body[data-bg] 由后台 SiteSetting.bg_style 决定默认值，
-   theme-switcher.js 支持前台临时切换（localStorage 记忆）。
-   内置背景图库对应 static/backgrounds/ 下的 12 张高清图。
+   body[data-bg] 由后台 SiteSetting.bg_style 决定默认值,
+   theme-switcher.js 支持前台临时切换(localStorage 记忆).
+   内置背景图库对应 static/backgrounds/ 下的 12 张高清图.
    ============================================================ */
 
-/* ---------- 整体缩小（约 85%，含字体/图标/菜单栏） ---------- */
+/* ---------- 整体缩小(约 85%,含字体/图标/菜单栏) ---------- */
 html { font-size: 13.5px; }
 
 /* ---------- 背景层 ---------- */
@@ -14,7 +14,7 @@ html { font-size: 13.5px; }
     inset: 0;
     z-index: -1;
     overflow: hidden;
-    /* 默认（未设置 data-bg 前）即第一张背景图，避免加载闪烁 */
+    /* 默认(未设置 data-bg 前)即第一张背景图,避免加载闪烁 */
     background: url("../backgrounds/250818083142_background1.jpg") center / cover no-repeat;
 }
 .bg-layer::after {
@@ -24,7 +24,7 @@ html { font-size: 13.5px; }
     pointer-events: none;
 }
 
-/* ---------- 内置图库（与 forms.py BG_STYLE_CHOICES 对应） ---------- */
+/* ---------- 内置图库(与 forms.py BG_STYLE_CHOICES 对应) ---------- */
 body[data-bg="bg1"] .bg-layer {
     background: url("../backgrounds/250818083142_background1.jpg") center / cover no-repeat;
 }
@@ -62,7 +62,7 @@ body[data-bg="bg13"] .bg-layer {
     background: url("../backgrounds/250818085901_13.webp") center / cover no-repeat;
 }
 
-/* ---------- 自定义背景（后台上传/URL，CSS 变量由 base.html 输出） ---------- */
+/* ---------- 自定义背景(后台上传/URL,CSS 变量由 base.html 输出) ---------- */
 body[data-bg="custom"] .bg-layer {
     background: var(--custom-bg, url("../backgrounds/250818083142_background1.jpg")) center / cover no-repeat;
 }
@@ -72,18 +72,18 @@ body[data-bg="classic"] .bg-layer {
     background: linear-gradient(180deg, #f5f7fa, #e9edf3);
 }
 
-/* ---------- 图片背景暗色遮罩：保证白字与卡片可读性 ---------- */
+/* ---------- 图片背景暗色遮罩:保证白字与卡片可读性 ---------- */
 body[data-bg]:not([data-bg="classic"]) .bg-layer::after {
     background: rgba(8, 10, 16, 0.28);
 }
 
-/* ---------- 玻璃拟态透明 UI（header/footer/卡片全透明化） ---------- */
+/* ---------- 玻璃拟态透明 UI(header/footer/卡片全透明化) ---------- */
 .navbar {
     background: rgba(15, 18, 28, 0.45) !important;
     backdrop-filter: blur(12px) saturate(1.5);
     -webkit-backdrop-filter: blur(12px) saturate(1.5);
     border-bottom: 1px solid rgba(255, 255, 255, 0.12);
-    /* 滚动时吸顶；层级最高防止被正文/下拉菜单遮挡 */
+    /* 滚动时吸顶;层级最高防止被正文/下拉菜单遮挡 */
     position: sticky;
     top: 0;
     z-index: 1030;
@@ -106,7 +106,7 @@ footer {
     border-radius: 8px;
 }
 .breadcrumb-item a {
-    color: #1a1d24 !important;       /* 跟下面栏目列表深色文字一致，不再抢眼 */
+    color: #1a1d24 !important;       /* 跟下面栏目列表深色文字一致,不再抢眼 */
     font-weight: 600 !important;
     text-decoration: none;
 }
@@ -120,7 +120,7 @@ footer {
     color: #495057 !important;
     font-weight: 600;
 }
-/* 当前页(首页 nav-link.active) 与其他导航视觉一致；不抢眼 + 无下划线（链接功能保留） */
+/* 当前页(首页 nav-link.active) 与其他导航视觉一致;不抢眼 + 无下划线(链接功能保留) */
 .navbar .nav-link,
 .navbar .nav-link.active,
 .navbar .nav-link:focus {
@@ -133,8 +133,8 @@ footer {
     background-color: rgba(255, 255, 255, 0.10) !important;
 }
 
-/* 导航栏下拉菜单层级最高，不被遮挡
-   0.88 白 ≈ 纯白；改 0.60 + 毛玻璃，透出背景色，与全站玻璃风一致 */
+/* 导航栏下拉菜单层级最高,不被遮挡
+   0.88 白 ≈ 纯白;改 0.60 + 毛玻璃,透出背景色,与全站玻璃风一致 */
 .navbar .dropdown-menu {
     z-index: 2000;
     background-color: rgba(255, 255, 255, 0.60) !important;
@@ -152,31 +152,31 @@ footer {
 .navbar .dropdown-divider {
     border-color: rgba(255, 255, 255, 0.40) !important;
 }
-/* ---------- 小屏（<lg）折叠菜单：搜索行置顶右对齐 ----------
-   折叠展开后搜索行默认排在栏目菜单下方；改为纵向 flex 并把
-   搜索行 order:-1 排到最前，视觉上贴右上角，与桌面端搜索位置呼应 */
+/* ---------- 小屏(<lg)折叠菜单:搜索行置顶右对齐 ----------
+   折叠展开后搜索行默认排在栏目菜单下方;改为纵向 flex 并把
+   搜索行 order:-1 排到最前,视觉上贴右上角,与桌面端搜索位置呼应 */
 @media (max-width: 991.98px) {
     .navbar-collapse.show,
     .navbar-collapse.collapsing {
         display: flex;
         flex-direction: column;
-        /* 覆盖 Bootstrap .navbar-collapse 的 align-items:center：
-           纵向布局下它会让子项收缩居中，这里保持占满整行 */
+        /* 覆盖 Bootstrap .navbar-collapse 的 align-items:center:
+           纵向布局下它会让子项收缩居中,这里保持占满整行 */
         align-items: stretch;
     }
-    /* 搜索行（搜索框+按钮+语言切换）排到菜单最顶部，靠右 */
+    /* 搜索行(搜索框+按钮+语言切换)排到菜单最顶部,靠右 */
     .navbar-collapse > .d-flex {
         order: -1;
         justify-content: flex-end;
     }
-    /* .form-control 的 width:100% 会把搜索框撑满整行，这里限制宽度让它靠右 */
+    /* .form-control 的 width:100% 会把搜索框撑满整行,这里限制宽度让它靠右 */
     .navbar-collapse form[role="search"] {
         flex: 0 1 auto;
         max-width: 210px;
     }
 }
-/* 所有卡片/面板/表格统一半透明玻璃 —— 用 background-color 显式声明而非 background shorthand，
-   并把每个属性都加 !important，避免被更高优先级选择器（含 inline <style>）覆盖。 */
+/* 所有卡片/面板/表格统一半透明玻璃  --  用 background-color 显式声明而非 background shorthand,
+   并把每个属性都加 !important,避免被更高优先级选择器(含 inline <style>)覆盖. */
 .card,
 .sidebar-box,
 .blog-card,
@@ -189,15 +189,15 @@ footer {
     border: 1px solid rgba(255, 255, 255, 0.25) !important;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12) !important;
 }
-/* 后台右侧功能区卡片：比全局 .card 稍亮，便于在复杂壁纸上看清内容 */
+/* 后台右侧功能区卡片:比全局 .card 稍亮,便于在复杂壁纸上看清内容 */
 .admin-panel-card,
 .admin-panel-card.card {
     background-color: rgba(255, 255, 255, 0.65) !important;
     border-color: rgba(255, 255, 255, 0.45) !important;
 }
 
-/* 侧边栏目栏：背景加深方便深色粗体文字读得清；标题与链接字加粗、加深，提升对比度。
-   解决卡片玻璃底 + bootstrap 默认 .nav-link 浅蓝/普通权重在深色背景下看不清的问题。 */
+/* 侧边栏目栏:背景加深方便深色粗体文字读得清;标题与链接字加粗,加深,提升对比度.
+   解决卡片玻璃底 + bootstrap 默认 .nav-link 浅蓝/普通权重在深色背景下看不清的问题. */
 .sidebar-box {
     background-color: rgba(255, 255, 255, 0.78) !important;
     border-color: rgba(255, 255, 255, 0.45) !important;
@@ -226,8 +226,8 @@ footer {
     color: #495057 !important;
     font-weight: 400;
 }
-/* 管理页页头胶囊：浅色高对比玻璃，与正文深色玻璃卡片分层。
-   解决 .card(45%白) 在深背景下看不出卡片轮廓的问题。 */
+/* 管理页页头胶囊:浅色高对比玻璃,与正文深色玻璃卡片分层.
+   解决 .card(45%白) 在深背景下看不出卡片轮廓的问题. */
 .page-header-card {
     background-color: rgba(255, 255, 255, 0.78) !important;
     background-image: none !important;
@@ -245,8 +245,8 @@ footer {
     border-radius: 8px;
     overflow: hidden;
 }
-/* Bootstrap 5 用 .table 之外的子选择器(.table > :not(caption) > * > *) 以 box-shadow 实现背景，
-   因此仅覆盖 .table 仍会留下纯白 td/th。把子元素也强制透明玻璃，并把条纹 box-shadow 清掉。 */
+/* Bootstrap 5 用 .table 之外的子选择器(.table > :not(caption) > * > *) 以 box-shadow 实现背景,
+   因此仅覆盖 .table 仍会留下纯白 td/th.把子元素也强制透明玻璃,并把条纹 box-shadow 清掉. */
 .table,
 .table > :not(caption) > * > * {
     background-color: rgba(255, 255, 255, 0.45) !important;
@@ -268,7 +268,7 @@ footer {
     color: #1a1d24 !important;
     border-bottom: 1px solid rgba(255, 255, 255, 0.20) !important;
 }
-/* alert-light 占位（"暂无草稿""暂无轮播广告"等）也走玻璃 */
+/* alert-light 占位("暂无草稿""暂无轮播广告"等)也走玻璃 */
 .alert.alert-light {
     background-color: rgba(255, 255, 255, 0.45) !important;
     background-image: none !important;
@@ -277,13 +277,13 @@ footer {
     backdrop-filter: blur(12px) saturate(1.3);
     -webkit-backdrop-filter: blur(12px) saturate(1.3);
 }
-/* 浅灰块（评论回复、表单背景等）也半透明 */
+/* 浅灰块(评论回复,表单背景等)也半透明 */
 .bg-light {
     background: rgba(255, 255, 255, 0.30) !important;
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
 }
-/* 表单控件半透明玻璃（全部模块统一） */
+/* 表单控件半透明玻璃(全部模块统一) */
 .form-control,
 .form-select {
     background: rgba(255, 255, 255, 0.28) !important;
@@ -305,7 +305,7 @@ footer {
     -webkit-backdrop-filter: blur(8px);
 }
 
-/* ---------- 语言切换（低调、小字体、无边框） ---------- */
+/* ---------- 语言切换(低调,小字体,无边框) ---------- */
 .lang-toggle {
     border: none;
     background: transparent;
@@ -322,13 +322,13 @@ footer {
     background: rgba(255, 255, 255, 0.12);
     color: #fff;
 }
-/* 去掉下拉箭头，更隐蔽 */
+/* 去掉下拉箭头,更隐蔽 */
 .lang-toggle::after { display: none; }
 
-/* ---------- Flash Toast（牛皮癣式提示，悬浮右上角不占布局） ----------
- * 默认外观：深色半透明玻璃 + 白色关闭键。
- * 注意：.flash-toast-close 必须用白色滤镜，不要用 brightness()——那会覆盖
- * bootstrap .btn-close-white 的 invert 滤镜，让黑 X 落在深色底上看不见。 */
+/* ---------- Flash Toast(牛皮癣式提示,悬浮右上角不占布局) ----------
+ * 默认外观:深色半透明玻璃 + 白色关闭键.
+ * 注意:.flash-toast-close 必须用白色滤镜,不要用 brightness() -- 那会覆盖
+ * bootstrap .btn-close-white 的 invert 滤镜,让黑 X 落在深色底上看不见. */
 .flash-toast {
     background: rgba(15, 18, 28, 0.55);
     backdrop-filter: blur(12px) saturate(1.4);
@@ -342,14 +342,14 @@ footer {
 .flash-toast .toast-body { padding: 8px 12px; }
 .flash-toast-icon { font-size: 1rem; color: #c8d3e0; }
 .flash-toast-close { filter: invert(1) grayscale(100%) brightness(200%); }
-/* 成功类（登录成功/点赞成功等）：绿色玻璃底，白字白 X 对比更清晰 */
+/* 成功类(登录成功/点赞成功等):绿色玻璃底,白字白 X 对比更清晰 */
 .flash-toast.flash-toast-success {
     background: linear-gradient(135deg, rgba(25, 135, 84, 0.9), rgba(46, 158, 105, 0.82));
     border-color: rgba(255, 255, 255, 0.35);
 }
 .flash-toast.flash-toast-success .flash-toast-icon { color: #e6fff1; }
 
-/* ---------- 导航栏 Logo（显示尺寸受限，不超出导航高度） ---------- */
+/* ---------- 导航栏 Logo(显示尺寸受限,不超出导航高度) ---------- */
 .navbar-logo {
     height: 30px;
     width: auto;
@@ -369,7 +369,7 @@ footer {
     background: rgba(255, 255, 255, 0.6);
 }
 
-/* ---------- 鼠标移动跟随粒子特效（仅桌面端生效，不拦截鼠标事件） ---------- */
+/* ---------- 鼠标移动跟随粒子特效(仅桌面端生效,不拦截鼠标事件) ---------- */
 #cursorFx {
     position: fixed;
     inset: 0;
@@ -387,7 +387,7 @@ footer {
     box-shadow: 0 0 8px rgba(255, 255, 255, 0.45);
 }
 
-/* ---------- 弹窗（评论等）统一玻璃拟态 ---------- */
+/* ---------- 弹窗(评论等)统一玻璃拟态 ---------- */
 .modal-content {
     background: rgba(255, 255, 255, 0.60);
     backdrop-filter: blur(14px) saturate(1.4);
@@ -396,7 +396,7 @@ footer {
     border-radius: 12px;
 }
 
-/* ---------- 首页轮播图：玻璃边框 + 文字毛玻璃胶囊 ---------- */
+/* ---------- 首页轮播图:玻璃边框 + 文字毛玻璃胶囊 ---------- */
 .carousel {
     border: 1px solid rgba(255, 255, 255, 0.25);
     border-radius: 16px;
@@ -417,7 +417,7 @@ footer {
 .carousel-caption h5 { margin-bottom: 2px; }
 .carousel-caption p { margin-bottom: 0; }
 
-/* ---------- footer 布局：copyright 居中，订阅图标绝对定位不挤压 ---------- */
+/* ---------- footer 布局:copyright 居中,订阅图标绝对定位不挤压 ---------- */
 .footer-inner {
     position: relative;
     display: flex;
@@ -528,7 +528,7 @@ footer {
     text-overflow: ellipsis;
 }
 
-/* 内置图缩略图（切换器面板） */
+/* 内置图缩略图(切换器面板) */
 .sw-bg1 { background-image: url("../backgrounds/250818083142_background1.jpg"); }
 .sw-bg2 { background-image: url("../backgrounds/250818083143_background2.jpg"); }
 .sw-bg3 { background-image: url("../backgrounds/250818083142_background3.jpg"); }
@@ -547,7 +547,7 @@ footer {
 }
 .sw-classic { background: linear-gradient(180deg, #f5f7fa, #e9edf3); }
 
-/* ---------- 无障碍：减少动态效果 ---------- */
+/* ---------- 无障碍:减少动态效果 ---------- */
 @media (prefers-reduced-motion: reduce) {
     * { transition: none !important; animation: none !important; }
 }

@@ -1,7 +1,7 @@
-"""冒烟测试：核心链路健康检查。
+"""冒烟测试:核心链路健康检查.
 
-覆盖：公开页面可达性、静态资源加载、后台登录保护、
-404 处理、flash 消息以 Toast（牛皮癣式）形式输出且不占用页面布局。
+覆盖:公开页面可达性,静态资源加载,后台登录保护,
+404 处理,flash 消息以 Toast(牛皮癣式)形式输出且不占用页面布局.
 """
 
 import json
@@ -12,14 +12,14 @@ from app.models import Article
 
 
 def _flash_payload(html):
-    """从页面 HTML 提取 id="flashData" 的 JSON 并解析。"""
+    """从页面 HTML 提取 id="flashData" 的 JSON 并解析."""
     m = re.search(r'<script type="application/json" id="flashData">(.*?)</script>', html, re.S)
     assert m, "页面应注入 id=flashData 的 JSON（Toast 数据源）"
     return json.loads(m.group(1))
 
 
 def test_homepage_smoke(client, article):
-    """首页可达，UI 骨架完整：背景层 + Toast 容器 + 主题切换器"""
+    """首页可达,UI 骨架完整:背景层 + Toast 容器 + 主题切换器"""
     rv = client.get("/")
     assert rv.status_code == 200
     html = rv.get_data(as_text=True)
@@ -54,7 +54,7 @@ def test_background_image_smoke(client):
 
 
 def test_public_pages_smoke(client, article, category):
-    """公开页面：首页 / 栏目页 / 文章详情"""
+    """公开页面:首页 / 栏目页 / 文章详情"""
     for url in (
         "/",
         f"/category/{category.id}",
@@ -82,7 +82,7 @@ def test_admin_requires_login(client):
 
 
 def test_login_failure_flash_as_toast(client):
-    """登录失败消息以 Toast JSON 注入，而非页面内 alert 占位"""
+    """登录失败消息以 Toast JSON 注入,而非页面内 alert 占位"""
     rv = client.post(
         "/admin/login",
         data={
