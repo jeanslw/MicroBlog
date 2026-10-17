@@ -14,7 +14,48 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # 发布前的闸门:Release 的版本必须与推送的 tag 一致.
+  # release notes 一律取自 docs/CHANGELOG.md 中该 tag 对应的章节,抓不到就中止,
+  # 避免发出"标题写 v1.4.0、正文却是占位提示"这种版本与 tag 对不上的 Release.
+  verify-release-version:
+    name: Verify the release matches the tag
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Check the changelog has a section for this tag
+        run: |
+          set -euo pipefail
+          python3 - "${{ github.ref_name }}" <<'PY'
+          import re
+          import sys
+          from pathlib import Path
+
+          tag = sys.argv[1]
+          # v1.4.0-rc1 -> 1.4.0:预发布后缀不参与章节匹配
+          expected = tag.split("-", 1)[0].lstrip("v")
+          # 与下方 release notes 抽取步骤同一套标题规则:## v0.0.0 ... 与 ## [v0.0.0] ...
+          heading_re = re.compile(r"^##\s+\[?(?:v?)(\d+\.\d+\.\d+)\]?")
+          changelog = Path("docs/CHANGELOG.md")
+
+          if not changelog.exists():
+              print("::error::docs/CHANGELOG.md 不存在,无法生成该 tag 的 release notes")
+              sys.exit(1)
+
+          found = False
+          for line in changelog.read_text(encoding="utf-8-sig").splitlines():
+              m = heading_re.match(line)
+              if m and m.group(1) == expected:
+                  found = True
+                  break
+          if not found:
+              print(f"::error::docs/CHANGELOG.md 中没有 {tag} 的章节,release notes 与 tag 不一致,发布已中止")
+              sys.exit(1)
+          print(f"release notes 将取自 docs/CHANGELOG.md 的 v{expected} 章节")
+          PY
+
   release:
+    needs: verify-release-version
     runs-on: ubuntu-latest
     steps:
       # 所有 action 一律 pin 到完整 commit SHA(GitHub 官方供应链安全建议):
@@ -107,9 +148,14 @@ jobs:
             create_release
           fi
 
-          # 最终校验:确认 release 已正式发布
+          # 最终校验:确认 release 已正式发布,且该 Release 挂的就是本次推送的 tag
           if ! gh release view "$VERSION" --json isDraft --jq '.isDraft' 2>/dev/null | grep -q '^false$'; then
             echo "::error::Release ${VERSION} is still not published"
+            exit 1
+          fi
+          RELEASE_TAG="$(gh release view "$VERSION" --json tagName --jq .tagName)"
+          if [ "$RELEASE_TAG" != "$VERSION" ]; then
+            echo "::error::Release ${VERSION} is attached to tag ${RELEASE_TAG}"
             exit 1
           fi
           echo "Release ${VERSION} is live"

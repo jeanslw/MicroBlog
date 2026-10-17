@@ -103,8 +103,14 @@ v<主版本>.<次版本>.<补丁>[-<预发布标识>]
 1. 更新 `config.py` 中的 `APP_VERSION`（并同步 `ruff.toml` 头部注释里的「项目版本」行）。
 2. 在 `docs/CHANGELOG.md`（英文）与 `docs/更新日志.md`（中文）顶部新增条目（沿用现有标题格式）：
    ```
-   ## [X.X.X] - YYYY-MM-DD
-   - 变更描述
+   ## vX.X.X (YYYY-MM-DD)
+
+   - **新增**
+     - 变更描述
+   - **修复**
+     - 变更描述
+   - **优化**
+     - 变更描述
    ```
 3. 提交变更。
 4. 创建并推送 Tag：
@@ -112,7 +118,7 @@ v<主版本>.<次版本>.<补丁>[-<预发布标识>]
    git tag vX.X.X
    git push origin vX.X.X
    ```
-5. GitHub Actions 自动从 `docs/CHANGELOG.md` 创建 Release。
+5. GitHub Actions 从 `docs/CHANGELOG.md` 创建 Release：先校验该文件中存在本次 Tag 对应的章节（不存在则中止），发布后再断言该 Release 挂载的就是这个 Tag。
 
 ### 6. 发起 Pull Request (PR)
 
