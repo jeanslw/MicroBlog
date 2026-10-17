@@ -103,8 +103,14 @@ v<major>.<minor>.<patch>[-<prerelease>]
 1. Update `APP_VERSION` in `config.py` (and keep the `项目版本` / project version line in the `ruff.toml` header in sync).
 2. Add an entry at the top of `docs/CHANGELOG.md` (English) and `docs/更新日志.md` (Chinese), following the existing heading format:
    ```
-   ## [X.X.X] - YYYY-MM-DD
-   - change description
+   ## vX.X.X (YYYY-MM-DD)
+
+   - **Added**
+     - change description
+   - **Fixed**
+     - change description
+   - **Improved**
+     - change description
    ```
 3. Commit the changes.
 4. Create and push the tag:
@@ -112,7 +118,7 @@ v<major>.<minor>.<patch>[-<prerelease>]
    git tag vX.X.X
    git push origin vX.X.X
    ```
-5. GitHub Actions automatically creates the Release from `docs/CHANGELOG.md`.
+5. GitHub Actions builds the Release from `docs/CHANGELOG.md`. It aborts unless the changelog has a section for the pushed tag, and after publishing it asserts that the Release is attached to that same tag.
 
 ### 6. Open a Pull Request (PR)
 
