@@ -159,7 +159,7 @@ CREATE TABLE IF NOT EXISTS `mail_setting` (
   `mail_host` varchar(200) DEFAULT '' COMMENT 'SMTP 服务器（后台配置优先于 app.env）',
   `mail_port` int DEFAULT 587 COMMENT 'SMTP 端口',
   `mail_user` varchar(200) DEFAULT '' COMMENT 'SMTP 用户名',
-  `mail_password` varchar(200) DEFAULT '' COMMENT 'SMTP 密码/授权码（Fernet 加密后落库）',
+  `mail_password` varchar(200) DEFAULT '' COMMENT 'SMTP 密码/授权码（Fernet 加密后存储）',
   `mail_from` varchar(200) DEFAULT '' COMMENT '发件人邮箱',
   `mail_use_ssl` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否使用 SSL（465）',
   `mail_use_tls` tinyint(1) NOT NULL DEFAULT '1' COMMENT '是否使用 STARTTLS（587）',

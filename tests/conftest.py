@@ -1,7 +1,4 @@
-"""Pytest 公共 fixtures.
-
-测试使用 TestingConfig(内存 SQLite + 关闭 CSRF),可重复运行互不影响.
-"""
+"""Pytest 公共 fixtures：使用 TestingConfig（内存 SQLite + 关闭 CSRF），各用例互不影响。"""
 
 import logging
 import os
@@ -14,37 +11,27 @@ import pytest
 os.environ.setdefault("BLOG_ENV", "testing")
 os.environ.setdefault("BLOG_INIT_ADMIN_USER", "admin")
 os.environ.setdefault("BLOG_INIT_ADMIN_PWD", "admin123456")
-# 测试用固定 SECRET_KEY,避免不同进程随机生成
+# 测试用固定 SECRET_KEY，避免各进程随机生成
 os.environ.setdefault("BLOG_SECRET_KEY", "testing-secret-key-do-not-use-in-prod")
 
-# 对"改变测试语义"的开关强制赋值(不用 setdefault):本机 app.env 会经
-# config.py 顶部的 dotenv 载入进程环境(如维护模式实验遗留的
-# BLOG_AUTO_MIGRATE=false),setdefault 不覆盖既有值会让整套测试跑在
-# 手动迁移语义下(test_startup_auto_mode_* 断言维护标志必然失败).
-# 测试要求确定性的自动模式;需要手动模式的用例在用例内自行改 app.config.
+# 强制覆盖会改变测试语义的开关；需要手动模式的用例在用例内自行改 app.config
 os.environ["BLOG_AUTO_MIGRATE"] = "true"
 os.environ["BLOG_ALLOW_SCHEMA_AHEAD"] = "false"
 
-# 日志目录也必须在 config 导入前重定向:LOG_DIR 在 config.py 按绝对路径
-# 计算,不随 project_root 重定向.不隔离的话每次跑全套测试,几百次
-# create_app 产生的"初始管理员账号已创建"/http_request 会写进真实 logs/app.log.
+# LOG_DIR 不随 project_root 重定向，须在 config 导入前隔离
 _TEST_LOG_DIR = tempfile.mkdtemp(prefix="blog_test_logs_")
 os.environ.setdefault("BLOG_LOG_DIR", _TEST_LOG_DIR)
 
 
 @pytest.fixture(scope="session")
 def _tmp_project_root():
-    """会话级临时项目根:所有 uploads/backups 落盘重定向到这里,结束后清理.
+    """会话级临时项目根：所有 uploads / backups 写入重定向到此处，结束后清理。
 
-    必须在 create_app 之前替换 app.utils.project_root  --  启动时的
-    migrate_legacy_upload_dirs() 与请求中的 upload_dir() 都经它定位目录,
-    否则测试上传的小图会写进仓库真实 uploads/(历史污染问题).
+    必须在 create_app 之前替换 app.utils.project_root，否则测试上传会写入仓库真实 uploads/。
     """
     tmp = tempfile.mkdtemp(prefix="blog_test_root_")
     yield tmp
-    # 先关闭测试 app 挂在全局 logger 上的文件 handler:Windows 下句柄
-    # 不释放,临时日志目录里的 app.log 会被锁定导致 rmtree 静默失败,
-    # TEMP 中目录逐次堆积.
+    # 先关闭文件 handler，否则 Windows 下句柄未释放会让 rmtree 失败
     for logger_name in ("blog", "app", "blog.slowsql"):
         lg = logging.getLogger(logger_name)
         for h in list(lg.handlers):
@@ -62,16 +49,13 @@ def app(_tmp_project_root, monkeypatch):
     from app import create_app
     from app.extensions import db as _db
 
-    # 全局重定向 project_root:upload_dir / 备份目录 / 上传文件存在性检查
-    # 全部落到临时目录.各测试内更细粒度的 monkeypatch 会临时覆盖并自动还原.
+    # 重定向 project_root，使上传 / 备份 / 资源检查全部落到临时目录
     monkeypatch.setattr(utils, "project_root", lambda: _tmp_project_root)
 
     a = create_app("testing")
 
     with a.app_context():
         _db.create_all()
-        # 初始化:schema 版本戳记(全新库直接戳当前版本,无待迁移)
-        # + 三张单行配置表 + 管理员
         from app.database import ensure_admin_exists, ensure_default_settings, run_schema_migrations
 
         run_schema_migrations()

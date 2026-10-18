@@ -13,8 +13,24 @@
   - Admin Guide in both languages and an upgrading chapter.
 - **Fixed**
   - Database backups work with non-root accounts.
+  - Password reset links no longer carry the password hash.
+  - The site enters maintenance mode when a schema migration fails.
+  - Database errors roll back the session before fallback.
+  - MySQL passwords are URL-encoded in the connection URI.
+  - Article deletion no longer reports failure after commit.
+  - Admin article and draft lists are paginated.
+  - Concurrent first visits to admin settings pages no longer collide.
+  - Very large page numbers no longer cause a server error.
+  - Admin error messages no longer expose raw exception text.
+  - Article and settings forms report validation errors.
+  - Orphan-image lookup matches keywords literally.
+  - Table-of-contents anchors skip unpaired heading tags.
+  - Language switching uses a POST request.
+  - Failed comments and replies roll back and report the failure.
+  - GIF animations keep frame count, per-frame duration and loop count.
 - **Improved**
   - Dead code removed.
+  - Standardized comment wording.
 
 ## v1.3.5 (2026-09-16)
 

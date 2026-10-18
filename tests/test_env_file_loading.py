@@ -72,7 +72,7 @@ def test_app_env_is_loaded_and_wins_over_legacy_env(tmp_path, files, expected):
 
 
 def test_legacy_env_is_read_as_fallback_with_warning(tmp_path):
-    """app.env 缺失时回退读取旧版 .env,并提示迁移(避免老用户配置静默失效)."""
+    """app.env 缺失时回退读取旧版 .env,并提示迁移(避免老用户配置失效且无提示)."""
     result = _import_config_with(tmp_path, **{".env": "BLOG_DB_TYPE=sqlite\n"})
     assert result["DB_TYPE"] == "sqlite"
     assert "app.env" in result["WARN"]

@@ -75,7 +75,7 @@ def test_failed_migration_is_not_stamped_and_retries(app, db):
     """P1 回归:迁移函数抛异常时框架不戳记,版本不推进,修好后重试成功.
 
     若迁移函数内部吞掉异常,run_schema_migrations 仍会把该版本戳成'已应用',
-    失败就再也不会重试 -- 用户配置静默丢失.这里验证:失败 -> 版本停在基线,
+    失败就再也不会重试 -- 用户配置丢失且无提示.这里验证:失败 -> 版本停在基线,
     旧表保留;修好原因后重试 -> 成功戳记并推进版本.
     """
     _reset_to_legacy()
@@ -217,8 +217,10 @@ def test_startup_step_never_blocks_startup_on_error(app, db, monkeypatch):
         raise RuntimeError("db 不可用")
 
     monkeypatch.setattr(database_module, "run_schema_migrations", boom)
-    run_startup_schema_migrations(app)  # 不抛异常
-    assert app.config.get("SCHEMA_UPGRADE_PENDING") is None
+    run_startup_schema_migrations(app)  # 不抛异常：应用本身仍能启动
+    # 异常不再静默放行：置维护标志，闸门对外返回 503 升级页，
+    # 避免带未迁移 schema 继续服务
+    assert app.config.get("SCHEMA_UPGRADE_PENDING") is True
 
 
 def test_startup_refuses_boot_when_db_ahead(app, db):

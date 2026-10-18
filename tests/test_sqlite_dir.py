@@ -16,7 +16,7 @@ import config as config_module
 
 
 def test_prepare_sqlite_dir_creates_missing_parent(tmp_path):
-    """父目录缺失时自动创建(全新部署 data/ 不存在也能首启建库)."""
+    """父目录缺失时自动创建(全新部署 data/ 不存在也能首次启动建库)."""
     target = os.path.abspath(os.path.join(str(tmp_path), "data", "blog.db"))
     assert config_module._prepare_sqlite_dir(target) == target
     assert os.path.isdir(os.path.dirname(target))

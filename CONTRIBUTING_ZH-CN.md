@@ -41,8 +41,10 @@
 - 使用 `python run.py` 启动开发服务器（默认 SQLite，生产环境可选 MySQL）。
 
 ### 3. 编写代码
-- **代码风格**：Python 代码遵循 **PEP 8**，并通过 **ruff** 检查。提交前请运行 `ruff check app config.py run.py tests`。请务必在仓库根目录执行：规则集固定在随代码进版本库的 `ruff.toml` 中（E/F/I/UP/B/SIM/C4/RUF，行宽 120）。缺少该文件时 ruff 会静默退回其更宽泛的内置默认规则集（400+ 条），从而报出一堆与项目风格无关的错误。
-- **测试**：在 `tests/` 中为新功能或修复编写相应测试，并确保现有测试全部通过：`pytest`（135+ 项）。
+- **代码风格**：Python 代码遵循 **PEP 8**，并通过 **ruff** 检查。提交前请运行 `ruff check app config.py run.py tests`。请务必在仓库根目录执行：规则集固定在随代码进版本库的 `ruff.toml` 中（E/F/I/UP/B/SIM/C4/RUF，行宽 120）。缺少该文件时 ruff 会退回其更宽泛的内置默认规则集（400+ 条），从而报出一堆与项目风格无关的错误。
+- **类型检查**：Python 代码须通过 **mypy** 检查，配置固定在仓库根目录 `mypy.ini` 中。提交前请运行 `mypy`（不带参数，检查范围由该文件声明）；与 ruff 相同，须在仓库根目录执行，否则读不到该文件。
+- **`mypy.ini` 的注释必须保持纯 ASCII**：mypy 经 Python 标准库的 `configparser` 读取配置，后者按本地语言编码解码文件；zh-CN Windows 下该编码为 GBK，写入中文注释会让 mypy 以 `UnicodeDecodeError` 退出。`ruff.toml` 不受此限制——ruff 由 Rust 实现，始终按 UTF-8 读取。
+- **测试**：在 `tests/` 中为新功能或修复编写相应测试，并确保现有测试全部通过：`pytest`（368+ 项）。
 - **前端**：模板位于 `templates/`，静态资源位于 `static/`。新增 JS/CSS 必须本地化（不使用 CDN），并遵循现有的玻璃拟态主题体系（`static/css/themes.css`、`static/js/theme-switcher.js`）。
 - **文档**：你的贡献必须包含或更新相关文档，包括：
     - 更新 `README.md` / `README_ZH-CN.md` 中的使用说明。

@@ -15,7 +15,7 @@ from flask_babel import _
 from sqlalchemy.exc import IntegrityError
 
 from app.comment import comment_bp
-from app.extensions import db, flash_form_errors, get_client_ip, rate_limit, safe_redirect_path
+from app.extensions import db, flash_form_errors, get_client_ip, log, rate_limit, safe_redirect_path
 from app.forms import CommentForm, ReplyForm
 from app.models import Article, Comment, Reply, VoteLog
 
@@ -102,7 +102,14 @@ def add_comment(aid):
         create_time=now,
     )
     db.session.add(comment)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except Exception:
+        # 与 vote / article_del 一致：异常后须 rollback，否则 Session 处于待回滚态
+        db.session.rollback()
+        log.error("发布评论失败 aid=%s", aid, exc_info=True)
+        flash(_("评论发布失败，请稍后重试"), "danger")
+        return redirect(url_for("blog.article_detail", aid=aid))
     flash(_("评论发布成功"), "success")
     return redirect(url_for("blog.article_detail", aid=aid))
 
@@ -138,6 +145,13 @@ def add_reply(aid, cid):
         create_time=now,
     )
     db.session.add(reply)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except Exception:
+        # 同上：异常后须 rollback，且要把失败提示给访客，避免内容丢失无感知
+        db.session.rollback()
+        log.error("发布回复失败 aid=%s cid=%s", aid, cid, exc_info=True)
+        flash(_("回复失败，请稍后重试"), "danger")
+        return redirect(url_for("blog.article_detail", aid=aid))
     flash(_("回复成功"), "success")
     return redirect(url_for("blog.article_detail", aid=aid))

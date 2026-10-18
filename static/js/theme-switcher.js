@@ -1,11 +1,7 @@
 /**
- * theme-switcher.js - 背景风格切换器
- * 默认风格来自后台 SiteSetting.bg_style(base.html 输出到 body[data-bg]),
- * 前台用户可临时切换并持久化到 localStorage(key: blog-bg-style),
- * 优先于后台默认值.
- *
- * 切换按钮支持拖拽(鼠标/触摸),位置持久化到 localStorage
- * (key: blog-bg-switcher-pos);拖拽距离小于阈值视为点击,展开/收起面板.
+ * 背景风格切换器。默认风格取自后台 SiteSetting.bg_style（base.html 输出到 body[data-bg]），
+ * 前台可临时切换并持久化到 localStorage（key: blog-bg-style），优先于后台默认值。
+ * 切换按钮支持鼠标/触摸拖拽，位置持久化到 localStorage（key: blog-bg-switcher-pos）。
  */
 (function () {
     'use strict';
@@ -90,9 +86,7 @@
         startRight = pos.right;
         startBottom = pos.bottom;
         if (toggle) toggle.classList.add('sw-dragging');
-        // 仅对鼠标事件调用 preventDefault.触摸设备上阻止 touchstart 的默认
-        // 行为会抑制浏览器后续合成的 click 事件,导致小屏点按无反应(面板
-        // 打不开).触摸滚动冲突已由 CSS .theme-toggle 的 touch-action:none 阻止.
+        // 仅对鼠标事件调用 preventDefault；触摸设备上阻止 touchstart 会抑制后续合成的 click
         if (!e.touches) e.preventDefault();
     }
 
@@ -186,7 +180,7 @@
                 setActive(name);
                 try {
                     localStorage.setItem(STORAGE_KEY, name);
-                } catch (e) { /* 隐私模式下静默失败 */ }
+                } catch (e) { /* 隐私模式下无提示失败 */ }
                 panel.hidden = true;
             });
         });

@@ -9,7 +9,7 @@
 1) 生产环境下'公开默认密钥'与'完全未配置'一律拒绝启动;
 2) 支持 ``BLOG_SECRET_KEY_FILE``(容器入口脚本生成的 ./data/.secret_key),
    密钥本体不必出现在环境变量 / ``docker inspect`` 里;
-3) 开发环境仍用随机值兜底,不阻断本地开发;
+3) 开发环境仍用随机值,不阻断本地开发;
 4) ``docker-compose.yml`` 的 web 服务不得再注入那个公开默认密钥.
 """
 
@@ -23,13 +23,9 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PUBLIC_DEFAULT = "insecure-compose-default-key-CHANGE-ME-0123456789abcdef"
-# 显式用户密钥的测试占位符(非真实凭证).security.yml 的扫描已改为只匹配
-# 真实凭证格式(glpat-/ghp_/github_pat_/AKIA/xox.../私钥块),普通占位串不会
-# 误报 -- 早期为规避旧版宽泛正则而拆分字符串的写法已无必要,随 ruff format 合并还原.
 EXPLICIT_KEY = "my-own-strong-key"
 
-# 导入 config 会执行 load_dotenv()(按 config.py 所在目录找 app.env),
-# 故把真实 config.py 复制到临时目录再导入,避免读到开发者本机的 app.env
+# 导入 config 会执行 load_dotenv()，故把 config.py 复制到临时目录再导入，避免读到开发者本机的 app.env
 _PROBE = (
     "import config\n"
     "print('KEY=' + config.Config.SECRET_KEY)\n"
@@ -108,7 +104,7 @@ def test_unreadable_key_file_still_refuses_in_production(tmp_path):
 
 
 def test_development_falls_back_to_random_key(tmp_path):
-    """开发环境不设密钥时用一次性随机值兜底,不阻断本地开发."""
+    """开发环境不设密钥时用一次性随机值,不阻断本地开发."""
     out = _probe(tmp_path, BLOG_ENV="development")
     assert out["CONFIG"] == "OK"
     assert out["KEY"] != PUBLIC_DEFAULT

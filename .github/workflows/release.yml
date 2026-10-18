@@ -14,9 +14,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  # 发布前的闸门:Release 的版本必须与推送的 tag 一致.
-  # release notes 一律取自 docs/CHANGELOG.md 中该 tag 对应的章节,抓不到就中止,
-  # 避免发出"标题写 v1.4.0、正文却是占位提示"这种版本与 tag 对不上的 Release.
+  # 发布闸门：Release 版本须与推送的 tag 一致，notes 取自 CHANGELOG.md 对应章节
   verify-release-version:
     name: Verify the release matches the tag
     runs-on: ubuntu-latest
@@ -32,9 +30,9 @@ jobs:
           from pathlib import Path
 
           tag = sys.argv[1]
-          # v1.4.0-rc1 -> 1.4.0:预发布后缀不参与章节匹配
+          # 预发布后缀不参与章节匹配：v1.4.0-rc1 -> 1.4.0
           expected = tag.split("-", 1)[0].lstrip("v")
-          # 与下方 release notes 抽取步骤同一套标题规则:## v0.0.0 ... 与 ## [v0.0.0] ...
+          # 标题规则：## v0.0.0 ... 与 ## [v0.0.0] ...
           heading_re = re.compile(r"^##\s+\[?(?:v?)(\d+\.\d+\.\d+)\]?")
           changelog = Path("docs/CHANGELOG.md")
 
@@ -88,7 +86,7 @@ jobs:
               body = "⚠️ CHANGELOG.md not found"
           else:
               out, found = [], False
-              # 兼容标题格式:## v0.0.0 ... 与 ## [v0.0.0] ...
+              # 标题格式：## v0.0.0 ... 与 ## [v0.0.0] ...
               heading_re = re.compile(r"^##\s+\[?(?:v?)(\d+\.\d+\.\d+)\]?")
               lines = changelog.read_text(encoding="utf-8-sig").splitlines()
               for line in lines:
@@ -130,7 +128,7 @@ jobs:
             TARGET="$(gh release view "$VERSION" --json targetCommitish --jq .targetCommitish)"
             echo "Existing release ${VERSION} (target=${TARGET}, HEAD=${HEAD_SHA})"
             if [ "$TARGET" != "$HEAD_SHA" ]; then
-              # 旧 release 指向过期 commit(如 tag 被 force-push / 重建后残留)
+              # 旧 release 指向过期 commit（tag 被重建后残留）
               echo "Target mismatch -> deleting stale release and recreating"
               gh release delete "$VERSION" --yes
               for i in $(seq 1 30); do
@@ -140,7 +138,7 @@ jobs:
               done
               create_release
             else
-              # 同 commit:更新 title/body,并确保最终为正式发布(非 draft)
+              # 同 commit：更新 title / body 并确保为正式发布
               echo "Updating release ${VERSION} and ensuring it is published"
               gh release edit "$VERSION" --title "$TITLE" --notes-file "$NOTES" --draft=false $PRERELEASE_FLAG
             fi
@@ -148,7 +146,7 @@ jobs:
             create_release
           fi
 
-          # 最终校验:确认 release 已正式发布,且该 Release 挂的就是本次推送的 tag
+          # 最终校验：确认 release 已正式发布且挂在本次推送的 tag 上
           if ! gh release view "$VERSION" --json isDraft --jq '.isDraft' 2>/dev/null | grep -q '^false$'; then
             echo "::error::Release ${VERSION} is still not published"
             exit 1
