@@ -104,8 +104,7 @@ def get_article_detail(aid: int):
     if not article:
         return None, []
 
-    # 净化 HTML 输出,防止存储型 XSS.结果存到非映射属性 safe_content,
-    # 不修改 mapped 的 content 列,避免每次详情页访问都触发一条 UPDATE.
+    # 净化 HTML 输出，结果存入非映射属性 safe_content，不写回 content 列
     article.safe_content = sanitize_html(article.content)  # type: ignore[arg-type]
 
     # 评论 + 回复(批量查询避免 N+1;前台详情页按时间正序展示)

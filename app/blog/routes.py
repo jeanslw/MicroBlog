@@ -172,8 +172,7 @@ def article_detail(aid):
     reading_stats = _estimate_reading_stats(article.content)
     article.word_count = reading_stats["word_count"]
     article.reading_time = reading_stats["reading_minutes"]
-    # 从净化后的 safe_content 提取 TOC,结果存到非映射属性 rendered_content,
-    # 不修改 mapped 的 content 列(否则每次访问都会触发一条无谓 UPDATE)
+    # TOC 结果存入非映射属性 rendered_content，不写回 content 列
     article.rendered_content, article.toc = _extract_toc(article.safe_content)
     # 正文首图,供 Open Graph og:image 使用
     article.og_image = ""

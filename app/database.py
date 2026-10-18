@@ -28,7 +28,7 @@ def wait_for_database(max_wait: int = 90, interval: float = 3.0) -> None:
     """启动前等待数据库可连通(仅 MySQL 需要等待,SQLite 首次探测即成功).
 
     MySQL 容器首次启动要执行初始化(30s 以上),若应用先于数据库就绪启动,
-    建表/初始数据写入会一次性失败且启动期内不再重试.此处有限重试兜底,
+    建表/初始数据写入会一次性失败且启动期内不再重试.此处改为有限重试,
     同时覆盖非容器直跑(waitress/gunicorn 连接本机或远程 MySQL)的场景.
     超时后抛出最后一次异常,由进程管理器(gunicorn worker 重启 / 容器重启策略)
     继续重试.
@@ -58,13 +58,7 @@ def wait_for_database(max_wait: int = 90, interval: float = 3.0) -> None:
 
 
 def init_db():
-    """创建所有表(已存在则跳过,幂等).
-
-    仅对开发/SQLite 首次启动有意义;MySQL 生产环境推荐用 init.sql + Flask-Migrate.
-    多 worker(如 gunicorn -w 4)并发启动时可能抢建同一张表,
-    对 "table already exists" 做一次重试(此时表已被其他 worker 建好,
-    create_all 的 checkfirst 会跳过已存在的表).
-    """
+    """创建所有表（幂等），随后执行列级兼容迁移。"""
     # 触发所有模型注册
     from app import models  # noqa: F401
 
@@ -80,18 +74,11 @@ def init_db():
     _migrate_banner()
     _migrate_rate_limit()
     _migrate_login_attempt()
-    # 注意:site_config -> 三表拆分这类"带数据搬迁"的迁移不在这里直调,
-    # 由版本化迁移框架(run_schema_migrations / SCHEMA_VERSION)驱动,
-    # 保证启动自动执行与后台"迁移数据库"手动触发走同一条路径.
+    # 带数据搬迁的迁移由版本化迁移框架驱动（见 run_schema_migrations）
 
 
 def _migrate_schema_version():
-    """schema_version v1(开发期单行 id 主键)-> v2 履历表(version 主键,含 note).
-
-    v1 结构只存在于 v1.3.6 开发期,从未随正式版交付;此迁移仅为开发机老库
-    平滑过渡:读出最新戳记 -> 整表重建 -> 回写.整数戳记经 _LEGACY_INT_VERSIONS
-    归一化为真实发布号.
-    """
+    """重建 schema_version 表：v1 单行结构 -> v2 履历表（version 主键，含 note）。"""
     try:
         inspector = db.inspect(db.engine)
         if "schema_version" not in inspector.get_table_names():
@@ -99,9 +86,7 @@ def _migrate_schema_version():
         cols = {c["name"] for c in inspector.get_columns("schema_version")}
         if "id" not in cols and "note" in cols:
             return  # 已是 v2 履历结构
-        # 注:create_all 先于本函数执行,但旧表已存在时 create_all 会跳过,
-        # 所以走到这里时拿的一定是 v1 旧结构,可安全重建.
-        # 表改名语法分引擎:MySQL 用 RENAME TABLE,SQLite 用 ALTER TABLE ... RENAME TO.
+        # 表改名语法分引擎：MySQL 用 RENAME TABLE，SQLite 用 ALTER TABLE ... RENAME TO
         with db.engine.begin() as conn:
             old_rows = conn.execute(db.text("SELECT version, applied_time FROM schema_version ORDER BY id ASC")).all()
             if db.engine.dialect.name == "mysql":
@@ -213,7 +198,7 @@ def _migrate_site_config_split():
     2. 三表各恰好一行才执行 DROP -- MySQL 的 DDL 隐式提交,无法与 DML 同事务,
        '先校验后删'是该引擎下最接近原子性的做法;
     3. 任何失败都向上抛出,由版本化迁移框架负责'不戳记,下次重试';在此吞掉
-       异常会让 run_schema_migrations 把版本戳成已应用,用户配置静默丢失;
+       异常会让 run_schema_migrations 把版本戳成已应用,用户配置丢失且无提示;
     4. 旧库可能缺列(v1.1.x 及以前没有 bg/about/mail 列):缺列取默认值,
        不再逐列 ALTER 后复制.
     """
@@ -232,7 +217,7 @@ def _migrate_site_config_split():
     with db.engine.begin() as conn:
         row = conn.execute(db.text("SELECT * FROM site_config ORDER BY id LIMIT 1")).mappings().first()
         if row is not None:
-            # 缺列取默认值:老库可能没有 v1.2+ 新增的列
+            # 缺列取默认值
             def val(col, default):
                 v = row[col] if col in old_cols else default
                 return default if v is None else v
@@ -290,46 +275,29 @@ def _migrate_site_config_split():
                     "about_nickname": val("about_nickname", ""),
                 },
             )
-            # 校验:三张新表各恰好一行,任何异常整体回滚(旧表保留,下次启动重试)
+            # 校验三张新表各恰好一行，否则整体回滚
             for table in ("site_setting", "mail_setting", "about_profile"):
                 cnt = conn.execute(db.text(f"SELECT COUNT(*) FROM {table}")).scalar()
                 if cnt != 1:
                     raise RuntimeError(f"{table} 迁移校验失败: 期望 1 行,实际 {cnt} 行")
-        # 旧行为空也直接删空表;校验通过后 DROP 旧表
         conn.execute(db.text("DROP TABLE site_config"))
     log.info("site_config 已拆分迁移至 site_setting / mail_setting / about_profile,旧表已删除")
 
 
-# ── Schema 版本化迁移框架(v1.3.6 引入) ────────────────────
-# schema 版本一律用真实发布号(如 "1.3.6"),不用 1,2 这类内部序号:日志与后台
-# "迁移数据库"页所见即发布版本,排查时无需再查对照表.
-# 某次发布含"需迁移"的 schema 变更时才操作:
-# 1. 迁移函数登记进 _SCHEMA_MIGRATIONS,键为该发布的版本号;
-# 2. config.py 的 SCHEMA_VERSION 升为该版本号;
-# 3. 同步 MySQL/init.sql(新装环境直接建最新 schema).
-# 不含 schema 变更的发布(纯补丁)不动 SCHEMA_VERSION,版本戳记停在最近一次
-# schema 发布号即可;列级兼容(老库补列/补索引,无数据搬迁)仍走 init_db 里
-# 的幂等 _migrate_*.
-
-# 版本管理首次上线时,无版本行的老库所处的基线:site_config 单表时代
-# 的最后一个发布号(该时代的库都能在 _SCHEMA_MIGRATIONS 里找到出路).
+# 无版本行的老库所处的基线版本
 SCHEMA_VERSION_BASELINE = "1.3.5"
 
-# 发布号 -> (说明, 迁移函数).迁移函数必须幂等,失败抛异常,由框架负责戳记.
+# 发布号 -> (说明, 迁移函数)；迁移函数必须幂等
 _SCHEMA_MIGRATIONS: dict[str, tuple[str, Callable[[], None]]] = {
     "1.3.6": ("站点配置表拆分:site_config → site_setting / mail_setting / about_profile", _migrate_site_config_split),
 }
 
-# 开发期本框架曾短暂使用内部整数序号(未随任何发布交付);老开发库里的
-# 整数行读取时映射为真实发布号,正式环境不会遇到这些值.
+# 开发期写入的整数序号映射为真实发布号
 _LEGACY_INT_VERSIONS = {1: SCHEMA_VERSION_BASELINE, 2: "1.3.6"}
 
 
 def _version_key(version: str) -> tuple[int, ...]:
-    """ "1.3.6" -> (1, 3, 6):把发布号转为可比较的元组.
-
-    容忍 "v" 前缀;段内取前导数字(如 "6rc1" -> 6),无数字按 0.
-    """
+    """把发布号转为可比较的元组："1.3.6" -> (1, 3, 6)。"""
     parts = []
     for seg in str(version).strip().lstrip("vV").split("."):
         m = re.match(r"\d+", seg)
@@ -347,10 +315,7 @@ def schema_version_cmp(a: str, b: str) -> int:
 
 
 def get_schema_version() -> str | None:
-    """读取数据库当前 schema 版本 = 履历表中语义化最高的一行;无行返回 None.
-
-    '最高'按语义化比较(_version_key)而非字典序 -- "1.3.10" > "1.3.6".
-    """
+    """返回数据库当前 schema 版本（履历表中语义化最高的一行）；无行返回 None。"""
     from app.models import SchemaVersion
 
     inspector = db.inspect(db.engine)
@@ -366,11 +331,7 @@ def get_schema_version() -> str | None:
 
 
 def _stamp_schema_version(version: str, note: str = "") -> None:
-    """向履历表幂等戳记一行(主键 version;同版本重复戳记只刷新时间/说明).
-
-    多 worker 并发戳同一行时以内置 IntegrityError 兜底:后提交者回滚,
-    以库里的为准 -- 两份戳记语义等价,无所谓谁赢.
-    """
+    """向履历表幂等戳记一行；并发冲突时回滚并以库中记录为准。"""
     from datetime import datetime
 
     from app.models import SchemaVersion
@@ -399,7 +360,7 @@ def sync_schema_version() -> str | None:
     版本管理首次上线(库里没有 schema_version 行)时的推断:
     - 存在旧 site_config 表 -> 单表时代基线(SCHEMA_VERSION_BASELINE,有待拆分迁移);
     - 不存在 -> 全新库(create_all / init.sql 已直接建出当前 schema)-> SCHEMA_VERSION.
-    查询异常时返回 None,由调用方决定兜底(启动流程按'跳过本步'处理).
+    查询异常时返回 None,由调用方决定后续处理(启动流程按'跳过本步'继续).
     """
 
     try:
@@ -523,9 +484,6 @@ def ensure_admin_exists():
         return  # 已有管理员
 
     if not admin_pwd:
-        # 不设置密码是完全正常的路径:首次安装通过 /admin/setup 引导页
-        # 在浏览器中创建管理员(无管理员时访问任意后台路由会自动跳转).
-        # 此处仅记录说明性日志;设置密码则为无头部署(Docker/CI)自动建号.
         log.info(
             "admin 表为空且未设置 BLOG_INIT_ADMIN_PWD,跳过自动建号;"
             "请访问 /admin/setup 引导页创建管理员(或设置该环境变量后重启自动创建)。"
@@ -537,9 +495,7 @@ def ensure_admin_exists():
     try:
         db.session.commit()
     except IntegrityError:
-        # gunicorn 多 worker 并发启动时,其他 worker 可能已用同名账号先一步提交
-        # (username 唯一约束).回滚后复查:确认管理员已存在即视为初始化完成,
-        # 这是预期的竞争结果,不是错误;复查仍为空才说明是其它异常.
+        # 并发下其他进程可能已提交同名账号，复查确认后跳过
         db.session.rollback()
         existing = db.session.scalar(db.select(db.func.count(Admin.id)))
         if existing and existing > 0:
@@ -572,7 +528,7 @@ def ensure_default_settings():
             try:
                 db.session.commit()
             except IntegrityError:
-                # 多 worker 并发时其他进程可能已插入;复查确认后静默跳过
+                # 并发下其他进程可能已插入，复查确认后跳过
                 db.session.rollback()
                 if not db.session.scalar(db.select(db.func.count(model.id))):
                     raise
@@ -608,7 +564,7 @@ def _get_single_row(model):
     id≠1'的库上读到的不是同一行,表现为'后台改了站点名/背景,前台不生效'
     (v1.3.5 修复的坑).拆表后三张表沿用同一读取策略,读写永远指向同一行.
 
-    无行时返回 None;数据库异常向上抛出,由调用方决定兜底策略.
+    无行时返回 None;数据库异常向上抛出,由调用方决定后续处理.
     """
     row = db.session.get(model, 1)
     if row is None:

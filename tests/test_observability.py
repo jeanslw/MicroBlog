@@ -163,8 +163,6 @@ def test_slow_sql_emitted_when_threshold_zero(capture):
     from app.observability import register_slow_sql
 
     app2 = create_app("testing")
-    # 直接在该 app 的引擎上以 0 阈值挂探针(config 值在模块导入时固化,
-    # 用例聚焦验证探针机制本身;生产阈值由 BLOG_SLOW_QUERY_MS 决定)
     with app2.app_context():
         engine = _db.engine
         engine._blog_slow_sql_registered = False

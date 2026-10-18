@@ -15,6 +15,7 @@
   - Database backups work with non-root accounts.
 - **Improved**
   - Dead code removed.
+  - Code comments normalized to a standard style.
 
 ## v1.3.5 (2026-09-16)
 

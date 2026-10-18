@@ -107,15 +107,12 @@ def sanitize_html(raw_html: str) -> str:
 
 
 def strip_html(raw_html: str, max_len: int | None = 220) -> str:
-    """去除 HTML 标签,提取纯文本摘要.
-
-    max_len=None 表示不截断,适用于全文字数统计等场景.
-    """
+    """去除 HTML 标签，提取纯文本摘要；max_len=None 表示不截断。"""
     if not raw_html:
         return ""
-    # nh3.clean 已剥离 script/style,再剥离所有标签
+    # nh3.clean 已剥离 script/style，再剥离所有标签
     text = nh3.clean(raw_html, tags=set())
-    # 解码常见 HTML 实体(nh3 已转义,这里只处理常见残留)
+    # 解码常见 HTML 实体
     text = text.replace("&nbsp;", " ").replace("&lt;", "<").replace("&gt;", ">")
     text = text.replace("&amp;", "&").replace("&quot;", '"').replace("&#39;", "'")
     text = re.sub(r"\s+", " ", text).strip()
@@ -124,9 +121,8 @@ def strip_html(raw_html: str, max_len: int | None = 220) -> str:
     return text
 
 
-# ── 图片处理(带解压炸弹防护) ───────────────────────────
 def configure_pillow(max_pixels: int = 50_000_000):
-    """配置 Pillow 安全参数,应用启动时调用一次"""
+    """配置 Pillow 安全参数，应用启动时调用一次"""
     Image.MAX_IMAGE_PIXELS = max_pixels
     ImageFile.LOAD_TRUNCATED_IMAGES = False  # 默认 False 更严格,损坏图直接报错
 
@@ -138,11 +134,7 @@ def process_and_save_image(
     max_width: int = 1200,
     quality: int = 85,
 ) -> None:
-    """打开上传图,必要时等比缩放,按格式保存到 save_path.
-
-    Raises:
-        PIL.UnidentifiedImageError, OSError, ValueError 等异常由调用方处理
-    """
+    """打开上传图，必要时等比缩放，按格式保存到 save_path。"""
     image: Image.Image = Image.open(file_storage)
     ext_lower = ext.lower()
 
@@ -165,7 +157,7 @@ def process_and_save_image(
     elif ext_lower == "png":
         image.save(save_path, "PNG", optimize=True)
     else:
-        # 兜底:原格式
+        # 其余格式按原样保存
         image.save(save_path)
 
 
@@ -195,11 +187,7 @@ def process_and_resize_logo(
     max_edge: int = 400,
     quality: int = 90,
 ) -> None:
-    """打开 Logo 图,等比缩放使长边不超过 max_edge,按格式保存.
-
-    Logo 过大时自动缩小(thumbnail 保持宽高比,不拉伸),输出尺寸
-    始终控制在限制内.Raises 交由调用方处理.
-    """
+    """打开 Logo 图，等比缩放使长边不超过 max_edge，按格式保存。"""
     image: Image.Image = Image.open(file_storage)
     image.thumbnail((max_edge, max_edge), Image.Resampling.LANCZOS)
 
@@ -217,11 +205,7 @@ def process_and_resize_logo(
 
 
 def build_safe_filename(original_filename: str, base_name_max_len: int = 100) -> str:
-    """生成安全且唯一的文件名:{uuid}_{base}.{ext}
-
-    secure_filename 处理中文/特殊字符可能返回空,用 uuid 兜底.
-    去除 base 自带的扩展名避免双扩展(xxx.png.png).
-    """
+    """生成安全且唯一的文件名：{uuid}_{base}.{ext}"""
     if "." not in original_filename:
         raise ValueError("文件名缺少扩展名")
     ext = original_filename.rsplit(".", 1)[1].lower()
@@ -235,15 +219,12 @@ def build_safe_filename(original_filename: str, base_name_max_len: int = 100) ->
     return f"{uuid.uuid4().hex}_{base}.{ext}"
 
 
-# ── 项目根目录绝对路径(避免相对路径在不同 cwd 下失效) ─────
 def project_root() -> str:
-    """返回项目根目录绝对路径(app/ 的父目录)"""
+    """返回项目根目录绝对路径（app/ 的父目录）"""
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-# ── 上传资源目录(项目根 uploads/,与内置 static/ 分离) ─────
-# banner  --  轮播图;image  --  正文插图 / Logo / 头像 / 自定义背景
-# (image 下再分 avatar / logo / backgrounds 子目录).
+# 上传资源目录（项目根 uploads/，与内置 static/ 分离）：banner = 轮播图，image = 正文插图 / Logo / 头像 / 背景
 UPLOAD_CATEGORIES = ("banner", "image")
 
 
@@ -269,10 +250,7 @@ def upload_dir(category: str = "image", subdir: str = "") -> str:
     return path
 
 
-# ── 上传文件清理(删除文章/换图时回收磁盘空间) ─────────────
-# 本项目上传 URL 不带查询参数,排除 ? 避免把 ?x=1 误当文件名.
-# 同时识别新版 /uploads/(banner|image)/ 与旧版 /static/(banner|uploads)/,
-# 后者来自迁移前写入数据库的历史记录(旧 URL 由 301 路由继续可访问).
+# 上传 URL 前缀：新版 /uploads/ 与旧版 /static/ 均识别；URL 不带查询参数
 _UPLOAD_URL_PREFIXES = (
     ("/uploads/banner/", "banner"),
     ("/uploads/image/", "image"),
@@ -365,7 +343,7 @@ def migrate_legacy_upload_dirs() -> list[str]:
 
 # ── 站内资源是否存在(跨机恢复后上传文件可能缺失) ──────
 def asset_url_exists(url: str | None) -> bool:
-    """判断站点资源 URL 指向的文件在本地是否真实存在(渲染前兜底).
+    """判断站点资源 URL 指向的文件在本地是否真实存在.
 
     数据库备份不含 uploads/ 下的上传文件(Logo / 头像 / 背景图 / 正文插图 /
     轮播图),备份恢复到另一台机器或容器后,库里 URL 仍在而文件已丢失,

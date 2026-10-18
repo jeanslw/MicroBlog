@@ -34,9 +34,7 @@ def uploaded_file(category: str, filename: str):
     return send_file(full_path, conditional=True)
 
 
-# 旧版上传 URL 兼容:目录从 static/ 迁移到 uploads/ 后,存量数据库记录
-# (轮播图 img_path,文章正文 img src,站点设置等)仍指向旧地址,
-# 用 301 永久跳转至新地址,避免历史内容破图.
+# 旧版上传 URL 兼容：存量记录仍指向 static/，301 永久跳转至 uploads/ 新地址
 @main_bp.route("/static/banner/<path:filename>")
 def legacy_static_banner(filename: str):
     return redirect(url_for("main.uploaded_file", category="banner", filename=filename), code=301)

@@ -147,7 +147,7 @@ class MailSetting(db.Model):
     mail_host = Column(String(200), default="")
     mail_port = Column(Integer, default=587)
     mail_user = Column(String(200), default="")
-    # Fernet 加密后落库(app.crypto.encrypt_secret)
+    # Fernet 加密后存储(app.crypto.encrypt_secret)
     mail_password = Column(String(200), default="")
     mail_from = Column(String(200), default="")
     mail_use_ssl = Column(Boolean, default=False, nullable=False)

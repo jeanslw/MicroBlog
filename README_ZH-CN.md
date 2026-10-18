@@ -84,8 +84,8 @@ docker compose --env-file .env.docker --profile full up -d
 
 开箱即用的内置保障：
 
-- **就绪编排**：容器内置 `/healthz` 健康检查（同时探测进程与数据库），web 等 MySQL 首次初始化完成后才启动，Nginx 等 web 健康后才接入流量；应用启动时另有 MySQL 连接重试兜底
-- **自动建表建号**：MySQL 首启自动导入 [MySQL/init.sql](MySQL/init.sql)；未配置初始管理员密码时，首访 `/admin/setup` 按引导创建管理员，也可在 `.env.docker` 设置 `BLOG_INIT_ADMIN_PWD` 自动创建
+- **就绪编排**：容器内置 `/healthz` 健康检查（同时探测进程与数据库），web 等 MySQL 首次初始化完成后才启动，Nginx 等 web 健康后才接入流量；应用启动时另有 MySQL 连接重试
+- **自动建表建号**：MySQL 首次启动自动导入 [MySQL/init.sql](MySQL/init.sql)；未配置初始管理员密码时，首访 `/admin/setup` 按引导创建管理员，也可在 `.env.docker` 设置 `BLOG_INIT_ADMIN_PWD` 自动创建
 - **HTTP 可直接登录**：内置 Nginx 仅提供明文 HTTP(80)，默认 `BLOG_COOKIE_SECURE=false`；自行配置 HTTPS 后置为 `true`
 - **反代头已配好**：默认 `BLOG_PROXY_XFOR=1`、`BLOG_PROXY_XPROTO=1`、`BLOG_PROXY_XHOST=0`
 - **启动前预检**：`env-check` 守卫在 `db` 启动前校验 `MySQL/init.sql` 与数据库口令——密码仍是模板占位符或被显式设为公开测试口令会中止启动（原因看 `docker compose --profile full logs env-check`）；完全未建 `.env.docker` 时只告警放行，用内置测试口令本机试用
@@ -238,7 +238,7 @@ pytest --cov=app
 | 安全 Session | HttpOnly + SameSite=Lax + 生产环境 Secure |
 | 文件上传安全 | 类型/大小校验、UUID 重命名、防双扩展、Pillow 解压炸弹防护 |
 | 图片防盗链 | 应用层 Referer 校验保护 `/uploads/banner/` 和 `/uploads/image/` |
-| 可观测性 | 生产输出 JSON 结构化日志（ELK/Loki 直接解析），`X-Request-ID` 串联请求链路，慢请求/慢 SQL 自动告警；`logs/app.log` 轮转落盘（控制台同步输出） |
+| 可观测性 | 生产输出 JSON 结构化日志（ELK/Loki 直接解析），`X-Request-ID` 串联请求链路，慢请求/慢 SQL 自动告警；`logs/app.log` 轮转写入磁盘（控制台同步输出） |
 | 错误信息隐藏 | 生产模式隐藏异常堆栈，返回通用错误页 |
 
 ## 9. 目录权限

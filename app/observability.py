@@ -24,11 +24,10 @@ from contextvars import ContextVar
 from flask import g, request
 from sqlalchemy import event
 
-# ── 请求关联 ID ────────────────────────────────────────────
 request_id_var: ContextVar[str | None] = ContextVar("request_id", default=None)
 
 REQUEST_ID_HEADER = "X-Request-ID"
-# 仅接受网关/客户端传入的受控字符(防日志注入:不允许换行/空格/尖括号等)
+# 仅接受受控字符，防止日志注入
 _REQUEST_ID_RE = re.compile(r"^[A-Za-z0-9-]{8,64}$")
 
 _SQL_START_ATTR = "_blog_sql_start"
@@ -74,13 +73,8 @@ class RequestIdFilter(logging.Filter):
         return True
 
 
-# ── 结构化字段传递 ─────────────────────────────────────────
 def log_event(logger: logging.Logger, level: int, event: str, **fields) -> None:
-    """发一条带结构化字段的日志.
-
-    fields 通过 extra.log_fields 传递,由两种 Formatter 分别渲染为
-    JSON 键值或文本 key=value 后缀;业务代码不要把字段拼进 msg.
-    """
+    """发一条带结构化字段的日志；字段通过 extra.log_fields 传递，不拼进 msg。"""
     logger.log(level, event, extra={"log_fields": fields})
 
 
@@ -100,7 +94,7 @@ class JsonFormatter(logging.Formatter):
             payload.update({k: v for k, v in fields.items() if v is not None})
         if record.exc_info:
             payload["exc_info"] = self.formatException(record.exc_info)
-        # default=str:datetime/Decimal 等非常规类型兜底转字符串,不丢日志
+        # 非常规类型转为字符串，避免序列化失败丢日志
         return json.dumps(payload, ensure_ascii=False, default=str)
 
 
@@ -120,8 +114,7 @@ class TextFormatter(logging.Formatter):
         if isinstance(fields, dict) and fields:
             suffix = " ".join(f"{k}={v}" for k, v in fields.items() if v is not None)
             base = f"{base} {suffix}" if suffix else base
-        # 临时替换 msg/args 调父类格式化,不修改原始 record
-        # (同一条记录会依次经过控制台,文件两个 handler,避免后缀叠加两次)
+        # 临时替换 msg/args，避免多个 handler 重复叠加字段后缀
         saved_msg, saved_args = record.msg, record.args
         record.msg, record.args = base, ()
         try:
@@ -140,14 +133,8 @@ def build_formatter(log_format: str, *, debug: bool, testing: bool) -> logging.F
     return TextFormatter()
 
 
-# ── 慢 SQL 探针 ────────────────────────────────────────────
 def register_slow_sql(engine, threshold_ms: int) -> None:
-    """在 SQLAlchemy 引擎上挂执行耗时探针(幂等,每引擎只挂一次).
-
-    超过 threshold_ms 的语句以 WARNING 记录到 ``blog.slowsql`` logger
-    (向上传播到应用统一 handler,天然带上 request_id).只记语句不记参数:
-    参数可能含登录口令等敏感值,且聚合分析按语句模板即可.
-    """
+    """在引擎上挂执行耗时探针（幂等）；超阈值语句以 WARNING 记入 blog.slowsql。"""
     if getattr(engine, "_blog_slow_sql_registered", False):
         return
     engine._blog_slow_sql_registered = True
@@ -159,8 +146,7 @@ def register_slow_sql(engine, threshold_ms: int) -> None:
 
     @event.listens_for(engine, "after_cursor_execute")
     def _after_cursor_execute(conn, cursor, statement, parameters, context, executemany):
-        # 只读取不 pop:before 每次执行前都会覆盖,且允许多个监听器
-        # (如测试/二次注册)共存而不会互相清掉计时键.
+        # 只读取不 pop，允许多个监听器共存
         start = conn.info.get(_SQL_START_ATTR)
         if start is None:
             return
