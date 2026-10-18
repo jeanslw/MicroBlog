@@ -7,6 +7,7 @@
 
 import contextlib
 import hashlib
+import hmac
 import os
 import re
 import signal
@@ -387,12 +388,16 @@ def _reset_serializer():
 
 
 def _password_digest(password_hash: str) -> str:
-    """密码哈希的短摘要。
+    """密码哈希的短摘要(HMAC-SHA256)。
 
     token 里只能放摘要：URLSafeTimedSerializer 只签名不加密，放哈希全文等于
     把哈希写进 URL，会落进访问日志、浏览器历史与 Referer。
+    用 HMAC 而非裸哈希：密钥取自 SECRET_KEY,离线拿到 token 的人无法自行
+    构造或校验摘要。
     """
-    return hashlib.sha256((password_hash or "").encode("utf-8")).hexdigest()[:16]
+    key = (current_app.config.get("SECRET_KEY") or "").encode("utf-8")
+    mac = hmac.new(key, (password_hash or "").encode("utf-8"), hashlib.sha256)
+    return mac.hexdigest()[:16]
 
 
 def _make_reset_token(admin):
