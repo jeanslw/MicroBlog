@@ -5,6 +5,7 @@ import secrets
 import tempfile
 import warnings
 from typing import ClassVar
+from urllib.parse import quote_plus
 
 _BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 APP_ENV_FILE = os.path.join(_BASE_DIR, "app.env")
@@ -239,7 +240,10 @@ def _resolve_db_uri_for_class(cls):
                 "BLOG_DB_TYPE=mysql 但缺少必要连接字段,请检查 BLOG_MYSQL_HOST / "
                 "BLOG_MYSQL_USER / BLOG_MYSQL_DB 环境变量。"
             )
-        cls.SQLALCHEMY_DATABASE_URI = f"mysql+pymysql://{user}:{pwd}@{host}/{db_name}?charset=utf8mb4"
+        # 用户名与口令须编码后再拼接：口令含 @ : / # ? 等字符时会导致 URI 解析错位
+        cls.SQLALCHEMY_DATABASE_URI = (
+            f"mysql+pymysql://{quote_plus(user)}:{quote_plus(pwd)}@{host}/{db_name}?charset=utf8mb4"
+        )
         cls.SQLALCHEMY_ENGINE_OPTIONS = {
             "connect_args": {
                 "init_command": "SET sql_mode='STRICT_TRANS_TABLES,NO_ENGINE_SUBSTITUTION'",

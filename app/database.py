@@ -602,9 +602,16 @@ def _get_or_create_single_row(model, **defaults):
     row = _get_single_row(model)
     if row is not None:
         return row
-    row = model(id=1, **defaults)
-    db.session.add(row)
-    db.session.commit()
+    try:
+        row = model(id=1, **defaults)
+        db.session.add(row)
+        db.session.commit()
+    except IntegrityError:
+        # 并发下其他进程可能已抢先插入，复查确认后复用该行
+        db.session.rollback()
+        row = _get_single_row(model)
+        if row is None:
+            raise
     return row
 
 

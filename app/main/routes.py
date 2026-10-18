@@ -62,7 +62,7 @@ def healthz():
     return jsonify(status="ok"), 200
 
 
-@main_bp.route("/set_lang/<lang>")
+@main_bp.route("/set_lang/<lang>", methods=["POST"])
 def set_lang(lang: str):
     """切换语言并存入 session"""
     if lang in ("zh_CN", "en"):

@@ -11,7 +11,7 @@ def test_default_locale_zh_cn(client):
 
 def test_set_lang_en(client):
     """切换到英文后页面应展示英文"""
-    client.get("/set_lang/en", follow_redirects=True)
+    client.post("/set_lang/en", follow_redirects=True)
     rv = client.get("/")
     assert rv.status_code == 200
     assert b"Home" in rv.data
@@ -19,15 +19,15 @@ def test_set_lang_en(client):
 
 def test_set_lang_zh_cn(client):
     """切换回中文应展示中文"""
-    client.get("/set_lang/en")
-    client.get("/set_lang/zh_CN")
+    client.post("/set_lang/en")
+    client.post("/set_lang/zh_CN")
     rv = client.get("/")
     assert "首页".encode() in rv.data
 
 
 def test_set_lang_invalid_ignored(client):
     """非法语言代码应被忽略(不改变当前 locale)"""
-    client.get("/set_lang/fr")
+    client.post("/set_lang/fr")
     rv = client.get("/")
     assert rv.status_code == 200
     # 默认 zh_CN
@@ -36,7 +36,7 @@ def test_set_lang_invalid_ignored(client):
 
 def test_set_lang_redirects_back(client):
     """切换语言应重定向回原页面"""
-    rv = client.get("/set_lang/en", follow_redirects=False)
+    rv = client.post("/set_lang/en", follow_redirects=False)
     assert rv.status_code == 302
 
 

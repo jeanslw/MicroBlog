@@ -31,10 +31,12 @@ def get_categories_with_count():
     return rows
 
 
-def get_article_list(offset: int, limit: int, cid: int | None = None):
+def get_article_list(page: int, limit: int, cid: int | None = None):
     """获取已发布文章列表(分页 + 可选栏目筛选).
 
-    返回 (article_list, total_page)
+    页码超出范围时自动收回最后一页，避免返回空列表，也避免 offset 溢出
+    （超出 BIGINT 会让 MySQL 报 1690、SQLite 抛 OverflowError）。
+    返回 (article_list, total_page, page)
     """
     base_filter = Article.status == "publish"
     if cid:
@@ -42,6 +44,8 @@ def get_article_list(offset: int, limit: int, cid: int | None = None):
 
     total = db.session.scalar(select(func.count(Article.id)).where(base_filter)) or 0
     total_page = max(math.ceil(total / limit) if limit > 0 else 1, 1)
+    page = min(max(page, 1), total_page)
+    offset = (page - 1) * limit
 
     # 评论计数子查询
     comment_count = (
@@ -66,7 +70,7 @@ def get_article_list(offset: int, limit: int, cid: int | None = None):
         art.brief = strip_html(art.content)
         articles.append(art)
 
-    return articles, total_page
+    return articles, total_page, page
 
 
 def get_article_comments(aid: int, newest_first: bool = False):
@@ -111,10 +115,10 @@ def get_article_detail(aid: int):
     return article, get_article_comments(aid)
 
 
-def search_articles(keyword: str, offset: int, limit: int):
+def search_articles(keyword: str, page: int, limit: int):
     """按关键词搜索已发布文章(标题/正文模糊匹配).
 
-    返回 (article_list, total_page, total)
+    返回 (article_list, total_page, total, page)
 
     autoescape=True 把用户输入中的 LIKE 通配符(% _ /)转义为普通字符:
     否则搜 '%' 会命中全部文章,搜 'a_' 会命中 'ab',且模糊查询无法走索引.
@@ -128,12 +132,13 @@ def search_articles(keyword: str, offset: int, limit: int):
     )
     total = db.session.scalar(select(func.count(Article.id)).where(base_filter)) or 0
     total_page = max(math.ceil(total / limit) if limit > 0 else 1, 1)
+    page = min(max(page, 1), total_page)
     articles = db.session.scalars(
-        select(Article).where(base_filter).order_by(Article.create_time.desc()).offset(offset).limit(limit)
+        select(Article).where(base_filter).order_by(Article.create_time.desc()).offset((page - 1) * limit).limit(limit)
     ).all()
     for art in articles:
         art.brief = strip_html(art.content)  # type: ignore[arg-type]
-    return articles, total_page, total
+    return articles, total_page, total, page
 
 
 def get_recent_articles(limit: int = 20):

@@ -81,6 +81,19 @@ def test_pagination_param(client, article):
         assert rv.status_code == 200
 
 
+def test_pagination_huge_page_clamped(client, article):
+    """超大 page 须被收回有效范围：offset 超出 BIGINT 会让 SQLite / MySQL 报错变 500"""
+    for p in [10**15, 10**18, 10**20]:
+        rv = client.get(f"/?page={p}")
+        assert rv.status_code == 200, f"page={p} 不应导致 500"
+
+
+def test_search_pagination_huge_page_clamped(client, article):
+    """搜索页同样须 clamp 超大页码"""
+    rv = client.get("/search", query_string={"q": "测试", "page": 10**20})
+    assert rv.status_code == 200
+
+
 def test_drafts_requires_login(client):
     """草稿箱需登录"""
     rv = client.get("/drafts", follow_redirects=False)

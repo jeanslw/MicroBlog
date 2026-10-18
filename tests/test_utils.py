@@ -207,7 +207,7 @@ def test_remove_uploaded_file(tmp_path):
 
 
 def test_asset_url_exists(tmp_path, monkeypatch):
-    """站内资源存在性判断(跨机恢复后上传文件缺失的渲染兜底依据)"""
+    """站内资源存在性判断（跨机恢复后上传文件缺失的渲染依据）"""
     import app.utils as utils
 
     monkeypatch.setattr(utils, "project_root", lambda: str(tmp_path))

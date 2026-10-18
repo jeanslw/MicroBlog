@@ -9,7 +9,7 @@
 1) 生产环境下'公开默认密钥'与'完全未配置'一律拒绝启动;
 2) 支持 ``BLOG_SECRET_KEY_FILE``(容器入口脚本生成的 ./data/.secret_key),
    密钥本体不必出现在环境变量 / ``docker inspect`` 里;
-3) 开发环境仍用随机值兜底,不阻断本地开发;
+3) 开发环境仍用随机值,不阻断本地开发;
 4) ``docker-compose.yml`` 的 web 服务不得再注入那个公开默认密钥.
 """
 
@@ -104,7 +104,7 @@ def test_unreadable_key_file_still_refuses_in_production(tmp_path):
 
 
 def test_development_falls_back_to_random_key(tmp_path):
-    """开发环境不设密钥时用一次性随机值兜底,不阻断本地开发."""
+    """开发环境不设密钥时用一次性随机值,不阻断本地开发."""
     out = _probe(tmp_path, BLOG_ENV="development")
     assert out["CONFIG"] == "OK"
     assert out["KEY"] != PUBLIC_DEFAULT

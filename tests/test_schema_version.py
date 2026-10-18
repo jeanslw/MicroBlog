@@ -217,8 +217,10 @@ def test_startup_step_never_blocks_startup_on_error(app, db, monkeypatch):
         raise RuntimeError("db 不可用")
 
     monkeypatch.setattr(database_module, "run_schema_migrations", boom)
-    run_startup_schema_migrations(app)  # 不抛异常
-    assert app.config.get("SCHEMA_UPGRADE_PENDING") is None
+    run_startup_schema_migrations(app)  # 不抛异常：应用本身仍能启动
+    # 异常不再静默放行：置维护标志，闸门对外返回 503 升级页，
+    # 避免带未迁移 schema 继续服务
+    assert app.config.get("SCHEMA_UPGRADE_PENDING") is True
 
 
 def test_startup_refuses_boot_when_db_ahead(app, db):

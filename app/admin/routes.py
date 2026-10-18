@@ -6,6 +6,7 @@
 """
 
 import contextlib
+import hashlib
 import os
 import re
 import signal
@@ -54,6 +55,7 @@ from app.extensions import (
     clear_login_fail,
     db,
     external_url_for,
+    flash_form_errors,
     get_client_ip,
     log,
     rate_limit,
@@ -299,6 +301,9 @@ def _site_setting_view(template):
             remove_uploaded_file(old_logo)
         flash(_("站点设置保存完成"), "success")
         return redirect(url_for("admin.site_setting"))
+    # panel 与独立设置页共用的表单模板未渲染 form.errors，校验失败时须显式提示
+    if request.method == "POST":
+        flash_form_errors(form)
     return render_template(template, form=form, site=site)
 
 
@@ -381,9 +386,18 @@ def _reset_serializer():
     return URLSafeTimedSerializer(current_app.config["SECRET_KEY"], salt="password-reset")
 
 
+def _password_digest(password_hash: str) -> str:
+    """密码哈希的短摘要。
+
+    token 里只能放摘要：URLSafeTimedSerializer 只签名不加密，放哈希全文等于
+    把哈希写进 URL，会落进访问日志、浏览器历史与 Referer。
+    """
+    return hashlib.sha256((password_hash or "").encode("utf-8")).hexdigest()[:16]
+
+
 def _make_reset_token(admin):
-    # payload 带密码哈希：密码变更后旧 token 自动失效
-    return _reset_serializer().dumps({"uid": admin.id, "pwh": admin.password})
+    # payload 带密码哈希摘要：密码变更后旧 token 自动失效
+    return _reset_serializer().dumps({"uid": admin.id, "pwh": _password_digest(admin.password)})
 
 
 @admin_bp.route("/forgot", methods=["GET", "POST"])
@@ -423,7 +437,7 @@ def reset(token):
         flash(_("重置链接无效或已过期"), "danger")
         return redirect(url_for("admin.forgot"))
     admin = db.session.get(Admin, data.get("uid"))
-    if not admin or admin.password != data.get("pwh"):
+    if not admin or _password_digest(admin.password) != data.get("pwh"):
         flash(_("重置链接无效或已过期"), "danger")
         return redirect(url_for("admin.forgot"))
     form = ResetForm()
@@ -486,6 +500,9 @@ def mail_setting():
         mail_cfg.mail_use_tls = bool(form.mail_use_tls.data)
         db.session.commit()
         flash(_("邮件设置已保存"), "success")
+    else:
+        # GET 已在上方跳转，此处必为 POST 校验失败
+        flash_form_errors(form)
     return redirect(url_for("admin.account"))
 
 
@@ -506,7 +523,8 @@ def mail_test():
         flash(_("测试邮件已发送，请查收（收件人：%(email)s）", email=to), "success")
     except MailError as e:
         log.warning("测试邮件发送失败: %s", e)
-        flash(_("测试邮件发送失败：%(err)s", err=e), "danger")
+        # 原始 SMTP 返回含服务端信息，不上页面；详情见日志
+        flash(_("测试邮件发送失败，详情请查看应用日志"), "danger")
     return redirect(url_for("admin.account"))
 
 
@@ -768,8 +786,9 @@ def backup():
             filename = _create_backup(backup_dir)
             flash(_("备份成功：%(name)s", name=filename), "success")
         except Exception as e:
+            # 原始错误含 mysqldump stderr（DB 主机 / 库名 / 账号），不上页面
             log.error("备份失败: %s", e, exc_info=True)
-            flash(_("备份失败：%(err)s", err=e), "danger")
+            flash(_("备份失败，详情请查看应用日志"), "danger")
         return redirect(url_for("admin.backup"))
     return render_template("admin/backup.html", backups=_list_backups(backup_dir), db_type=_db_type())
 
@@ -804,8 +823,8 @@ def migrate_db():
         try:
             applied = run_schema_migrations()
         except Exception as e:
-            log.error("数据库迁移失败", exc_info=True)
-            flash(_("数据库迁移失败：%(err)s", err=e), "danger")
+            log.error("数据库迁移失败: %s", e, exc_info=True)
+            flash(_("数据库迁移失败，详情请查看应用日志"), "danger")
             return redirect(url_for("admin.migrate_db"))
         if applied:
             names = "、".join(f"v{v}（{desc}）" for v, desc in applied)
@@ -1088,8 +1107,10 @@ def backup_restore(name):
             "danger",
         )
     except Exception as e:
+        # 异常后 Session 处于待回滚态，先 rollback 再降级
+        db.session.rollback()
         log.error("恢复失败: %s", e, exc_info=True)
-        flash(_("恢复失败：%(err)s", err=e), "danger")
+        flash(_("恢复失败，详情请查看应用日志"), "danger")
     finally:
         _release_restore_file_lock()
         _restore_lock.release()

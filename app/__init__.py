@@ -156,17 +156,19 @@ def run_startup_schema_migrations(app) -> None:
     try:
         if app.config.get("AUTO_SCHEMA_MIGRATE", True):
             run_schema_migrations()
-        else:
-            pending = pending_schema_migrations(quiet=True)
-            if pending:
-                app.config["SCHEMA_UPGRADE_PENDING"] = True
-                app.logger.warning(
-                    "检测到 %d 项待迁移 schema 且自动迁移已关闭(BLOG_AUTO_MIGRATE=false),"
-                    "站点进入维护模式;请管理员登录后在「迁移数据库」页执行迁移",
-                    len(pending),
-                )
+        # 自动与手动模式统一复查：有残留待迁移项即进入维护模式，
+        # 避免带半迁移 schema 对外服务（闸门会按请求复查并自动解除）
+        pending = pending_schema_migrations(quiet=True)
+        if pending:
+            app.config["SCHEMA_UPGRADE_PENDING"] = True
+            app.logger.warning(
+                "检测到 %d 项待迁移 schema,站点进入维护模式;请管理员登录后在「迁移数据库」页执行迁移",
+                len(pending),
+            )
     except Exception as e:
-        app.logger.warning("schema 迁移启动步骤跳过: %s", e)
+        # 迁移抛异常时同样置位：带未迁移 schema 对外服务比维护页更危险
+        app.config["SCHEMA_UPGRADE_PENDING"] = True
+        app.logger.error("schema 迁移启动步骤失败,站点进入维护模式: %s", e)
 
 
 def create_app(config_name: str | None = None):

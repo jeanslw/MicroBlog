@@ -245,7 +245,7 @@ def test_500_friendly_page_when_debug_off(app, client):
     rv = client.get(_add_boom_route(app))
     assert rv.status_code == 500
     assert b"boom-internal-detail" not in rv.data  # 内部细节不泄漏
-    assert "服务器内部错误".encode() in rv.data  # 友好文案(模板失败也有纯 HTML 兜底)
+    assert "服务器内部错误".encode() in rv.data  # 友好文案（模板失败时退回纯 HTML）
 
 
 def test_500_stack_trace_when_debug_on(app, client):

@@ -7,6 +7,7 @@
 - 文章正文保存原文,读取展示时经 nh3 白名单净化防存储型 XSS
 """
 
+import math
 import re
 from datetime import datetime, timedelta, timezone, tzinfo
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -32,6 +33,22 @@ from app.models import Admin, Article, Category, Comment, Reply
 from app.utils import asset_url_exists, collect_upload_urls, remove_uploaded_file, strip_html
 
 TITLE_MAX_LEN = 500
+# 后台列表每页条数
+ADMIN_PAGE_SIZE = 20
+# 页码绝对上限：offset = (page-1)*page_size 须落在 BIGINT 范围内，
+# 否则 MySQL 报 1690、SQLite 抛 OverflowError，最终变成 500
+MAX_PAGE = 10**9
+
+
+def _page_arg() -> int:
+    """读取并约束 ?page= 参数，返回值恒在 [1, MAX_PAGE]。"""
+    return min(max(_safe_int(request.args.get("page", 1), 1), 1), MAX_PAGE)
+
+
+def _clamp_page(page: int, total: int, page_size: int) -> tuple[int, int]:
+    """按总数把页码收进 [1, total_page]，返回 (page, total_page)。"""
+    total_page = max(math.ceil(total / page_size), 1) if page_size > 0 else 1
+    return min(page, total_page), total_page
 
 
 def _safe_int(value, default=1):
@@ -95,7 +112,8 @@ def _extract_toc(content: str):
         return "<h" + str(level) + attrs + ">" + inner + "</h" + str(level) + ">"
 
     new_content = re.sub(
-        r"<h([1-3])([^>]*)>(.*?)</h[1-3]>",
+        # 闭合标签用反向引用：写死 [1-3] 会把 <h2>x</h3> 这类不配对标签误判并改写
+        r"<h([1-3])([^>]*)>(.*?)</h\1>",
         _inject,
         content or "",
         flags=re.IGNORECASE | re.DOTALL,
@@ -128,9 +146,7 @@ def _auto_seo(content, title, category):
 @blog_bp.route("/")
 def index():
     page_size = current_app.config.get("PAGE_SIZE", 6)
-    page = max(_safe_int(request.args.get("page", 1), 1), 1)
-    offset = (page - 1) * page_size
-    articles, total_page = get_article_list(offset, page_size)
+    articles, total_page, page = get_article_list(_page_arg(), page_size)
     category_map, archive = get_sidebar_tree()
     return render_template(
         "blog/index.html",
@@ -145,9 +161,7 @@ def index():
 @blog_bp.route("/category/<int:cid>")
 def category(cid):
     page_size = current_app.config.get("PAGE_SIZE", 6)
-    page = max(_safe_int(request.args.get("page", 1), 1), 1)
-    offset = (page - 1) * page_size
-    articles, total_page = get_article_list(offset, page_size, cid)
+    articles, total_page, page = get_article_list(_page_arg(), page_size, cid)
     category_map, archive = get_sidebar_tree()
     return render_template(
         "blog/index.html",
@@ -229,6 +243,9 @@ def article_new():
         db.session.commit()
         flash(_("文章保存成功"), "success")
         return redirect(url_for("blog.index"))
+    # 编辑页模板未渲染 form.errors，校验失败时须显式提示，否则表现为“点了保存没反应”
+    if request.method == "POST":
+        flash_form_errors(form)
     return render_template("blog/edit.html", form=form, article=None)
 
 
@@ -265,6 +282,9 @@ def article_edit(aid):
         db.session.commit()
         flash(_("修改成功"), "success")
         return redirect(url_for("blog.article_detail", aid=aid))
+    # 同上：编辑页模板未渲染 form.errors，校验失败时须显式提示
+    if request.method == "POST":
+        flash_form_errors(form)
     return render_template("blog/edit.html", form=form, article=article)
 
 
@@ -306,16 +326,23 @@ def article_del(aid):
         old_urls = collect_upload_urls(article.content)
         db.session.delete(article)
         db.session.commit()
-        # 清理不再被任何文章引用的图片,避免磁盘堆积
-        for u in old_urls:
-            still_used = db.session.scalar(db.select(func.count(Article.id)).where(Article.content.contains(u)))
-            if not still_used:
-                remove_uploaded_file(u)
-        flash(_("文章已删除"), "success")
     except Exception:
         db.session.rollback()
         log.error("删除文章失败 aid=%s", aid, exc_info=True)
         flash(_("删除失败,请稍后重试"), "danger")
+        return redirect(url_for("blog.index"))
+    # 清理不再被任何文章引用的图片；此处失败不影响已提交的删除，只记日志
+    try:
+        for u in old_urls:
+            still_used = db.session.scalar(
+                db.select(func.count(Article.id)).where(Article.content.contains(u, autoescape=True))
+            )
+            if not still_used:
+                remove_uploaded_file(u)
+    except Exception:
+        db.session.rollback()
+        log.warning("删除文章后清理孤儿图片失败 aid=%s", aid, exc_info=True)
+    flash(_("文章已删除"), "success")
     return redirect(url_for("blog.index"))
 
 
@@ -323,8 +350,16 @@ def article_del(aid):
 @admin_required
 def article_manage():
     """已发布文章管理:列出 status="publish" 的文章,每条提供'评论管理''撤回(->草稿)'与删除按钮."""
+    page_size = current_app.config.get("ADMIN_PAGE_SIZE", ADMIN_PAGE_SIZE)
+    base_filter = Article.status == "publish"
+    total = db.session.scalar(db.select(func.count(Article.id)).where(base_filter)) or 0
+    page, total_page = _clamp_page(_page_arg(), total, page_size)
     articles = db.session.scalars(
-        db.select(Article).where(Article.status == "publish").order_by(Article.update_time.desc())
+        db.select(Article)
+        .where(base_filter)
+        .order_by(Article.update_time.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
     ).all()
     # 各文章评论数:一次分组查询,避免逐篇 count 的 N+1
     comment_counts = dict(
@@ -333,7 +368,7 @@ def article_manage():
     for art in articles:
         art.brief = strip_html(art.content)
         art.comment_num = comment_counts.get(art.id, 0)
-    return render_template("blog/manage_articles.html", articles=articles)
+    return render_template("blog/manage_articles.html", articles=articles, page=page, total_page=total_page)
 
 
 @blog_bp.route("/article/recall/<int:aid>", methods=["POST"])
@@ -359,12 +394,20 @@ def article_recall(aid):
 @blog_bp.route("/drafts")
 @admin_required
 def drafts():
+    page_size = current_app.config.get("ADMIN_PAGE_SIZE", ADMIN_PAGE_SIZE)
+    base_filter = Article.status == "draft"
+    total = db.session.scalar(db.select(func.count(Article.id)).where(base_filter)) or 0
+    page, total_page = _clamp_page(_page_arg(), total, page_size)
     draft_list = db.session.scalars(
-        db.select(Article).where(Article.status == "draft").order_by(Article.create_time.desc())
+        db.select(Article)
+        .where(base_filter)
+        .order_by(Article.create_time.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
     ).all()
     for art in draft_list:
         art.brief = strip_html(art.content)  # 草稿列表显示纯文本摘要,而非 HTML 源码
-    return render_template("blog/drafts.html", drafts=draft_list)
+    return render_template("blog/drafts.html", drafts=draft_list, page=page, total_page=total_page)
 
 
 # ── 评论管理(后台) ────────────────────────────────────
@@ -536,12 +579,11 @@ def search():
     """按关键词搜索已发布文章(标题/正文模糊匹配),支持分页"""
     # 截断超长关键词:LIKE 模式长度直接决定扫描成本,且超长输入必然无结果
     q = (request.args.get("q") or "").strip()[: current_app.config.get("SEARCH_KEYWORD_MAX_LEN", 100)]
-    page = max(_safe_int(request.args.get("page", 1), 1), 1)
+    page = _page_arg()
     if not q:
         return render_template("blog/search.html", articles=[], page=1, total_page=1, q="", total=0)
     page_size = current_app.config.get("PAGE_SIZE", 6)
-    offset = (page - 1) * page_size
-    articles, total_page, total = search_articles(q, offset, page_size)
+    articles, total_page, total, page = search_articles(q, page, page_size)
     return render_template("blog/search.html", articles=articles, page=page, total_page=total_page, q=q, total=total)
 
 

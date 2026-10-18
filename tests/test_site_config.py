@@ -110,7 +110,7 @@ def test_split_migration_copies_data_and_drops_legacy_table(app, db):
 def test_split_migration_is_idempotent(app, db):
     _create_legacy_site_config()
     _migrate_site_config_split()
-    # 第二次运行(旧表已不存在)应静默跳过,不报错不改动
+    # 第二次运行(旧表已不存在)应直接跳过,不报错不改动
     _migrate_site_config_split()
     assert get_site_setting().site_name == "迁移前站点"
 

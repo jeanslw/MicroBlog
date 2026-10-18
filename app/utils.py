@@ -135,48 +135,63 @@ def process_and_save_image(
     quality: int = 85,
 ) -> None:
     """打开上传图，必要时等比缩放，按格式保存到 save_path。"""
-    image: Image.Image = Image.open(file_storage)
-    ext_lower = ext.lower()
+    with Image.open(file_storage) as image:
+        ext_lower = ext.lower()
 
-    if ext_lower == "gif":
-        # GIF 单独处理:逐帧缩放 + 保留动画
-        _save_gif(image, save_path, max_width)
-        return
+        if ext_lower == "gif":
+            # GIF 单独处理:逐帧缩放 + 保留动画
+            _save_gif(image, save_path, max_width)
+            return
 
-    # 非 GIF:等比缩放(仅当超过 max_width 时)
-    if image.width > max_width:
-        ratio = max_width / image.width
-        new_height = int(image.height * ratio)
-        image = image.resize((max_width, new_height), Image.Resampling.LANCZOS)
-
-    if ext_lower in ("jpg", "jpeg"):
-        # JPEG 不支持透明通道,RGBA/P 模式需先转 RGB
-        if image.mode in ("RGBA", "P", "LA"):
-            image = image.convert("RGB")
-        image.save(save_path, "JPEG", quality=quality, optimize=True)
-    elif ext_lower == "png":
-        image.save(save_path, "PNG", optimize=True)
-    else:
-        # 其余格式按原样保存
-        image.save(save_path)
+        # 非 GIF:等比缩放(仅当超过 max_width 时)
+        resized: Image.Image = image
+        if image.width > max_width:
+            ratio = max_width / image.width
+            new_height = int(image.height * ratio)
+            resized = image.resize((max_width, new_height), Image.Resampling.LANCZOS)
+        try:
+            if ext_lower in ("jpg", "jpeg"):
+                # JPEG 不支持透明通道,RGBA/P 模式需先转 RGB
+                target = resized.convert("RGB") if resized.mode in ("RGBA", "P", "LA") else resized
+                try:
+                    target.save(save_path, "JPEG", quality=quality, optimize=True)
+                finally:
+                    if target is not resized:
+                        target.close()
+            elif ext_lower == "png":
+                resized.save(save_path, "PNG", optimize=True)
+            else:
+                # 其余格式按原样保存
+                resized.save(save_path)
+        finally:
+            if resized is not image:
+                resized.close()
 
 
 def _save_gif(image: Image.Image, save_path: str, max_width: int) -> None:
-    """保存 GIF 并保留动画帧;超宽时逐帧等比缩放"""
-    frames = list(ImageSequence.Iterator(image)) or [image]
+    """保存 GIF 并保留动画帧、逐帧时长与循环次数;超宽时逐帧等比缩放"""
+    # 迭代会改动 image.info，循环次数须在遍历前取出
+    loop = image.info.get("loop", 0)
+    durations: list[int] = []
     scaled: list[Image.Image] = []
-    for frame in frames:
+    for frame in ImageSequence.Iterator(image):
+        # Iterator 每次迭代返回的是同一个 Image 对象（只是 seek 到不同帧），
+        # 必须先拷出当前帧再继续，否则列表里全是同一个对象、保存时帧被重复写入
+        durations.append(int(frame.info.get("duration") or 0))
         if frame.width > max_width:
             ratio = max_width / frame.width
             frame = frame.resize((max_width, int(frame.height * ratio)), Image.Resampling.LANCZOS)
-        scaled.append(frame)
+        scaled.append(frame.copy())
+    if not scaled:
+        return
     scaled[0].save(
         save_path,
         "GIF",
         save_all=True,
         append_images=scaled[1:],
         optimize=True,
-        loop=0,
+        duration=durations,
+        loop=loop,
     )
 
 

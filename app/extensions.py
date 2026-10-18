@@ -36,7 +36,9 @@ def load_user(user_id: str):
     except (TypeError, ValueError):
         return None
     except Exception as e:
-        # 数据库异常时降级为匿名访问，避免全站 500
+        # 必须 rollback：查询失败后 Session 处于待回滚态，
+        # 不清掉的话同请求后续任何查询都会抛 PendingRollbackError
+        db.session.rollback()
         log.warning("load_user 查询失败,降级为匿名: %s", e)
         return None
 
@@ -202,6 +204,8 @@ def fetch_global_context():
         comments_enabled = True if raw_comments_enabled is None else bool(raw_comments_enabled)
         site_sidebar_style = (site.sidebar_style or "book") if site else "book"
     except Exception:
+        # 同 load_user：先 rollback 再降级，否则后续渲染查询全部失败
+        db.session.rollback()
         log.error("全局模板上下文数据库报错", exc_info=True)
         return _default_global_context()
     return {
