@@ -111,15 +111,17 @@ def _migrate_schema_version():
 
 
 def _migrate_admin():
-    """轻量迁移:为旧版 admin 表补齐 email 列(幂等)."""
+    """轻量迁移:为旧版 admin 表补齐 email / token_version 列(幂等)."""
     try:
         inspector = db.inspect(db.engine)
         if "admin" not in inspector.get_table_names():
             return
         cols = {c["name"] for c in inspector.get_columns("admin")}
-        if "email" not in cols:
-            with db.engine.begin() as conn:
+        with db.engine.begin() as conn:
+            if "email" not in cols:
                 conn.execute(db.text("ALTER TABLE admin ADD COLUMN email VARCHAR(200) NOT NULL DEFAULT ''"))
+            if "token_version" not in cols:
+                conn.execute(db.text("ALTER TABLE admin ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0"))
     except Exception as e:
         log.warning("admin email 列迁移失败,可手动执行 ALTER TABLE: %s", e)
 

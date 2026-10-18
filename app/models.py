@@ -22,6 +22,10 @@ class Admin(db.Model, UserMixin):
     password = Column(String(255), nullable=False)
     # 邮箱(用于找回密码,可空)
     email = Column(String(200), nullable=False, default="")
+    # 找回密码令牌版本号:每次改密码 +1,凡此之前签发的重置令牌一律作废.
+    # 取代"把密码哈希的摘要塞进令牌"的旧方案——那等于对口令类数据做哈希,
+    # 既被静态检查判为弱哈希,也让密文以摘要形式间接进入 URL 与访问日志.
+    token_version = Column(Integer, nullable=False, default=0)
 
     def __repr__(self):
         return f"<Admin {self.username}>"
