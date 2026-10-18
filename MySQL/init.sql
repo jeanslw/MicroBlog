@@ -44,6 +44,8 @@ CREATE TABLE IF NOT EXISTS `admin` (
   -- Werkzeug 3.x pbkdf2:sha256:600000 哈希约 102 字符；预留 256 兼容未来 scrypt/argon2
   `password` varchar(255) NOT NULL,
   `email` varchar(200) NOT NULL DEFAULT '' COMMENT '邮箱，用于找回密码',
+  -- 每次改密码 +1：使此前签发的找回密码链接失效
+  `token_version` int NOT NULL DEFAULT 0 COMMENT '找回密码令牌版本号',
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_username` (`username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

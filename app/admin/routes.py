@@ -6,8 +6,6 @@
 """
 
 import contextlib
-import hashlib
-import hmac
 import os
 import re
 import signal
@@ -166,6 +164,8 @@ def change_pwd():
             flash(_("原密码错误"), "danger")
             return render_template("admin/change_pwd.html", form=form)
         current_user.password = generate_password_hash(form.new_pwd.data)
+        # 版本号 +1:使改密前发出的找回链接失效(旧会话之外也要拦住这条旁路)
+        current_user.token_version += 1
         db.session.commit()
         # 改密码后强制重新登录，使其他设备的会话失效
         logout_user()
@@ -387,22 +387,14 @@ def _reset_serializer():
     return URLSafeTimedSerializer(current_app.config["SECRET_KEY"], salt="password-reset")
 
 
-def _password_digest(password_hash: str) -> str:
-    """密码哈希的短摘要(HMAC-SHA256)。
-
-    token 里只能放摘要：URLSafeTimedSerializer 只签名不加密，放哈希全文等于
-    把哈希写进 URL，会落进访问日志、浏览器历史与 Referer。
-    用 HMAC 而非裸哈希：密钥取自 SECRET_KEY,离线拿到 token 的人无法自行
-    构造或校验摘要。
-    """
-    key = (current_app.config.get("SECRET_KEY") or "").encode("utf-8")
-    mac = hmac.new(key, (password_hash or "").encode("utf-8"), hashlib.sha256)
-    return mac.hexdigest()[:16]
-
-
 def _make_reset_token(admin):
-    # payload 带密码哈希摘要：密码变更后旧 token 自动失效
-    return _reset_serializer().dumps({"uid": admin.id, "pwh": _password_digest(admin.password)})
+    """签发重置令牌:payload 只带 uid 与令牌版本号。
+
+    版本号(token_version)在每次改密码时 +1,校验时对不上即判为已失效,
+    语义与原先的"密码哈希摘要"完全等价,但不再对任何口令类数据做哈希:
+    URLSafeTimedSerializer 只签名不加密,摘要虽短仍是密文的派生值。
+    """
+    return _reset_serializer().dumps({"uid": admin.id, "tv": admin.token_version})
 
 
 @admin_bp.route("/forgot", methods=["GET", "POST"])
@@ -442,12 +434,15 @@ def reset(token):
         flash(_("重置链接无效或已过期"), "danger")
         return redirect(url_for("admin.forgot"))
     admin = db.session.get(Admin, data.get("uid"))
-    if not admin or _password_digest(admin.password) != data.get("pwh"):
+    tv = data.get("tv")
+    if not admin or not isinstance(tv, int) or tv != admin.token_version:
         flash(_("重置链接无效或已过期"), "danger")
         return redirect(url_for("admin.forgot"))
     form = ResetForm()
     if form.validate_on_submit():
         admin.password = generate_password_hash(form.new_pwd.data)
+        # 版本号 +1:同一条链接用过即废,重置后不能再改第二次
+        admin.token_version += 1
         db.session.commit()
         flash(_("密码已重置，请用新密码登录"), "success")
         return redirect(url_for("admin.login"))
