@@ -30,7 +30,7 @@ Before proposing a new feature, it's recommended to search existing Issues to av
 If you plan to implement a major feature or refactor, please **discuss it in an Issue first** to ensure your direction aligns with the maintainer's vision. This will help avoid your efforts being rejected.
 
 ### 2. Set Up Development Environment
-- Ensure you have **Python 3.10+** (3.11 recommended) and **pip** installed.
+- Ensure you have **Python 3.11+** and **pip** installed.
 - Fork this repository and clone your fork locally.
 - Create and activate a virtual environment:
   ```bash

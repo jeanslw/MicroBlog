@@ -9,7 +9,7 @@
 <p align="center">
   <a href="https://gitee.com/jeanslw/MicroBlog/releases/tag/v1.3.3"><img src="https://img.shields.io/github/v/release/jeanslw/MicroBlog?style=flat-square&label=Release" alt="Release"></a>
   <a href="https://gitee.com/jeanslw/MicroBlog"><img src="https://img.shields.io/github/last-commit/jeanslw/MicroBlog?style=flat-square&label=Last%20Commit" alt="Last Commit"></a>
-  <a href="https://www.python.org"><img src="https://img.shields.io/badge/Python-3.10+-777BB4?logo=python&logoColor=white" alt="Language"></a>
+  <a href="https://www.python.org"><img src="https://img.shields.io/badge/Python-3.11+-777BB4?logo=python&logoColor=white" alt="Language"></a>
   <a href="https://flask.palletsprojects.com"><img src="https://img.shields.io/badge/Flask-3.1.0+-777BB4?logo=Flask&logoColor=white" alt="framework"></a>
   <a href="https://gitee.com/jeanslw/MicroBlog/blob/main/LICENSE"><img src="https://img.shields.io/github/license/jeanslw/MicroBlog?style=flat-square" alt="License"></a>
   <a href="https://hub.docker.com/r/jeanslw/microblog/tags"><img src="https://img.shields.io/docker/v/jeanslw/microblog/latest?label=version&logo=docker" alt="docker"></a>
@@ -43,7 +43,7 @@
 
 | 组件 | 版本要求 | 说明 |
 |------|---------|------|
-| Python | 3.9+（推荐 3.11） | 运行环境 |
+| Python | 3.11+ | 运行环境 |
 | MySQL | 5.7+ / 8.0+（可选） | 生产环境数据库，开发/测试可用 SQLite 替代 |
 | pip | 最新版 | Python 包管理 |
 | Docker | 20.10+（可选） | 容器化部署，免去环境配置 |
