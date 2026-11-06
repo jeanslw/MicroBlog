@@ -299,6 +299,19 @@ def _parse_upload_url(url: str | None) -> tuple[str, str] | None:
     return None
 
 
+def upload_url_variants(url: str) -> list[str]:
+    """返回同一上传文件的全部等价 URL(同一 category 的新旧前缀),供孤儿文件判定的引用查询.
+
+    例:/uploads/image/x.jpg 与旧版 /static/uploads/x.jpg 指向同一文件;
+    只按传入 URL 精确匹配会漏掉用另一种前缀引用的文章,误删仍在使用的图片.
+    """
+    parsed = _parse_upload_url(url)
+    if not parsed:
+        return [url] if url else []
+    category, rel = parsed
+    return [prefix + rel for prefix, cat in _UPLOAD_URL_PREFIXES if cat == category]
+
+
 def remove_uploaded_file(url: str | None) -> bool:
     """安全删除 uploads 下的文件(兼容旧版 /static/... URL).
 

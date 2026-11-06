@@ -34,8 +34,8 @@ class Admin(db.Model, UserMixin):
         return f"<Admin {self.username}>"
 
     def get_id(self):
-        """Flask-Login 用,返回字符串 ID"""
-        return str(self.id)
+        """Flask-Login 用:ID + 令牌版本号;改密/重置密码后旧会话自动失效."""
+        return f"{self.id}:{self.token_version}"
 
 
 class Category(db.Model):
