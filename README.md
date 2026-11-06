@@ -130,6 +130,7 @@ Open `http://127.0.0.1:5000`. When running behind Nginx you can reuse [nginx/ngi
 |------------|---------|---------|
 | Flask | 3.1.3 | Web framework |
 | Flask-SQLAlchemy | 3.1.1 | ORM and database abstraction |
+| SQLAlchemy | 2.0.51 | Core SQL toolkit and ORM |
 | Flask-Migrate | 4.0.7 | Database migrations (Alembic wrapper) |
 | Flask-WTF | 1.2.1 | Form validation + CSRF protection |
 | Flask-Login | 0.6.3 | Session and authentication management |
@@ -137,13 +138,15 @@ Open `http://127.0.0.1:5000`. When running behind Nginx you can reuse [nginx/ngi
 | WTForms | 3.2.1 | Form fields and validators |
 | email-validator | 2.2.0 | Email field validation |
 | PyMySQL | 1.2.0 | MySQL driver |
-| cryptography | 43.0.1 | Cryptography library (PyMySQL dependency) |
+| cryptography | 50.0.0 | Fernet encryption for sensitive fields |
 | gunicorn | 23.0.0 | WSGI server (Docker / Linux production) |
 | waitress | 3.0.2 | WSGI server for local runs on Windows (gunicorn doesn't support Windows) |
-| python-dotenv | 1.2.1 | Loads the `app.env` file (legacy `.env` still honored) |
-| Pillow | 10.4.0 | Image processing (resize/compress/format/protection) |
+| python-dotenv | 1.2.2 | Loads the `app.env` file (legacy `.env` still honored) |
+| Pillow | 13.0.0 | Image processing (resize/compress/format/protection) |
 | nh3 | 0.2.18 | HTML sanitization (XSS prevention, Rust ammonia binding) |
-| pytest | 8.3.3 | Testing framework |
+| feedgen | 1.0.0 | RSS/Atom feed generation |
+| tzdata | 2026.3 | IANA time zone database |
+| pytest | 9.0.3 | Testing framework |
 | pytest-cov | 5.0.0 | Test coverage |
 
 > uWSGI users can `pip install uwsgi` separately; config file [uwsgi.ini](uwsgi.ini) is provided.

@@ -12,7 +12,7 @@ cryptography==50.0.0
 gunicorn==23.0.0
 waitress==3.0.2
 python-dotenv==1.2.2
-Pillow==12.3.0
+Pillow==13.0.0
 nh3==0.2.18
 feedgen==1.0.0
 tzdata==2026.3

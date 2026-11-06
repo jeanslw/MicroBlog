@@ -130,6 +130,7 @@ waitress-serve --listen=127.0.0.1:5000 wsgi:application
 |------|------|------|
 | Flask | 3.1.3 | Web 框架 |
 | Flask-SQLAlchemy | 3.1.1 | ORM 与数据库抽象层 |
+| SQLAlchemy | 2.0.51 | SQL 工具集与 ORM 内核 |
 | Flask-Migrate | 4.0.7 | 数据库迁移（Alembic 封装） |
 | Flask-WTF | 1.2.1 | 表单校验 + CSRF 保护 |
 | Flask-Login | 0.6.3 | 会话与认证管理 |
@@ -137,13 +138,15 @@ waitress-serve --listen=127.0.0.1:5000 wsgi:application
 | WTForms | 3.2.1 | 表单字段与验证器 |
 | email-validator | 2.2.0 | 邮箱字段校验 |
 | PyMySQL | 1.2.0 | MySQL 驱动 |
-| cryptography | 43.0.1 | PyMySQL 依赖的加密库 |
+| cryptography | 50.0.0 | 敏感字段 Fernet 加密 |
 | gunicorn | 23.0.0 | WSGI 服务器（Docker / Linux 生产） |
 | waitress | 3.0.2 | WSGI 服务器（Windows 本地运行，gunicorn 不支持 Windows） |
-| python-dotenv | 1.2.1 | 从 `app.env` 读取环境变量（兼容旧 `.env`） |
-| Pillow | 10.4.0 | 图片处理（缩放/压缩/格式转换/解压炸弹防护） |
+| python-dotenv | 1.2.2 | 从 `app.env` 读取环境变量（兼容旧 `.env`） |
+| Pillow | 13.0.0 | 图片处理（缩放/压缩/格式转换/解压炸弹防护） |
 | nh3 | 0.2.18 | HTML 净化（防 XSS，Rust ammonia 绑定） |
-| pytest | 8.3.3 | 测试框架 |
+| feedgen | 1.0.0 | RSS/Atom 订阅源生成 |
+| tzdata | 2026.3 | IANA 时区数据库 |
+| pytest | 9.0.3 | 测试框架 |
 | pytest-cov | 5.0.0 | 测试覆盖率 |
 
 > uWSGI 用户可额外 `pip install uwsgi`，配置文件已提供 [uwsgi.ini](uwsgi.ini)。
