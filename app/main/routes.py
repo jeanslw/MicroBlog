@@ -4,6 +4,7 @@
 """
 
 import os
+from xml.sax.saxutils import escape as xml_escape
 
 from flask import Response, abort, jsonify, redirect, request, send_file, session, url_for
 from werkzeug.utils import safe_join
@@ -110,7 +111,7 @@ def sitemap():
     lines.append('<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">')
     for p in pages:
         lines.append("  <url>")
-        lines.append(f"    <loc>{p['loc']}</loc>")
+        lines.append(f"    <loc>{xml_escape(p['loc'])}</loc>")
         if p["lastmod"]:
             lines.append(f"    <lastmod>{p['lastmod']}</lastmod>")
         lines.append(f"    <priority>{p['priority']}</priority>")

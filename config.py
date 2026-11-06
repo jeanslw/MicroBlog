@@ -286,6 +286,12 @@ def get_config():
                 '请改为随机值: python -c "import secrets;print(secrets.token_hex(32))" '
                 "（容器部署删除该环境变量即可，入口脚本会自动生成并持久化随机密钥）"
             )
+        if not cls.CANONICAL_URL and not cls.HOST_WHITELIST:
+            raise RuntimeError(
+                "生产环境须配置 BLOG_CANONICAL_URL 或 BLOG_TRUSTED_HOSTS 之一："
+                "两者皆空时 Host 头不做任何校验，攻击者可用伪造 Host 污染找回密码邮件、"
+                "RSS / sitemap 中的链接，把用户引到钓鱼站点。"
+            )
     elif _RESOLVED_SECRET_KEY in INSECURE_DEFAULT_SECRET_KEYS:
         warnings.warn(
             "BLOG_SECRET_KEY 仍是仓库中公开的默认值，仅可用于本机调试；"

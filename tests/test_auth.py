@@ -234,6 +234,29 @@ def test_login_next_internal_path_ok(client, admin_user):
     assert rv.headers.get("Location", "").endswith("/banner/")
 
 
+def test_session_invalidated_after_token_version_bump(client, db, admin_user):
+    """token_version 变化(改密/重置密码)后,旧会话标识必须被 load_user 拒绝"""
+    from app.extensions import load_user
+
+    client.post("/admin/login", data={"username": "admin", "password": "admin123456"})
+    with client.session_transaction() as s:
+        old_id = s["_user_id"]
+    assert old_id == f"{admin_user.id}:{admin_user.token_version}"
+    # 模拟改密:版本号 +1,旧标识立即失效;新标识仍可用
+    admin_user.token_version += 1
+    db.session.commit()
+    assert load_user(old_id) is None
+    assert load_user(f"{admin_user.id}:{admin_user.token_version}") is not None
+
+
+def test_legacy_plain_id_session_rejected(admin_user):
+    """旧格式(纯数字 ID,无版本号)的会话标识一律失效"""
+    from app.extensions import load_user
+
+    assert load_user(str(admin_user.id)) is None
+    assert load_user("not-a-number") is None
+
+
 def test_home_nav_shows_admin_link_when_logged_in(login_admin):
     """登录后首页导航显示'管理'入口;导航栏不再有退出按钮(退出统一收进后台侧边栏)"""
     rv = login_admin.get("/")

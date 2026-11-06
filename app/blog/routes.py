@@ -13,7 +13,7 @@ import re
 from flask import Response, abort, current_app, flash, redirect, render_template, request, url_for
 from flask_babel import _
 from flask_login import current_user
-from sqlalchemy import func, update
+from sqlalchemy import func, or_, update
 
 from app.blog import blog_bp
 from app.blog.queries import (
@@ -30,7 +30,7 @@ from app.forms import ArticleForm, CategoryForm
 from app.models import Admin, Article, Category, Comment, Reply
 from app.settings import feed_enabled
 from app.timeutil import parse_stored_time, utc_now_str
-from app.utils import asset_url_exists, collect_upload_urls, remove_uploaded_file, strip_html
+from app.utils import asset_url_exists, collect_upload_urls, remove_uploaded_file, strip_html, upload_url_variants
 
 TITLE_MAX_LEN = 500
 # 后台列表每页条数
@@ -334,8 +334,13 @@ def article_del(aid):
     # 清理不再被任何文章引用的图片；此处失败不影响已提交的删除，只记日志
     try:
         for u in old_urls:
+            # 同一文件存在新旧前缀两种写法(/uploads/image/x.jpg == /static/uploads/x.jpg),
+            # 引用判定须覆盖全部变体,否则漏判导致仍在使用的图片被误删
+            variants = upload_url_variants(u)
             still_used = db.session.scalar(
-                db.select(func.count(Article.id)).where(Article.content.contains(u, autoescape=True))
+                db.select(func.count(Article.id)).where(
+                    or_(*[Article.content.contains(v, autoescape=True) for v in variants])
+                )
             )
             if not still_used:
                 remove_uploaded_file(u)

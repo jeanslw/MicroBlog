@@ -79,7 +79,12 @@ def test_production_accepts_key_file(tmp_path):
     """支持密钥文件(容器入口脚本 / Docker secrets 方式),读取时去掉行尾换行."""
     key_file = tmp_path / ".secret_key"
     key_file.write_text("a" * 64 + "\n", encoding="utf-8")
-    out = _probe(tmp_path, BLOG_ENV="production", BLOG_SECRET_KEY_FILE=str(key_file))
+    out = _probe(
+        tmp_path,
+        BLOG_ENV="production",
+        BLOG_SECRET_KEY_FILE=str(key_file),
+        BLOG_TRUSTED_HOSTS="blog.example.com",
+    )
     assert out["CONFIG"] == "OK"
     assert out["KEY"] == "a" * 64
 
@@ -92,9 +97,22 @@ def test_env_var_takes_precedence_over_key_file(tmp_path):
         BLOG_ENV="production",
         BLOG_SECRET_KEY="env-key-wins",
         BLOG_SECRET_KEY_FILE=str(key_file),
+        BLOG_TRUSTED_HOSTS="blog.example.com",
     )
     assert out["CONFIG"] == "OK"
     assert out["KEY"] == "env-key-wins"
+
+
+def test_production_requires_canonical_url_or_trusted_hosts(tmp_path):
+    """生产环境 CANONICAL_URL 与 TRUSTED_HOSTS 皆空时拒绝启动(防 Host 头投毒)."""
+    out = _probe(tmp_path, BLOG_ENV="production", BLOG_SECRET_KEY=EXPLICIT_KEY)
+    assert out["CONFIG"] == "RAISED"
+    assert "BLOG_CANONICAL_URL" in out["MSG"]
+    # 配任一即可放行
+    out = _probe(tmp_path, BLOG_ENV="production", BLOG_SECRET_KEY=EXPLICIT_KEY, BLOG_CANONICAL_URL="https://blog.example.com")
+    assert out["CONFIG"] == "OK"
+    out = _probe(tmp_path, BLOG_ENV="production", BLOG_SECRET_KEY=EXPLICIT_KEY, BLOG_TRUSTED_HOSTS="blog.example.com")
+    assert out["CONFIG"] == "OK"
 
 
 def test_unreadable_key_file_still_refuses_in_production(tmp_path):

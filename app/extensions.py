@@ -12,6 +12,8 @@ from flask_babel import lazy_gettext as _l
 from flask_login import LoginManager, current_user
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf import CSRFProtect
+from sqlalchemy import update
+from sqlalchemy.exc import IntegrityError
 
 from app.timeutil import BROWSER_TZ_COOKIE, DEFAULT_TIMEZONE, TIMEZONE_CHOICES, UTC_FORMAT, utc_now, utc_now_str
 from app.utils import asset_url_exists
@@ -33,7 +35,13 @@ def load_user(user_id: str):
     from app.models import Admin
 
     try:
-        return db.session.get(Admin, int(user_id))
+        # 会话标识为 "id:token_version"(见 Admin.get_id);
+        # 旧格式(纯 ID)与版本号不匹配一律视为已失效,强制重新登录
+        uid, sep, tv = user_id.partition(":")
+        admin = db.session.get(Admin, int(uid))
+        if not sep or admin is None or str(admin.token_version) != tv:
+            return None
+        return admin
     except (TypeError, ValueError):
         return None
     except Exception as e:
@@ -100,6 +108,27 @@ def record_login_fail(ip: str, username: str, lock_seconds: int = 300) -> int:
         db.session.commit()
         # Column[int] 运行时即 int
         return rec.fail_count  # type: ignore[return-value]
+    except IntegrityError:
+        # 并发下其他 worker 已抢先插入同 (ip, username) 行:改为原子 +1 后重读,
+        # 否则这里吞掉异常返回 0 会让登录页误报"剩余 5 次",计数也丢失
+        db.session.rollback()
+        try:
+            db.session.execute(
+                update(LoginAttempt)
+                .where(LoginAttempt.ip == ip, LoginAttempt.username == username)
+                .values(fail_count=LoginAttempt.fail_count + 1, update_time=utc_now_str())
+            )
+            rec = db.session.execute(
+                db.select(LoginAttempt).filter_by(ip=ip, username=username)
+            ).scalar_one_or_none()
+            if rec is not None and rec.fail_count >= 5 and time.time() >= (rec.lock_until or 0):
+                rec.lock_until = time.time() + lock_seconds
+            db.session.commit()
+            return rec.fail_count if rec is not None else 0
+        except Exception:
+            db.session.rollback()
+            log.warning("record_login_fail 并发重试失败,跳过记录", exc_info=True)
+            return 0
     except Exception:
         db.session.rollback()
         log.warning("record_login_fail 失败,跳过记录", exc_info=True)

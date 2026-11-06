@@ -409,9 +409,11 @@ def create_app(config_name: str | None = None):
             return response
         duration_ms = int((time.perf_counter() - getattr(g, "_req_start", time.perf_counter())) * 1000)
         query = request.query_string.decode("utf-8", errors="replace")[:500] or None
+        # 找回密码令牌在 URL 路径里,日志必须脱敏,否则落盘的令牌在有效期内可被冒用
+        path = "/admin/reset/<redacted>" if request.endpoint == "admin.reset" else request.path
         fields = {
             "method": request.method,
-            "path": request.path,
+            "path": path,
             "query": query,
             "status_code": response.status_code,
             "duration_ms": duration_ms,

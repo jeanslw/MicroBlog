@@ -12,7 +12,17 @@ from app.utils import (
     project_root,
     to_abs_url_path,
     upload_dir,
+    upload_url_variants,
 )
+
+
+def test_upload_url_variants():
+    """同一文件的新旧前缀应互为变体;非上传 URL 原样返回"""
+    assert sorted(upload_url_variants("/uploads/image/a.jpg")) == ["/static/uploads/a.jpg", "/uploads/image/a.jpg"]
+    assert sorted(upload_url_variants("/static/uploads/a.jpg")) == ["/static/uploads/a.jpg", "/uploads/image/a.jpg"]
+    assert sorted(upload_url_variants("/static/banner/b.jpg")) == ["/static/banner/b.jpg", "/uploads/banner/b.jpg"]
+    assert upload_url_variants("/static/css/site.css") == ["/static/css/site.css"]
+    assert upload_url_variants("") == []
 
 
 def test_project_root_exists():

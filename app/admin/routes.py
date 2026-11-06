@@ -31,6 +31,7 @@ from flask import (
 from flask_babel import _
 from flask_login import current_user, login_required, login_user, logout_user
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
+from PIL import Image, UnidentifiedImageError
 from sqlalchemy.exc import IntegrityError
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import safe_join
@@ -344,6 +345,11 @@ def upload_image():
             max_width=current_app.config.get("UPLOAD_MAX_WIDTH", 1200),
         )
     except Exception as e:
+        # 图片本身非法(无法识别/损坏/超像素上限)属客户端错误,返回 400;
+        # 其余(磁盘写失败等)才是服务端故障,返回 500
+        if isinstance(e, (UnidentifiedImageError, ValueError, Image.DecompressionBombError)):
+            log.warning("非法图片上传: %s", e)
+            return jsonify({"error": _("无法识别的图片文件")}), 400
         log.error("图片处理失败: %s", e, exc_info=True)
         return jsonify({"error": _("图片处理失败,请重试")}), 500
 

@@ -34,9 +34,9 @@ def test_admin_password_hashing(db):
 
 
 def test_admin_get_id_str(app, admin_user):
-    """Admin.get_id 应返回字符串"""
+    """Admin.get_id 应返回 "id:token_version" 字符串(改密后旧会话标识即失效)"""
     assert isinstance(admin_user.get_id(), str)
-    assert admin_user.get_id() == str(admin_user.id)
+    assert admin_user.get_id() == f"{admin_user.id}:{admin_user.token_version}"
 
 
 def test_category_unique_name(db):
