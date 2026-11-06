@@ -1,6 +1,6 @@
 """时间与时区工具：库内统一存 UTC ISO 字符串，显示层按设置时区换算。"""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 UTC_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
@@ -71,7 +71,7 @@ def zone(name):
         try:
             return ZoneInfo(DEFAULT_TIMEZONE)
         except ZoneInfoNotFoundError:
-            return timezone.utc
+            return UTC
 
 
 def is_valid_timezone(name):
@@ -85,7 +85,7 @@ def is_valid_timezone(name):
 
 def utc_now():
     """返回当前 UTC 的 aware datetime。"""
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def utc_now_str():
@@ -110,7 +110,7 @@ def parse_stored_time(value):
                 return None
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=zone(LEGACY_TIMEZONE))
-    return dt.astimezone(timezone.utc)
+    return dt.astimezone(UTC)
 
 
 def to_utc_str(value):
@@ -136,7 +136,7 @@ def year_month(value, tz_name):
 
 def from_epoch(seconds):
     """把 epoch 秒转为 UTC 存储字符串。"""
-    return datetime.fromtimestamp(seconds, timezone.utc).strftime(UTC_FORMAT)
+    return datetime.fromtimestamp(seconds, UTC).strftime(UTC_FORMAT)
 
 
 def backup_stamp():

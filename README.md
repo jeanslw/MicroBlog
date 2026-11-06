@@ -9,7 +9,7 @@ All static resources are loaded locally, it supports SQLite and MySQL, and comes
 <p align="center">
   <a href="https://github.com/jeanslw/MicroBlog/releases/tag/v1.3.3"><img src="https://img.shields.io/github/v/release/jeanslw/MicroBlog?style=flat-square&label=Release" alt="Release"></a>
   <a href="https://github.com/jeanslw/MicroBlog"><img src="https://img.shields.io/github/last-commit/jeanslw/MicroBlog?style=flat-square&label=Last%20Commit" alt="Last Commit"></a>
-  <a href="https://www.python.org"><img src="https://img.shields.io/badge/Python-3.10+-777BB4?logo=python&logoColor=white" alt="Language"></a>
+  <a href="https://www.python.org"><img src="https://img.shields.io/badge/Python-3.11+-777BB4?logo=python&logoColor=white" alt="Language"></a>
   <a href="https://flask.palletsprojects.com"><img src="https://img.shields.io/badge/Flask-3.1.0+-777BB4?logo=Flask&logoColor=white" alt="framework"></a>
   <a href="https://github.com/jeanslw/MicroBlog/blob/main/LICENSE"><img src="https://img.shields.io/github/license/jeanslw/MicroBlog?style=flat-square" alt="License"></a>
   <a href="https://hub.docker.com/r/jeanslw/microblog/tags"><img src="https://img.shields.io/docker/v/jeanslw/microblog/latest?label=version&logo=docker" alt="docker"></a>
@@ -43,7 +43,7 @@ All static resources are loaded locally, it supports SQLite and MySQL, and comes
 
 | Component | Version | Description |
 |-----------|---------|-------------|
-| Python | 3.9+ (3.11 recommended) | Runtime |
+| Python | 3.11+ | Runtime |
 | MySQL | 5.7+ / 8.0+ (optional) | Production database; SQLite can be used for dev/test instead |
 | pip | latest | Python package manager |
 | Docker | 20.10+ (optional) | Containerized deployment, no env setup needed |
