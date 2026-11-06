@@ -118,9 +118,7 @@ def record_login_fail(ip: str, username: str, lock_seconds: int = 300) -> int:
                 .where(LoginAttempt.ip == ip, LoginAttempt.username == username)
                 .values(fail_count=LoginAttempt.fail_count + 1, update_time=utc_now_str())
             )
-            rec = db.session.execute(
-                db.select(LoginAttempt).filter_by(ip=ip, username=username)
-            ).scalar_one_or_none()
+            rec = db.session.execute(db.select(LoginAttempt).filter_by(ip=ip, username=username)).scalar_one_or_none()
             if rec is not None and rec.fail_count >= 5 and time.time() >= (rec.lock_until or 0):
                 rec.lock_until = time.time() + lock_seconds
             db.session.commit()

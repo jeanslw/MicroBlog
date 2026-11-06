@@ -109,7 +109,9 @@ def test_production_requires_canonical_url_or_trusted_hosts(tmp_path):
     assert out["CONFIG"] == "RAISED"
     assert "BLOG_CANONICAL_URL" in out["MSG"]
     # 配任一即可放行
-    out = _probe(tmp_path, BLOG_ENV="production", BLOG_SECRET_KEY=EXPLICIT_KEY, BLOG_CANONICAL_URL="https://blog.example.com")
+    out = _probe(
+        tmp_path, BLOG_ENV="production", BLOG_SECRET_KEY=EXPLICIT_KEY, BLOG_CANONICAL_URL="https://blog.example.com"
+    )
     assert out["CONFIG"] == "OK"
     out = _probe(tmp_path, BLOG_ENV="production", BLOG_SECRET_KEY=EXPLICIT_KEY, BLOG_TRUSTED_HOSTS="blog.example.com")
     assert out["CONFIG"] == "OK"
