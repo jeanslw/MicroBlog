@@ -10,6 +10,7 @@ from werkzeug.utils import safe_join
 
 from app.extensions import db, external_url_for, safe_redirect_path
 from app.main import main_bp
+from app.timeutil import to_utc_str
 from app.utils import UPLOAD_CATEGORIES, project_root
 
 
@@ -100,7 +101,7 @@ def sitemap():
         pages.append(
             {
                 "loc": external_url_for("blog.article_detail", aid=art.id),
-                "lastmod": (art.update_time or art.create_time or "")[:10],
+                "lastmod": to_utc_str(art.update_time or art.create_time or ""),
                 "priority": "0.8",
             }
         )

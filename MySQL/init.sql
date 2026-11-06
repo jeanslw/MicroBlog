@@ -6,10 +6,8 @@
 --   mysql -uroot -p flask_blog < MySQL/init.sql
 --   或 Docker 容器首次启动自动执行（挂载到 /docker-entrypoint-initdb.d/）
 --
--- ⚠️ 本脚本是**幂等**的：建表一律 CREATE TABLE IF NOT EXISTS，初始化数据用
---   INSERT IGNORE，重复执行不会删除或覆盖任何已有数据（历史版本首行是
---   DROP TABLE IF EXISTS，对在用库手工执行会清库）。已有库补列/补索引由应用
---   启动时的幂等迁移（app/database.py 的 _migrate_*）负责。
+-- 本脚本是幂等的：建表用 CREATE TABLE IF NOT EXISTS，初始化数据用 INSERT IGNORE。
+-- 表结构与 app/models.py 定义一致；已有库补列/补索引由应用启动时的幂等迁移负责。
 --
 -- 注意：本脚本不创建初始管理员账号（避免明文密码入库）
 --   请在启动后通过 docker exec 或应用界面设置，参考 Readme 4.7.5 节
@@ -17,8 +15,6 @@
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET NAMES utf8mb4 */;
-/*!40103 SET @OLD_TIME_ZONE=@@TIME_ZONE */;
-/*!40103 SET TIME_ZONE='+00:00' */;
 /*!40014 SET @OLD_FOREIGN_KEY_CHECKS=@@FOREIGN_KEY_CHECKS, FOREIGN_KEY_CHECKS=0 */;
 /*!40111 SET @OLD_SQL_NOTES=@@SQL_NOTES, SQL_NOTES=0 */;
 
@@ -147,6 +143,8 @@ CREATE TABLE IF NOT EXISTS `site_setting` (
   `bg_style` varchar(50) DEFAULT 'bg1' COMMENT '背景风格：bg1~bg10/vdysjx/bg13 内置图库或 custom 自定义',
   `bg_custom` varchar(500) DEFAULT '' COMMENT '自定义背景图片 URL（bg_style=custom 时生效）',
   `comments_enabled` tinyint(1) NOT NULL DEFAULT '1' COMMENT '评论总开关（0=关闭，全站禁止新评论/回复）',
+  `rss_enabled` tinyint(1) NOT NULL DEFAULT '1' COMMENT 'RSS 订阅源开关',
+  `atom_enabled` tinyint(1) NOT NULL DEFAULT '1' COMMENT 'Atom 订阅源开关',
   `sidebar_style` varchar(20) NOT NULL DEFAULT 'book' COMMENT '侧边栏栏目分类样式（book=书本树形/classic=经典箭头）',
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -159,6 +157,36 @@ CREATE TABLE IF NOT EXISTS `site_setting` (
 CREATE TABLE IF NOT EXISTS `mail_setting` (
   `id` int NOT NULL AUTO_INCREMENT,
   `mail_host` varchar(200) DEFAULT '' COMMENT 'SMTP 服务器（后台配置优先于 app.env）',
+  `mail_port` int DEFAULT 587 COMMENT 'SMTP 端口',
+  `mail_user` varchar(200) DEFAULT '' COMMENT 'SMTP 用户名',
+  `mail_password` varchar(200) DEFAULT '' COMMENT 'SMTP 密码/授权码（Fernet 加密后存储）',
+  `mail_from` varchar(200) DEFAULT '' COMMENT '发件人邮箱',
+  `mail_use_ssl` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否使用 SSL（465）',
+  `mail_use_tls` tinyint(1) NOT NULL DEFAULT '1' COMMENT '是否使用 STARTTLS（587）',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- --------------------------------------------------------
+-- 表：system_settings（系统设置，仅一行）
+-- 时区、运行时参数与 SMTP 邮件配置；空值项沿用环境变量
+-- --------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `system_settings` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `timezone` varchar(100) NOT NULL DEFAULT 'UTC' COMMENT '站点默认时区（IANA 名称）',
+  `follow_browser_tz` tinyint(1) NOT NULL DEFAULT '1' COMMENT '跟随访客浏览器时区',
+  `page_size` int DEFAULT NULL COMMENT '每页条数（空=沿用环境变量）',
+  `log_level` varchar(20) DEFAULT '' COMMENT '日志级别（空=沿用环境变量）',
+  `log_format` varchar(20) DEFAULT '' COMMENT '日志格式（空=沿用环境变量）',
+  `slow_request_ms` int DEFAULT NULL COMMENT '慢请求阈值（毫秒）',
+  `slow_query_ms` int DEFAULT NULL COMMENT '慢 SQL 阈值（毫秒）',
+  `static_max_age` int DEFAULT NULL COMMENT '静态资源缓存秒数',
+  `session_lifetime` int DEFAULT NULL COMMENT '会话有效期（秒）',
+  `reset_token_max_age` int DEFAULT NULL COMMENT '找回令牌有效期（秒）',
+  `auto_schema_migrate` tinyint(1) DEFAULT NULL COMMENT '启动时自动迁移数据库',
+  `allow_schema_ahead` tinyint(1) DEFAULT NULL COMMENT '允许数据库版本高于程序版本',
+  `cookie_secure` tinyint(1) DEFAULT NULL COMMENT '仅 HTTPS 下发会话 Cookie',
+  `mail_host` varchar(200) DEFAULT '' COMMENT 'SMTP 服务器',
   `mail_port` int DEFAULT 587 COMMENT 'SMTP 端口',
   `mail_user` varchar(200) DEFAULT '' COMMENT 'SMTP 用户名',
   `mail_password` varchar(200) DEFAULT '' COMMENT 'SMTP 密码/授权码（Fernet 加密后存储）',
@@ -236,7 +264,7 @@ CREATE TABLE IF NOT EXISTS `rate_limit` (
 CREATE TABLE IF NOT EXISTS `schema_version` (
   `version` varchar(20) NOT NULL COMMENT '已应用的 schema 发布号',
   `applied_time` varchar(50) DEFAULT NULL COMMENT '应用时间',
-  `note` varchar(255) DEFAULT NULL COMMENT '迁移说明（来自迁移登记表）',
+  `note` varchar(255) NOT NULL DEFAULT '' COMMENT '迁移说明（来自迁移登记表）',
   PRIMARY KEY (`version`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -244,17 +272,16 @@ CREATE TABLE IF NOT EXISTS `schema_version` (
 -- --------------------------------------------------------
 -- 初始化数据
 -- --------------------------------------------------------
--- 三张单行配置表各一条默认行（v1.3.6 拆分自 site_config）。
--- 新装环境直接建出最新 schema,schema_version 同步戳记为当前发布号,
--- 使启动迁移无需再跑（v1.3.6 的框架对「无版本行的全新库」也会自动戳记）。
--- INSERT IGNORE：脚本可重复执行（建表为 IF NOT EXISTS），重复导入不会因
--- 主键冲突中断，也不会覆盖已有配置
+-- 单行配置表各一条默认行。
+-- 新装环境直接建出最新 schema，schema_version 同步戳记为当前发布号。
+-- INSERT IGNORE：脚本可重复执行，重复导入不会因主键冲突中断，也不会覆盖已有配置
 INSERT IGNORE INTO `site_setting` (`id`, `site_name`, `favicon_path`)
 VALUES (1, 'My Blog', 'static/favicon.ico');
 INSERT IGNORE INTO `mail_setting` (`id`) VALUES (1);
 INSERT IGNORE INTO `about_profile` (`id`) VALUES (1);
+INSERT IGNORE INTO `system_settings` (`id`) VALUES (1);
 INSERT IGNORE INTO `schema_version` (`version`, `applied_time`, `note`)
-VALUES ('1.3.6', NOW(), '新装环境直接建出最新 schema');
+VALUES ('1.4.0', DATE_FORMAT(UTC_TIMESTAMP(), '%Y-%m-%dT%H:%i:%SZ'), '新装环境直接建出最新 schema');
 
 -- ⚠️ 不在此插入初始管理员账号（避免明文密码）
 -- 请用以下任一方式创建管理员：
@@ -269,7 +296,6 @@ VALUES ('1.3.6', NOW(), '新装环境直接建出最新 schema');
 --   INSERT INTO admin (username, password) VALUES ('admin', 'must_replace_me');
 
 
-/*!40103 SET TIME_ZONE=IFNULL(@OLD_TIME_ZONE, 'system') */;
 /*!40014 SET FOREIGN_KEY_CHECKS=IFNULL(@OLD_FOREIGN_KEY_CHECKS, 1) */;
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40111 SET SQL_NOTES=IFNULL(@OLD_SQL_NOTES, 1) */;

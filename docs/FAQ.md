@@ -22,7 +22,7 @@ Change `BLOG_DB_TYPE` environment variable (`mysql` or `sqlite`); code adapts au
 **Q: Forgot admin password / login says password is wrong?**
 Passwords are stored as `generate_password_hash` hashes — **plaintext passwords cannot log in**. Note that `BLOG_INIT_ADMIN_PWD` only takes effect once when the admin table is empty (first initialization); it does **not** change the password of an existing admin. Options:
 
-- **Option 1 (recommended, email recovery):** click "Forgot password" on the login page (`/admin/forgot`), submit your username and bound email, then open `/admin/reset/<token>` from the received email to set a new password (link valid for 30 minutes). Requires a bound email at `/admin/account` and working SMTP settings (verify with `/admin/mail_test`).
+- **Option 1 (recommended, email recovery):** click "Forgot password" on the login page (`/admin/forgot`), submit your username and bound email, then open `/admin/reset/<token>` from the received email to set a new password (link valid for 30 minutes). Requires a bound email and working SMTP settings in `/admin/system_setting` (verify with "Send Test Mail" on that page).
 - **Option 2 (fallback when no email is bound / SMTP is unavailable):** reset directly via a Python shell on the server:
 ```python
 from werkzeug.security import generate_password_hash

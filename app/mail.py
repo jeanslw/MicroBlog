@@ -1,17 +1,11 @@
-"""邮件发送工具(找回密码).
-
-使用 stdlib smtplib + email.message,不引入第三方依赖.
-SMTP 配置从 app.config 读取(对应 app.env 的 BLOG_MAIL_*),
-未配置或发送失败抛 MailError,由调用方捕获后提示用户.
-"""
+"""邮件发送工具：SMTP 配置只从系统设置读取，使用 stdlib smtplib + email.message。"""
 
 import contextlib
 import smtplib
 from email.message import EmailMessage
 
-from flask import current_app
-
 from app.crypto import decrypt_secret
+from app.settings import get_system_setting
 
 
 class MailError(Exception):
@@ -19,40 +13,18 @@ class MailError(Exception):
 
 
 def send_mail(to: str, subject: str, body: str) -> None:
-    """发送纯文本邮件.SMTP 未配置或发送失败抛 MailError.
+    """发送纯文本邮件；SMTP 未配置或发送失败抛 MailError。"""
+    setting = get_system_setting()
+    if setting is None:
+        raise MailError("邮件服务未配置")
 
-    优先使用后台保存的 SMTP 配置(mail_setting.mail_host 非空即视为已配置),
-    否则回退到环境变量(app.env 的 BLOG_MAIL_*).
-    """
-    cfg = current_app.config
-
-    # 后台保存的 SMTP 配置优先;未配置则回退到环境变量
-    db_host = ""
-    mail_cfg = None
-    try:
-        from app.database import get_mail_setting
-
-        mail_cfg = get_mail_setting()
-        db_host = (mail_cfg.mail_host or "").strip() if mail_cfg else ""
-    except Exception:
-        mail_cfg = None
-
-    if db_host and mail_cfg is not None:
-        host = db_host
-        port = int(mail_cfg.mail_port or 587)
-        user = mail_cfg.mail_user or ""
-        password = decrypt_secret(mail_cfg.mail_password or "")
-        sender = mail_cfg.mail_from or user
-        use_ssl = bool(mail_cfg.mail_use_ssl)
-        use_tls = bool(mail_cfg.mail_use_tls)
-    else:
-        host = cfg.get("MAIL_HOST", "")
-        port = int(cfg.get("MAIL_PORT", 587) or 587)
-        user = cfg.get("MAIL_USER", "")
-        password = cfg.get("MAIL_PASSWORD", "")
-        sender = cfg.get("MAIL_FROM", "") or user
-        use_ssl = bool(cfg.get("MAIL_USE_SSL", False))
-        use_tls = bool(cfg.get("MAIL_USE_TLS", True))
+    host = (setting.mail_host or "").strip()
+    port = int(setting.mail_port or 587)
+    user = (setting.mail_user or "").strip()
+    password = decrypt_secret(setting.mail_password or "")
+    sender = (setting.mail_from or "").strip() or user
+    use_ssl = bool(setting.mail_use_ssl)
+    use_tls = bool(setting.mail_use_tls)
 
     if not host or not sender:
         raise MailError("邮件服务未配置")

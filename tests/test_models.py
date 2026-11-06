@@ -59,8 +59,8 @@ def test_article_default_status(db, category):
 
 def test_article_comment_cascade(db, article):
     """删除文章应级联删除评论"""
-    c1 = Comment(article_id=article.id, username="u", content="c1", create_time="2026-01-01 00:00:00")
-    c2 = Comment(article_id=article.id, username="u", content="c2", create_time="2026-01-01 00:00:00")
+    c1 = Comment(article_id=article.id, username="u", content="c1", create_time="2026-01-01T00:00:00Z")
+    c2 = Comment(article_id=article.id, username="u", content="c2", create_time="2026-01-01T00:00:00Z")
     db.session.add_all([c1, c2])
     db.session.commit()
     assert db.session.scalar(db.select(db.func.count(Comment.id)).where(Comment.article_id == article.id)) == 2
@@ -72,10 +72,10 @@ def test_article_comment_cascade(db, article):
 
 def test_comment_reply_cascade(db, article):
     """删除评论应级联删除其回复"""
-    c = Comment(article_id=article.id, username="u", content="c", create_time="2026-01-01 00:00:00")
+    c = Comment(article_id=article.id, username="u", content="c", create_time="2026-01-01T00:00:00Z")
     db.session.add(c)
     db.session.commit()
-    r = Reply(comment_id=c.id, username="r", content="reply", create_time="2026-01-01 00:00:00")
+    r = Reply(comment_id=c.id, username="r", content="reply", create_time="2026-01-01T00:00:00Z")
     db.session.add(r)
     db.session.commit()
 
@@ -113,7 +113,35 @@ def test_login_attempt_record(db):
 
 def test_vote_log_record(db, article):
     """VoteLog 可写入"""
-    v = VoteLog(article_id=article.id, ip="1.1.1.1", create_time="2026-01-01 00:00:00")
+    v = VoteLog(article_id=article.id, ip="1.1.1.1", create_time="2026-01-01T00:00:00Z")
     db.session.add(v)
     db.session.commit()
     assert v.id is not None
+
+
+def test_new_db_matches_model_indexes(app, db):
+    """全新库由 create_all 建出的索引与模型定义一致."""
+    inspector = db.inspect(db.engine)
+    for table in db.metadata.sorted_tables:
+        names = {idx["name"] for idx in inspector.get_indexes(table.name)}
+        missing = {idx.name for idx in table.indexes if idx.name and idx.name not in names}
+        assert not missing, f"{table.name} 缺索引: {missing}"
+
+
+def test_migration_restores_missing_indexes(app, db):
+    """已有库缺失索引时,启动迁移按模型补齐."""
+    from app.database import _migrate_missing_indexes
+
+    for table in db.metadata.sorted_tables:
+        for index in list(table.indexes):
+            index.drop(db.engine)
+    inspector = db.inspect(db.engine)
+    before = {idx["name"] for name in inspector.get_table_names() for idx in inspector.get_indexes(name)}
+    assert not any(index.name in before for table in db.metadata.sorted_tables for index in table.indexes)
+
+    _migrate_missing_indexes()
+    inspector = db.inspect(db.engine)
+    for table in db.metadata.sorted_tables:
+        names = {idx["name"] for idx in inspector.get_indexes(table.name)}
+        missing = {index.name for index in table.indexes if index.name and index.name not in names}
+        assert not missing, f"{table.name} 补索引后仍缺: {missing}"

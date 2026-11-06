@@ -1,30 +1,33 @@
-"""SQLAlchemy 数据模型  --  对齐现有数据库 schema.
+"""SQLAlchemy 数据模型 -- 与 MySQL/init.sql 建出的结构一致.
 
-设计原则:
-1. 保持与 MySQL/init.sql 与历史 SQLite schema 字段一致,确保现有数据可继续使用
-2. 表名,字段类型严格对齐
-3. 不引入外键约束(原 schema 也无 FK 约束),但关系映射用 ForeignKey 仅供 ORM 查询使用
+字段类型与默认值、索引、唯一约束、表选项都由本模块定义;init.sql 是同一结构的
+手动建表脚本.已有库缺失的索引由 database.py 启动时按模型补齐.
 """
 
 from flask_login import UserMixin
-from sqlalchemy import Boolean, Column, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, Index, Integer, String, Text, UniqueConstraint, text
 from sqlalchemy.dialects.mysql import MEDIUMTEXT
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql.schema import DefaultClause
 
 from app.extensions import db
+from app.timeutil import DEFAULT_TIMEZONE
+
+MYSQL_TABLE_OPTIONS = {
+    "mysql_engine": "InnoDB",
+    "mysql_charset": "utf8mb4",
+    "mysql_collate": "utf8mb4_unicode_ci",
+}
 
 
 class Admin(db.Model, UserMixin):
     __tablename__ = "admin"
+    __table_args__ = (UniqueConstraint("username", name="uk_username"),)
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    username = Column(String(50), nullable=False, unique=True)
+    username = Column(String(50), nullable=False)
     password = Column(String(255), nullable=False)
-    # 邮箱(用于找回密码,可空)
     email = Column(String(200), nullable=False, default="")
-    # 找回密码令牌版本号:每次改密码 +1,凡此之前签发的重置令牌一律作废.
-    # 取代"把密码哈希的摘要塞进令牌"的旧方案——那等于对口令类数据做哈希,
-    # 既被静态检查判为弱哈希,也让密文以摘要形式间接进入 URL 与访问日志.
     token_version = Column(Integer, nullable=False, default=0)
 
     def __repr__(self):
@@ -37,20 +40,32 @@ class Admin(db.Model, UserMixin):
 
 class Category(db.Model):
     __tablename__ = "category"
+    __table_args__ = (UniqueConstraint("cat_name", name="uk_cat_name"),)
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    cat_name = Column(String(60), nullable=False, unique=True)
+    cat_name = Column(String(60), nullable=False)
     tag_text = Column(String(60), default="")
     create_time = Column(String(50))
 
-    articles = relationship("Article", back_populates="category")
+    articles = relationship(
+        "Article",
+        back_populates="category",
+        primaryjoin="Category.id == Article.category_id",
+        foreign_keys="[Article.category_id]",
+    )
 
     def __repr__(self):
-        return f"<Category {self.cat_name}>"
+        return f"<Category {self.cat_name!r}>"
 
 
 class Article(db.Model):
     __tablename__ = "article"
+    __table_args__ = (
+        Index("idx_status", "status"),
+        Index("idx_category_id", "category_id"),
+        Index("idx_create_time", "create_time"),
+        Index("idx_status_cat_time", "status", "category_id", "create_time"),
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     title = Column(String(500), nullable=False)
@@ -61,13 +76,23 @@ class Article(db.Model):
     update_time = Column(String(50))
     vote_num = Column(Integer, default=0)
     is_pinned = Column(Boolean, default=False, nullable=False)
-    category_id = Column(Integer, ForeignKey("category.id"))
-    # SEO 元数据:描述/关键词(留空时发布自动生成)
-    seo_description = Column(String(300), default="")
-    seo_keywords = Column(String(300), default="")
+    category_id = Column(Integer)
+    seo_description = Column(String(300), nullable=False, default="")
+    seo_keywords = Column(String(300), nullable=False, default="")
 
-    category = relationship("Category", back_populates="articles")
-    comments = relationship("Comment", back_populates="article", cascade="all, delete-orphan")
+    category = relationship(
+        "Category",
+        back_populates="articles",
+        primaryjoin="Article.category_id == Category.id",
+        foreign_keys="[Article.category_id]",
+    )
+    comments = relationship(
+        "Comment",
+        back_populates="article",
+        primaryjoin="Article.id == Comment.article_id",
+        foreign_keys="[Comment.article_id]",
+        cascade="all, delete-orphan",
+    )
 
     def __repr__(self):
         return f"<Article {self.id} {self.title!r}>"
@@ -75,27 +100,45 @@ class Article(db.Model):
 
 class Comment(db.Model):
     __tablename__ = "comment"
+    __table_args__ = (Index("idx_article_id", "article_id"),)
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    article_id = Column(Integer, ForeignKey("article.id"))
+    article_id = Column(Integer)
     username = Column(String(50), default="游客")
     content = Column(Text, nullable=False)
     create_time = Column(String(50))
 
-    article = relationship("Article", back_populates="comments")
-    replies = relationship("Reply", back_populates="comment", cascade="all, delete-orphan")
+    article = relationship(
+        "Article",
+        back_populates="comments",
+        primaryjoin="Comment.article_id == Article.id",
+        foreign_keys="[Comment.article_id]",
+    )
+    replies = relationship(
+        "Reply",
+        back_populates="comment",
+        primaryjoin="Comment.id == Reply.comment_id",
+        foreign_keys="[Reply.comment_id]",
+        cascade="all, delete-orphan",
+    )
 
 
 class Reply(db.Model):
     __tablename__ = "reply"
+    __table_args__ = (Index("idx_comment_id", "comment_id"),)
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    comment_id = Column(Integer, ForeignKey("comment.id"))
+    comment_id = Column(Integer)
     username = Column(String(50), default="游客")
     content = Column(Text, nullable=False)
     create_time = Column(String(50))
 
-    comment = relationship("Comment", back_populates="replies")
+    comment = relationship(
+        "Comment",
+        back_populates="replies",
+        primaryjoin="Reply.comment_id == Comment.id",
+        foreign_keys="[Reply.comment_id]",
+    )
 
 
 class Banner(db.Model):
@@ -108,42 +151,29 @@ class Banner(db.Model):
     desc_text = Column(String(200), default="")
     sort = Column(Integer, default=0)
     create_time = Column(String(50))
-    # 最近一次编辑/撤回/启用时间(撤回后它就是"撤回时间",列表页直接可读)
     update_time = Column(String(50))
-    # 是否在首页轮播展示:True=展示中;False=已撤回(下架,保留记录可重新启用)
     is_active = Column(Boolean, nullable=False, default=True)
 
 
 class SiteSetting(db.Model):
-    """站点设置(v1.3.6 从 site_config 拆分而来):站点名/图标/Logo/背景/侧边栏/评论开关.
-
-    单行表(id=1).历史库由 database._migrate_site_config_split 启动时
-    自动拆分迁移,应用代码只需通过 database.get_site_setting 访问.
-    """
+    """站点设置:站点名/图标/Logo/背景/侧边栏/评论开关/订阅源开关."""
 
     __tablename__ = "site_setting"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     site_name = Column(String(100), nullable=False, default="My Blog")
     favicon_path = Column(String(200), default="static/favicon.ico")
-    # 网站 Logo 图片 URL(导航栏显示;上传时过大自动缩放)
     logo_path = Column(String(200), default="")
-    # 背景风格:bg1~bg10 / vdysjx / bg13(内置图库)或 custom(自定义)
     bg_style = Column(String(50), default="bg1")
-    # 自定义背景图片 URL(bg_style=custom 时生效)
     bg_custom = Column(String(500), default="")
-    # 评论总开关:关闭后全站禁止新评论/回复(已有评论仍可查看)
     comments_enabled = Column(Boolean, default=True, nullable=False)
-    # 侧边栏"栏目分类"样式:book=书本树形(可展开)/ classic=经典折叠箭头
+    rss_enabled = Column(Boolean, default=True, nullable=False)
+    atom_enabled = Column(Boolean, default=True, nullable=False)
     sidebar_style = Column(String(20), default="book", nullable=False)
 
 
 class MailSetting(db.Model):
-    """SMTP 邮件设置(v1.3.6 从 site_config 拆分而来).
-
-    单行表(id=1).与前台展示字段分表后,SMTP 授权码(mail_password)
-    不再与任何模板渲染路径同表.后台保存的配置优先于 app.env 的 BLOG_MAIL_*.
-    """
+    """SMTP 邮件设置:保留兼容旧库;当前 SMTP 配置由 system_settings 表提供."""
 
     __tablename__ = "mail_setting"
 
@@ -151,7 +181,37 @@ class MailSetting(db.Model):
     mail_host = Column(String(200), default="")
     mail_port = Column(Integer, default=587)
     mail_user = Column(String(200), default="")
-    # Fernet 加密后存储(app.crypto.encrypt_secret)
+    mail_password = Column(String(200), default="")
+    mail_from = Column(String(200), default="")
+    mail_use_ssl = Column(Boolean, default=False, nullable=False)
+    mail_use_tls = Column(Boolean, default=True, nullable=False)
+
+
+class SystemSetting(db.Model):
+    """系统设置:时区、运行时参数与 SMTP 邮件配置.
+
+    未配置的运行时项回退到环境变量,Email 配置只从本表读取.
+    """
+
+    __tablename__ = "system_settings"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    timezone = Column(String(100), nullable=False, default=DEFAULT_TIMEZONE)
+    follow_browser_tz = Column(Boolean, nullable=False, default=True)
+    page_size = Column(Integer)
+    log_level = Column(String(20), default="")
+    log_format = Column(String(20), default="")
+    slow_request_ms = Column(Integer)
+    slow_query_ms = Column(Integer)
+    static_max_age = Column(Integer)
+    session_lifetime = Column(Integer)
+    reset_token_max_age = Column(Integer)
+    auto_schema_migrate = Column(Boolean)
+    allow_schema_ahead = Column(Boolean)
+    cookie_secure = Column(Boolean)
+    mail_host = Column(String(200), default="")
+    mail_port = Column(Integer, default=587)
+    mail_user = Column(String(200), default="")
     mail_password = Column(String(200), default="")
     mail_from = Column(String(200), default="")
     mail_use_ssl = Column(Boolean, default=False, nullable=False)
@@ -159,11 +219,7 @@ class MailSetting(db.Model):
 
 
 class AboutProfile(db.Model):
-    """'关于我'博主资料(v1.3.6 从 site_config 拆分而来):前台关于页 + 文章署名.
-
-    单行表(id=1).头像 URL(/static 上传或 http(s) 外链)/ 简介(纯文本,保留换行)/
-    邮箱 / GitHub / 个人主页 / 昵称(作为作者署名显示在文章详情页与'关于我'页面).
-    """
+    """「关于我」博主资料:前台关于页 + 文章署名."""
 
     __tablename__ = "about_profile"
 
@@ -178,7 +234,6 @@ class AboutProfile(db.Model):
 
 class VoteLog(db.Model):
     __tablename__ = "vote_log"
-    # 与 MySQL/init.sql 对齐:同一 IP 对同一文章只能点赞一次
     __table_args__ = (UniqueConstraint("article_id", "ip", name="uk_article_ip"),)
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -191,7 +246,6 @@ class LoginAttempt(db.Model):
     """登录失败计数(跨 worker 共享,替代进程内字典)"""
 
     __tablename__ = "login_attempt"
-    # 与 MySQL/init.sql 对齐:同一 IP + 用户名只有一条计数记录
     __table_args__ = (UniqueConstraint("ip", "username", name="uk_ip_username"),)
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -199,38 +253,53 @@ class LoginAttempt(db.Model):
     username = Column(String(100), nullable=False)
     fail_count = Column(Integer, default=0, nullable=False)
     lock_until = Column(Integer, default=0, nullable=False)
-    # 最近一次登录失败时间(账户安全页可视化排查爆破尝试)
     update_time = Column(String(50))
 
 
 class RateLimit(db.Model):
-    """通用频率限制记录(按 IP + 动作),用于评论/回复/点赞/找回密码防刷.
-
-    每次动作插入一条带时间戳的记录;统计窗口内的记录数判断是否超限.
-    窗口外的旧记录由 check_and_record_rate_limit 惰性清理,避免表无限膨胀.
-    """
+    """通用频率限制记录(按 IP + 动作),用于评论/回复/点赞/找回密码防刷."""
 
     __tablename__ = "rate_limit"
-    # 惰性清理按 (action, create_time) 过滤,计数按 (action, ip, create_time) 过滤,
-    # 复合索引让清理不再退化为全表扫描(与 MySQL/init.sql 的 idx_action_time 对齐)
-    __table_args__ = (Index("idx_action_time", "action", "create_time"),)
+    __table_args__ = (
+        Index("idx_ip_action", "ip", "action"),
+        Index("idx_action_time", "action", "create_time"),
+    )
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    ip = Column(String(100), nullable=False, index=True)
-    action = Column(String(50), nullable=False, index=True)
+    ip = Column(String(100), nullable=False)
+    action = Column(String(50), nullable=False)
     create_time = Column(String(50), nullable=False)
 
 
 class SchemaVersion(db.Model):
-    """数据库 schema 版本履历(每行一次戳记,version 为真实发布号主键).
-
-    v1.3.6 引入版本化迁移框架.'数据库当前版本'= 履历中语义化最高的
-    一行;每次迁移成功立刻追加一行(版本 + 时间 + 说明),后台'迁移
-    数据库'页展示完整履历,不必翻日志.
-    """
+    """数据库 schema 版本履历(每行一次戳记,version 为真实发布号主键)."""
 
     __tablename__ = "schema_version"
 
     version = Column(String(20), primary_key=True)
     applied_time = Column(String(50))
-    note = Column(String(200), default="")
+    note = Column(String(255), nullable=False, default="")
+
+
+def _align_schema():
+    """把列的 Python 默认值写入数据库默认值，并统一 MySQL 表选项。"""
+    for table in db.metadata.tables.values():
+        table.kwargs.update(MYSQL_TABLE_OPTIONS)
+        for column in table.columns:
+            if column.server_default is not None or column.default is None:
+                continue
+            if isinstance(column.type, Text):
+                continue
+            value = column.default.arg
+            if isinstance(value, bool):
+                literal = "1" if value else "0"
+            elif isinstance(value, int):
+                literal = str(value)
+            elif isinstance(value, str):
+                literal = "'" + value.replace("'", "''") + "'"
+            else:
+                continue
+            column.server_default = DefaultClause(text(literal))
+
+
+_align_schema()

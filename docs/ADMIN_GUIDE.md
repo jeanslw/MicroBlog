@@ -22,7 +22,7 @@ For **administrators of a self-hosted MicroBlog**: where the admin panel lives, 
 | Create / rename / delete categories | **Front-end** sidebar "Categories" (visible once you are signed in) |
 | Manage banners | Admin "Banners → Banner List" (`/banner/`) |
 | Edit the "About" page | Admin "About Me" (`/admin/about_setting`) |
-| Change password / bind email / configure SMTP | Admin "Account → Change Password / Account & Mail Settings" |
+| Change password / system settings / login history | Admin "Account → Change Password / Login History", "Site Settings → System Settings" |
 | Back up, download or restore the database | Admin "Operations & Security → Database Backup" (`/admin/backup`) |
 | Migrate the database after an upgrade, check versions | Admin "Operations & Security → Migrate Database" (`/admin/migrate`) |
 | The site suddenly returns 503 "maintenance" | See [§9 Upgrading and Schema Migrations](#9-upgrading-and-schema-migrations) |
@@ -60,7 +60,7 @@ flask create-admin
 
 - Counted per **IP + username**; after **5** consecutive failures the pair is locked for **5 minutes**; while locked, sign-in returns `429` together with the remaining seconds.
 - The counter is persisted in the `login_attempt` table (shared across workers, survives restarts) and is **cleared on a successful sign-in**.
-- Where to look: bottom of Admin "Account → Account & Mail Settings" — the last 10 entries (IP / attempts / last failure / status: locked or normal).
+- Where to look: Admin "Account → Login History" — the last 50 entries (IP / username / attempts / last failure / lock expiry / status: locked or normal).
 - If you locked yourself out, wait 5 minutes, or clear the matching rows yourself (`DELETE FROM login_attempt`).
 
 ### 2.4 Forgot password (email recovery)
@@ -89,13 +89,14 @@ The sidebar (a drawer on narrow screens) has four groups:
 |-------|------|-----|---------|
 | (top) | Site Settings | `/admin/site_setting` | Site name, logo, background, category style, comment switch; `/admin/panel` is the same form |
 | (top) | About Me | `/admin/about_setting` | Content of the front-end "About" page |
+| (top) | System Settings | `/admin/system_setting` | Time zone, browser time zone switch, runtime options, admin mailbox and SMTP |
 | Articles | Drafts | `/drafts` | Unpublished articles |
 | Articles | New Article | `/article/new` | Markdown editor |
 | Articles | Article List | `/article/manage` | Pin / edit / withdraw / delete published articles + comment moderation entry |
 | Banners | Banner List | `/banner/` | Add, edit, withdraw/enable, delete |
 | Banners | New Banner | `/banner/` (form on the page) | Upload image + title / link / description / sort weight |
 | Account | Change Password | `/admin/change_pwd` | Change the login password |
-| Account | Account & Mail Settings | `/admin/account` | Account email, SMTP, send test mail, login-failure log |
+| Account | Login History | `/admin/login_history` | Last 50 failed sign-ins and lock expiry |
 | Account | Sign out | `/admin/logout` | POST sign-out |
 | Operations & Security | Database Backup | `/admin/backup` | Back up now / download / restore / delete |
 | Operations & Security | Migrate Database | `/admin/migrate` | Version status, run migration, migration history |
@@ -124,6 +125,8 @@ How the two background layers interact:
 - To send a visitor back to the site default, clear their local storage.
 
 The data lives in the single-row `site_setting` table (split out of the old `site_config` table in v1.3.6 — see [§9](#9-upgrading-and-schema-migrations)).
+
+Feed switches are in the "Feed Settings" section of the Site Settings page: RSS (`/rss`) and Atom (`/feed`) are independent. A disabled feed returns 404 and its footer icon and alternate link are hidden.
 
 ---
 
@@ -233,18 +236,17 @@ Columns and actions:
 
 ## 8. Account and Operations
 
-### 8.1 Account & mail settings (`/admin/account`)
+### 8.1 System settings and login history (`/admin/system_setting` / `/admin/login_history`)
 
-One form covering three things:
+**System Settings**:
 
-1. **Account email**: used for password recovery — make sure it receives mail (≤200 chars, must be valid);
-2. **SMTP settings** (used to send recovery mails):
-   - SMTP host, port (1–65535, default 587), username, password/app password, sender address;
-   - **Leaving the password field empty keeps the existing password** (so you do not have to retype it on every save);
-   - Enable either "STARTTLS (port 587)" or "SSL (port 465)" as your provider requires;
-   - "Send test mail" sends to the **account email above** to validate the configuration;
-   - **Precedence**: the SMTP settings saved here **override** `BLOG_MAIL_*` from `app.env` (a non-empty `mail_setting.mail_host` counts as configured);
-3. **Login-failure log**: the last 10 entries (see [§2.3](#23-login-lockout-brute-force-protection)).
+- **Time zone**: the site default is `UTC`; pick a common zone or type any IANA name. With "follow the visitor's browser time zone" enabled, pages use the visitor's local zone.
+- **Page times**: 24-hour clock with seconds and a time zone label. Database and admin times are stored in UTC; feeds and sitemap use UTC.
+- **Runtime options**: unset numeric values fall back to environment variables; changes take effect on save.
+- **Default settings**: "Use Default Settings" writes the recommended values (10 items per page, 500 ms slow request, 200 ms slow SQL, 86400 s session, 1800 s reset token) and applies them immediately. The faded numbers in the inputs show the recommended defaults.
+- **Mail settings**: admin mailbox, SMTP host / port / username / password / sender, STARTTLS / SSL and a test mail. An empty password keeps the existing one.
+
+**Login History**: the last 50 failed sign-ins (IP / username / attempts / last failure / lock expiry / status), rendered in the current display zone (see [§2.3](#23-login-lockout-brute-force-protection)).
 
 ### 8.2 Database backup and restore (`/admin/backup`)
 
@@ -348,17 +350,16 @@ The variables below shape the admin experience (for the full list with defaults 
 |----------|---------|--------|
 | `BLOG_AUTO_MIGRATE` | `true` | Auto vs manual migration mode (see [§9.2](#92-the-two-modes-blog_auto_migrate)) |
 | `BLOG_INIT_ADMIN_USER` / `BLOG_INIT_ADMIN_PWD` | `admin` / empty | Creates an admin when the database is empty (drop the password entry after bootstrapping) |
-| `BLOG_MAIL_*` (HOST/PORT/USER/PASSWORD/FROM/USE_SSL/USE_TLS) | empty / 587 / … | Fallback SMTP config; **settings saved in the admin panel win** |
 | `BLOG_RESET_TOKEN_MAX_AGE` | `1800` | Password-recovery token lifetime (seconds) |
 | `BLOG_SECRET_KEY` / `BLOG_SECRET_KEY_FILE` | random in dev | Session & token signing key; must be set explicitly in production (the public default refuses to start) |
 | `BLOG_SESSION_LIFETIME` | `86400` | Sign-in session lifetime (seconds) |
 | `BLOG_COOKIE_SECURE` | `true` in production | Whether the cookie carries `Secure` (set `false` for plain HTTP) |
-| `BLOG_PAGE_SIZE` | `6` | Items per page on the front end |
+| `BLOG_PAGE_SIZE` | `10` | Items per page on the front end |
 | `BLOG_STATIC_MAX_AGE` | `0` (dev) | Static-asset cache seconds (30 days suggested in production) |
 | `BLOG_LOG_*` / `BLOG_SLOW_REQUEST_MS` / `BLOG_SLOW_QUERY_MS` | see Deployment | Log rotation and slow request/query thresholds |
 | `BLOG_TRUSTED_HOSTS` | empty | Host allow-list; a wrong value causes 400s (including admin pages) |
 
-> Where they live: `app.env` in the project root for bare metal (template `app.env.example`), `.env.docker` for Docker (template `.env.docker.example`). Changes require a **service restart**.
+> Where they live: `app.env` in the project root for bare metal (template `app.env.example`), `.env.docker` for Docker (template `.env.docker.example`). Environment changes require a **service restart**; overrides saved in System Settings take effect immediately. SMTP and the admin mailbox are configured only in System Settings.
 
 ---
 

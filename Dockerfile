@@ -5,12 +5,11 @@
 # ============================================================
 FROM python:3.11-slim
 
-# Python 运行时优化 + 时区(避免时间差 8 小时)
+# Python 运行时优化；容器保持默认 UTC 时区
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    TZ=Asia/Shanghai
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
 WORKDIR /app
 

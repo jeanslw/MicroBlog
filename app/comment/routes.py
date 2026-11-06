@@ -8,8 +8,6 @@
 - 点赞后支持回到来源页(列表/栏目等),仅放行站内相对路径防开放重定向
 """
 
-from datetime import datetime
-
 from flask import flash, redirect, request, url_for
 from flask_babel import _
 from sqlalchemy.exc import IntegrityError
@@ -18,6 +16,7 @@ from app.comment import comment_bp
 from app.extensions import db, flash_form_errors, get_client_ip, log, rate_limit, safe_redirect_path
 from app.forms import CommentForm, ReplyForm
 from app.models import Article, Comment, Reply, VoteLog
+from app.timeutil import utc_now_str
 
 USERNAME_MAX_LEN = 50
 COMMENT_MAX_LEN = 2000
@@ -59,7 +58,7 @@ def vote(aid):
         flash(_("您已经点过赞了"), "info")
         return redirect(_vote_return_to(aid))
 
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now = utc_now_str()
     try:
         db.session.add(VoteLog(article_id=aid, ip=ip, create_time=now))
         # 原子 UPDATE:数据库端自增,避免读-改-写并发丢计数
@@ -94,7 +93,7 @@ def add_comment(aid):
         flash_form_errors(form)
         return redirect(url_for("blog.article_detail", aid=aid))
 
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now = utc_now_str()
     comment = Comment(
         article_id=aid,
         username=_normalize_username(form.username.data),
@@ -137,7 +136,7 @@ def add_reply(aid, cid):
         flash_form_errors(form)
         return redirect(url_for("blog.article_detail", aid=aid))
 
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now = utc_now_str()
     reply = Reply(
         comment_id=cid,
         username=_normalize_username(form.username.data),

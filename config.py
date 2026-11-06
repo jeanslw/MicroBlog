@@ -54,12 +54,12 @@ def _normalize_trusted_host(entry: str) -> str:
 
 
 # 应用版本（SemVer）
-APP_VERSION = "1.3.6"
+APP_VERSION = "1.4.0"
 
 # 数据库结构版本；迁移登记见 app/database.py，初始结构见 MySQL/init.sql
-SCHEMA_VERSION = "1.3.6"
+SCHEMA_VERSION = "1.4.0"
 
-PAGE_SIZE = int(os.environ.get("BLOG_PAGE_SIZE", "6"))
+PAGE_SIZE = int(os.environ.get("BLOG_PAGE_SIZE", "10"))
 
 TITLE_MAX_LEN = 500
 CAT_NAME_MAX_LEN = 60
@@ -171,13 +171,6 @@ class Config:
     PROXY_FIX_X_PROTO = int(os.environ.get("BLOG_PROXY_XPROTO", "0"))
     PROXY_FIX_X_HOST = int(os.environ.get("BLOG_PROXY_XHOST", "0"))
 
-    MAIL_HOST = os.environ.get("BLOG_MAIL_HOST", "")
-    MAIL_PORT = int(os.environ.get("BLOG_MAIL_PORT", "587") or "587")
-    MAIL_USER = os.environ.get("BLOG_MAIL_USER", "")
-    MAIL_PASSWORD = os.environ.get("BLOG_MAIL_PASSWORD", "")
-    MAIL_FROM = os.environ.get("BLOG_MAIL_FROM", "")
-    MAIL_USE_SSL = _env_bool("BLOG_MAIL_USE_SSL", "false")
-    MAIL_USE_TLS = _env_bool("BLOG_MAIL_USE_TLS", "true")
     RESET_TOKEN_MAX_AGE = int(os.environ.get("BLOG_RESET_TOKEN_MAX_AGE", "1800"))  # 单位秒
 
     # 模块级常量在此显式声明，供 app.config.from_object() 收集

@@ -42,7 +42,7 @@ services:
       # 业务参数
       # Session 有效期（秒，默认 86400 = 24 小时）
       BLOG_SESSION_LIFETIME: ${BLOG_SESSION_LIFETIME:-86400}
-      BLOG_PAGE_SIZE: ${BLOG_PAGE_SIZE:-6}
+      BLOG_PAGE_SIZE: ${BLOG_PAGE_SIZE:-10}
       BLOG_STATIC_MAX_AGE: ${BLOG_STATIC_MAX_AGE:-43200}
       # 密码找回令牌有效期(秒,默认 1800)
       BLOG_RESET_TOKEN_MAX_AGE: ${BLOG_RESET_TOKEN_MAX_AGE:-1800}
@@ -55,15 +55,9 @@ services:
       # 文件轮转：单文件 10MB，保留 5 份
       BLOG_LOG_MAX_BYTES: ${BLOG_LOG_MAX_BYTES:-10485760}
       BLOG_LOG_BACKUP_COUNT: ${BLOG_LOG_BACKUP_COUNT:-5}
-
-      # SMTP 邮件（可选，后台配置优先）
-      BLOG_MAIL_HOST: ${BLOG_MAIL_HOST:-}
-      BLOG_MAIL_PORT: ${BLOG_MAIL_PORT:-587}
-      BLOG_MAIL_USER: ${BLOG_MAIL_USER:-}
-      BLOG_MAIL_PASSWORD: ${BLOG_MAIL_PASSWORD:-}
-      BLOG_MAIL_FROM: ${BLOG_MAIL_FROM:-}
-      BLOG_MAIL_USE_SSL: ${BLOG_MAIL_USE_SSL:-false}
-      BLOG_MAIL_USE_TLS: ${BLOG_MAIL_USE_TLS:-true}
+      # 慢请求 / 慢 SQL 阈值（毫秒）
+      BLOG_SLOW_REQUEST_MS: ${BLOG_SLOW_REQUEST_MS:-500}
+      BLOG_SLOW_QUERY_MS: ${BLOG_SLOW_QUERY_MS:-200}
 
       # 反代头解析（经 nginx 时取真实客户端 IP / 协议）
       BLOG_PROXY_XFOR: "1"
@@ -174,7 +168,6 @@ services:
       MYSQL_DATABASE: ${MYSQL_DATABASE:-flask_blog}
       MYSQL_USER: ${MYSQL_USER:-blog}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-blog123456-change-me}
-      TZ: Asia/Shanghai
     # MySQL 8.4 已移除 --default-authentication-plugin（保留会启动失败），
     # 改用 --mysql-native-password=ON 兼容存量 8.0 数据卷中以 mysql_native_password 建的账号
     command:

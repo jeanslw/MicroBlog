@@ -120,9 +120,9 @@
         <div class="offcanvas-body">
             <div class="card admin-sidebar w-100">
             <div class="card-body p-2">
-                <!-- 站点设置 -->
+                <!-- 设置 -->
                 <div class="admin-menu-group">
-                    <div class="admin-menu-title">{{ _('站点设置') }}</div>
+                    <div class="admin-menu-title">{{ _('设置') }}</div>
                     <div class="list-group list-group-flush admin-menu-list">
                         <a class="list-group-item list-group-item-action {% if request.endpoint in ['admin.panel', 'admin.site_setting'] %}active{% endif %}"
                            href="{{ url_for('admin.site_setting') }}">
@@ -131,6 +131,10 @@
                         <a class="list-group-item list-group-item-action {% if request.endpoint == 'admin.about_setting' %}active{% endif %}"
                            href="{{ url_for('admin.about_setting') }}">
                             <i class="bi bi-person-badge"></i> {{ _('关于我') }}
+                        </a>
+                        <a class="list-group-item list-group-item-action {% if request.endpoint == 'admin.system_setting' %}active{% endif %}"
+                           href="{{ url_for('admin.system_setting') }}">
+                            <i class="bi bi-gear-wide-connected"></i> {{ _('系统设置') }}
                         </a>
                     </div>
                 </div>
@@ -177,9 +181,9 @@
                            href="{{ url_for('admin.change_pwd') }}">
                             <i class="bi bi-key"></i> {{ _('修改密码') }}
                         </a>
-                        <a class="list-group-item list-group-item-action {% if request.endpoint in ['admin.account', 'admin.mail_setting'] %}active{% endif %}"
-                           href="{{ url_for('admin.account') }}">
-                            <i class="bi bi-envelope"></i> {{ _('账户邮件设置') }}
+                        <a class="list-group-item list-group-item-action {% if request.endpoint in ['admin.login_history', 'admin.account'] %}active{% endif %}"
+                           href="{{ url_for('admin.login_history') }}">
+                            <i class="bi bi-clock-history"></i> {{ _('登录历史') }}
                         </a>
                         <form method="POST" action="{{ url_for('admin.logout') }}">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

@@ -106,7 +106,7 @@
                 {% for row in history %}
                 <tr>
                     <td><span class="badge bg-secondary">v{{ row.version }}</span></td>
-                    <td><small class="text-muted">{{ row.applied_time }}</small></td>
+                    <td><small class="text-muted">{{ local_time(row.applied_time) }}</small></td>
                     <td><small class="text-muted">{{ row.note }}</small></td>
                 </tr>
                 {% endfor %}

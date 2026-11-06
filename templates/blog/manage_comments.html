@@ -31,7 +31,7 @@
         <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
             <div>
                 <span class="fw-semibold"><i class="bi bi-person-circle"></i> {{ c.username }}</span>
-                <span class="text-muted small ms-2">{{ c.create_time }}</span>
+                <span class="text-muted small ms-2">{{ local_time(c.create_time) }}</span>
             </div>
             <form method="POST" action="{{ url_for('blog.comment_del', cid=c.id) }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -47,7 +47,7 @@
             <div class="d-flex flex-wrap justify-content-between align-items-start gap-2 py-2">
                 <div class="me-2">
                     <span class="fw-semibold"><i class="bi bi-reply"></i> {{ r.username }}</span>
-                    <span class="text-muted small ms-2">{{ r.create_time }}</span>
+                    <span class="text-muted small ms-2">{{ local_time(r.create_time) }}</span>
                     <p class="mb-0 mt-1 text-secondary text-break">{{ r.content }}</p>
                 </div>
                 <form method="POST" action="{{ url_for('blog.reply_del', rid=r.id) }}">

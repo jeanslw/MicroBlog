@@ -13,7 +13,6 @@ import subprocess
 import threading
 import time
 import zipfile
-from datetime import datetime
 from functools import partial
 from pathlib import Path
 
@@ -41,8 +40,8 @@ from app.crypto import encrypt_secret
 from app.database import (
     SCHEMA_VERSION,
     get_or_create_about_profile,
-    get_or_create_mail_setting,
     get_or_create_site_setting,
+    get_or_create_system_setting,
     pending_schema_migrations,
     run_schema_migrations,
     schema_version_cmp,
@@ -63,18 +62,19 @@ from app.extensions import (
 )
 from app.forms import (
     AboutForm,
-    AccountForm,
     ChangePwdForm,
     ForgotForm,
     LoginForm,
-    MailSettingForm,
     ResetForm,
     SetupForm,
     SiteSettingForm,
+    SystemSettingForm,
     UploadImageForm,
 )
 from app.mail import MailError, send_mail
 from app.models import Admin, LoginAttempt, SchemaVersion
+from app.settings import DEFAULT_RUNTIME_VALUES, apply_runtime_settings
+from app.timeutil import backup_stamp, from_epoch
 from app.utils import (
     build_safe_filename,
     process_and_resize_logo,
@@ -292,6 +292,8 @@ def _site_setting_view(template):
                 return render_template(template, form=form, site=site)
         # 评论总开关
         site.comments_enabled = bool(form.comments_enabled.data)
+        site.rss_enabled = bool(form.rss_enabled.data)
+        site.atom_enabled = bool(form.atom_enabled.data)
         # 栏目分类样式(书本树形 / 经典简洁)
         site.sidebar_style = form.sidebar_style.data if form.sidebar_style.data in ("book", "classic") else "book"
         db.session.commit()
@@ -449,71 +451,120 @@ def reset(token):
     return render_template("admin/reset.html", form=form)
 
 
+@admin_bp.route("/system_setting", methods=["GET", "POST"])
+@admin_required
+def system_setting():
+    """系统设置页：时区、运行时参数、SMTP 邮件与管理员邮箱。"""
+    setting = get_or_create_system_setting()
+    form = SystemSettingForm(obj=setting)
+    if request.method == "GET":
+        form.admin_email.data = current_user.email
+        form.mail_password.data = ""
+        if setting.auto_schema_migrate is None:
+            form.auto_schema_migrate.data = bool(current_app.config.get("AUTO_SCHEMA_MIGRATE", True))
+        if setting.allow_schema_ahead is None:
+            form.allow_schema_ahead.data = bool(current_app.config.get("ALLOW_SCHEMA_AHEAD", False))
+        if setting.cookie_secure is None:
+            form.cookie_secure.data = bool(current_app.config.get("SESSION_COOKIE_SECURE", False))
+    if form.validate_on_submit():
+        setting.timezone = form.timezone.data.strip()
+        setting.follow_browser_tz = bool(form.follow_browser_tz.data)
+        setting.page_size = form.page_size.data
+        setting.log_level = form.log_level.data or ""
+        setting.log_format = form.log_format.data or ""
+        setting.slow_request_ms = form.slow_request_ms.data
+        setting.slow_query_ms = form.slow_query_ms.data
+        setting.static_max_age = form.static_max_age.data
+        setting.session_lifetime = form.session_lifetime.data
+        setting.reset_token_max_age = form.reset_token_max_age.data
+        setting.auto_schema_migrate = bool(form.auto_schema_migrate.data)
+        setting.allow_schema_ahead = bool(form.allow_schema_ahead.data)
+        setting.cookie_secure = bool(form.cookie_secure.data)
+        setting.mail_host = (form.mail_host.data or "").strip()
+        setting.mail_port = form.mail_port.data or 587
+        setting.mail_user = (form.mail_user.data or "").strip()
+        if form.mail_password.data:
+            setting.mail_password = encrypt_secret(form.mail_password.data.strip())
+        setting.mail_from = (form.mail_from.data or "").strip().lower()
+        setting.mail_use_ssl = bool(form.mail_use_ssl.data)
+        setting.mail_use_tls = bool(form.mail_use_tls.data)
+        current_user.email = (form.admin_email.data or "").strip().lower()
+        db.session.commit()
+        apply_runtime_settings(current_app)
+        flash(_("系统设置已保存"), "success")
+        return redirect(url_for("admin.system_setting"))
+    if request.method == "POST":
+        flash_form_errors(form)
+    return render_template(
+        "admin/system_setting.html",
+        form=form,
+        setting=setting,
+        defaults=DEFAULT_RUNTIME_VALUES,
+    )
+
+
+@admin_bp.route("/system_setting/defaults", methods=["POST"])
+@admin_required
+def system_setting_defaults():
+    """把运行时参数写入推荐默认值并立即应用。"""
+    setting = get_or_create_system_setting()
+    for column, value in DEFAULT_RUNTIME_VALUES.items():
+        setattr(setting, column, value)
+    db.session.commit()
+    apply_runtime_settings(current_app)
+    flash(_("已应用默认设置"), "success")
+    return redirect(url_for("admin.system_setting"))
+
+
+def _login_history_view():
+    """读取最近登录失败记录并渲染登录历史页。"""
+    attempts = (
+        db.session.execute(db.select(LoginAttempt).order_by(LoginAttempt.update_time.desc()).limit(50)).scalars().all()
+    )
+    now_ts = int(time.time())
+    records = [
+        {
+            "ip": rec.ip,
+            "username": rec.username,
+            "fail_count": rec.fail_count,
+            "update_time": rec.update_time,
+            "lock_until_utc": from_epoch(rec.lock_until) if rec.lock_until else "",
+            "locked": bool(rec.lock_until and rec.lock_until > now_ts),
+        }
+        for rec in attempts
+    ]
+    return render_template("admin/login_history.html", attempts=records)
+
+
+@admin_bp.route("/login_history")
+@admin_required
+def login_history():
+    """登录历史页。"""
+    return _login_history_view()
+
+
 @admin_bp.route("/account", methods=["GET", "POST"])
 @admin_required
 def account():
-    """账户邮件设置页：账户邮箱（Admin.email）与 SMTP 邮件设置（mail_setting 表）。"""
-    mail_cfg = get_or_create_mail_setting()
-    email_form = AccountForm()
-    mail_form = MailSettingForm(obj=mail_cfg)
-    if request.method == "GET":
-        email_form.email.data = current_user.email  # 邮箱回显
-        mail_form.mail_password.data = ""  # 密码不回显,留空表示保持原值
-    if email_form.validate_on_submit():
-        current_user.email = (email_form.email.data or "").strip().lower()
-        db.session.commit()
-        flash(_("邮箱已保存"), "success")
-        return redirect(url_for("admin.account"))
-    # 最近登录失败记录:取 login_attempt.update_time,每次失败都会刷新该列
-    attempts = (
-        db.session.execute(db.select(LoginAttempt).order_by(LoginAttempt.update_time.desc()).limit(10)).scalars().all()
-    )
-    return render_template(
-        "admin/account.html",
-        form=email_form,
-        mail_form=mail_form,
-        attempts=attempts,
-        now_ts=int(datetime.now().timestamp()),
-    )
+    """兼容旧链接：展示登录历史。"""
+    return _login_history_view()
 
 
-# ── SMTP 邮件设置(表单在"账户邮件设置"页内,本端点仅负责保存) ──
 @admin_bp.route("/mail_setting", methods=["GET", "POST"])
 @admin_required
 def mail_setting():
-    """SMTP 邮件配置:存 mail_setting 表,保存后优先于 app.env 的 BLOG_MAIL_* 生效.
-
-    GET 一律跳转到合并后的'账户邮件设置'页(兼容旧书签/旧链接).
-    """
-    if request.method == "GET":
-        return redirect(url_for("admin.account"))
-    mail_cfg = get_or_create_mail_setting()
-    form = MailSettingForm(obj=mail_cfg)
-    if form.validate_on_submit():
-        mail_cfg.mail_host = (form.mail_host.data or "").strip()
-        mail_cfg.mail_port = form.mail_port.data or 587
-        mail_cfg.mail_user = (form.mail_user.data or "").strip()
-        if form.mail_password.data:
-            mail_cfg.mail_password = encrypt_secret(form.mail_password.data.strip())
-        mail_cfg.mail_from = (form.mail_from.data or "").strip().lower()
-        mail_cfg.mail_use_ssl = bool(form.mail_use_ssl.data)
-        mail_cfg.mail_use_tls = bool(form.mail_use_tls.data)
-        db.session.commit()
-        flash(_("邮件设置已保存"), "success")
-    else:
-        # GET 已在上方跳转，此处必为 POST 校验失败
-        flash_form_errors(form)
-    return redirect(url_for("admin.account"))
+    """兼容旧链接：跳转到系统设置页。"""
+    return redirect(url_for("admin.system_setting"))
 
 
 @admin_bp.route("/mail_test", methods=["POST"])
 @admin_required
 def mail_test():
-    """发送测试邮件到当前管理员邮箱,验证 SMTP 配置是否生效."""
+    """发送测试邮件到当前管理员邮箱。"""
     to = (current_user.email or "").strip()
     if not to:
-        flash(_("请先在「账户邮件设置」页填写管理员邮箱"), "warning")
-        return redirect(url_for("admin.account"))
+        flash(_("请先在「系统设置」页填写管理员邮箱"), "warning")
+        return redirect(url_for("admin.system_setting"))
     try:
         send_mail(
             to,
@@ -523,9 +574,8 @@ def mail_test():
         flash(_("测试邮件已发送，请查收（收件人：%(email)s）", email=to), "success")
     except MailError as e:
         log.warning("测试邮件发送失败: %s", e)
-        # 原始 SMTP 返回含服务端信息，不上页面；详情见日志
         flash(_("测试邮件发送失败，详情请查看应用日志"), "danger")
-    return redirect(url_for("admin.account"))
+    return redirect(url_for("admin.system_setting"))
 
 
 def _backup_dir():
@@ -660,7 +710,7 @@ def _list_backups(backup_dir):
                 {
                     "name": name,
                     "size": st.st_size,
-                    "mtime_str": datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d %H:%M:%S"),
+                    "mtime_str": from_epoch(st.st_mtime),
                 }
             )
     files.sort(key=lambda x: x["name"], reverse=True)
@@ -719,8 +769,7 @@ def _create_backup(backup_dir, tag=""):
     tag: 文件名标记.恢复前自动备份传 "_snapshot",与手动备份在列表中直观区分.
     """
     # 文件名精确到毫秒并带数据库类型前缀，用于区分备份来源
-    now = datetime.now()
-    timestamp = now.strftime("%Y%m%d_%H%M%S") + f"_{now.microsecond // 1000:03d}"
+    timestamp = backup_stamp()
     db_prefix = "mysql" if _db_type() == "mysql" else "sqlite"
     zip_name = f"{db_prefix}_backup_{timestamp}{tag}.zip"
     zip_path = os.path.join(backup_dir, zip_name)

@@ -11,6 +11,8 @@ from sqlalchemy import func, or_, select
 
 from app.extensions import db
 from app.models import Article, Category, Comment, Reply
+from app.settings import display_timezone
+from app.timeutil import year_month
 from app.utils import sanitize_html, strip_html
 
 
@@ -148,14 +150,6 @@ def get_recent_articles(limit: int = 20):
     ).all()
 
 
-def _split_year_month(value):
-    """从 "YYYY-MM-DD HH:MM:SS" 解析 (year, month),异常返回 (None, None)."""
-    try:
-        return int(value[:4]), int(value[5:7])
-    except (TypeError, ValueError, IndexError):
-        return None, None
-
-
 def get_sidebar_tree():
     """构建侧边栏'栏目树 + 文章档案'数据.
 
@@ -174,10 +168,11 @@ def get_sidebar_tree():
 
     category_map = {}
     archive_map = {}
+    tz_name = display_timezone()
     for aid, title, cid, ctime in rows:
         if cid is not None:
             category_map.setdefault(cid, []).append((aid, title))
-        year, month = _split_year_month(ctime)
+        year, month = year_month(ctime, tz_name)
         if year is None:
             continue
         archive_map.setdefault(year, {}).setdefault(month, []).append((aid, title))

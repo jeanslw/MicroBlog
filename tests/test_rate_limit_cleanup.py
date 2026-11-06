@@ -6,14 +6,15 @@ IP/动作,过期记录越清不掉,``rate_limit`` 表只增不减(且每次请�
 都要全表扫描).现在清理先单独提交,判定后仅提交本次插入.
 """
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from app.extensions import check_and_record_rate_limit
 from app.models import RateLimit
+from app.timeutil import UTC_FORMAT, utc_now
 
 
 def _stamp(minutes_ago: int = 0) -> str:
-    return (datetime.now() - timedelta(minutes=minutes_ago)).strftime("%Y-%m-%d %H:%M:%S")
+    return (utc_now() - timedelta(minutes=minutes_ago)).strftime(UTC_FORMAT)
 
 
 def test_expired_rows_are_cleaned_even_when_request_is_rejected(app, db):

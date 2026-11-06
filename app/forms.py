@@ -25,6 +25,8 @@ from wtforms.validators import (
     ValidationError,
 )
 
+from app.timeutil import is_valid_timezone
+
 
 class LoginForm(FlaskForm):
     username = StringField("账号", validators=[DataRequired(), Length(max=50)])
@@ -72,14 +74,40 @@ class ResetForm(FlaskForm):
             raise ValidationError("两次输入的新密码不一致")
 
 
-class AccountForm(FlaskForm):
-    email = StringField("邮箱", validators=[Optional(), Email(), Length(max=200)])
-    submit = SubmitField("保存")
+LOG_LEVEL_CHOICES = [
+    ("", "跟随环境变量"),
+    ("AUTO", "自动"),
+    ("DEBUG", "DEBUG"),
+    ("INFO", "INFO"),
+    ("WARNING", "WARNING"),
+    ("ERROR", "ERROR"),
+    ("CRITICAL", "CRITICAL"),
+]
+
+LOG_FORMAT_CHOICES = [
+    ("", "跟随环境变量"),
+    ("auto", "自动"),
+    ("json", "JSON"),
+    ("text", "文本"),
+]
 
 
-class MailSettingForm(FlaskForm):
-    """SMTP 邮件设置:数据存 mail_setting 表,保存后优先于 app.env 的 BLOG_MAIL_* 生效."""
+class SystemSettingForm(FlaskForm):
+    """系统设置：时区、运行时参数与 SMTP 邮件配置。"""
 
+    timezone = StringField("站点时区", validators=[DataRequired(), Length(max=100)])
+    follow_browser_tz = BooleanField("跟随访客浏览器时区")
+    page_size = IntegerField("每页条数", validators=[Optional(), NumberRange(min=1, max=100)])
+    log_level = SelectField("日志级别", choices=LOG_LEVEL_CHOICES, validators=[Optional()])
+    log_format = SelectField("日志格式", choices=LOG_FORMAT_CHOICES, validators=[Optional()])
+    slow_request_ms = IntegerField("慢请求阈值(毫秒)", validators=[Optional(), NumberRange(min=0)])
+    slow_query_ms = IntegerField("慢 SQL 阈值(毫秒)", validators=[Optional(), NumberRange(min=0)])
+    static_max_age = IntegerField("静态资源缓存秒数", validators=[Optional(), NumberRange(min=0)])
+    session_lifetime = IntegerField("会话有效期(秒)", validators=[Optional(), NumberRange(min=1)])
+    reset_token_max_age = IntegerField("找回令牌有效期(秒)", validators=[Optional(), NumberRange(min=1)])
+    auto_schema_migrate = BooleanField("启动时自动迁移数据库")
+    allow_schema_ahead = BooleanField("允许数据库版本高于程序版本")
+    cookie_secure = BooleanField("仅 HTTPS 下发会话 Cookie")
     mail_host = StringField("SMTP 服务器", validators=[Optional(), Length(max=200)])
     mail_port = IntegerField("端口", validators=[Optional(), NumberRange(min=1, max=65535)], default=587)
     mail_user = StringField("用户名", validators=[Optional(), Length(max=200)])
@@ -87,7 +115,13 @@ class MailSettingForm(FlaskForm):
     mail_from = StringField("发件人邮箱", validators=[Optional(), Email(), Length(max=200)])
     mail_use_ssl = BooleanField("使用 SSL（465 端口）")
     mail_use_tls = BooleanField("使用 STARTTLS（587 端口）")
-    submit = SubmitField("保存")
+    admin_email = StringField("管理员邮箱", validators=[Optional(), Email(), Length(max=200)])
+    submit = SubmitField("保存设置")
+
+    def validate_timezone(self, field):
+        """校验 IANA 时区名是否有效。"""
+        if not is_valid_timezone(field.data):
+            raise ValidationError("时区名称无效，请填写 IANA 时区名，如 Asia/Shanghai")
 
 
 # 内置背景图库(与 static/backgrounds/ 及 themes.css 选择器一一对应)
@@ -134,6 +168,8 @@ class SiteSettingForm(FlaskForm):
         ],
     )
     comments_enabled = BooleanField("开启评论")
+    rss_enabled = BooleanField("开启 RSS")
+    atom_enabled = BooleanField("开启 Atom")
     sidebar_style = SelectField(
         "栏目分类样式",
         choices=[("book", "书本树形"), ("classic", "经典简洁")],

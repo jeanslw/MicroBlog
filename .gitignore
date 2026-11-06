@@ -5,9 +5,11 @@
 /.vscode/*
 /__pycache__/*
 /app/__pycache__/*
+**/__pycache__/
 copilot-instructions.md
 *.bat
 pyproject.toml
+.claude
 # mypy 类型检查缓存(配置见 mypy.ini;pycache 系列忽略规则不覆盖它)
 /.mypy_cache/
 

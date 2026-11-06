@@ -29,7 +29,7 @@ from app.database import (
 from app.extensions import db
 from app.models import SchemaVersion
 
-TS_RE = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$")
+TS_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 
 
 def _table_exists(name):
@@ -63,10 +63,10 @@ def test_legacy_db_detected_and_migrated_step_by_step(app, db):
     _reset_to_legacy()
 
     assert sync_schema_version() == SCHEMA_VERSION_BASELINE
-    assert [v for v, _ in pending_schema_migrations()] == ["1.3.6"]
+    assert [v for v, _ in pending_schema_migrations()] == ["1.3.6", "1.4.0"]
 
     applied = run_schema_migrations()
-    assert [v for v, _ in applied] == ["1.3.6"]
+    assert [v for v, _ in applied] == ["1.3.6", "1.4.0"]
     assert not _table_exists("site_config")
     assert get_schema_version() == SCHEMA_VERSION
 
@@ -98,7 +98,7 @@ def test_failed_migration_is_not_stamped_and_retries(app, db):
     # 修好原因(重建缺失的新表)后重试即成功
     db.create_all()
     applied = run_schema_migrations()
-    assert [v for v, _ in applied] == ["1.3.6"]
+    assert [v for v, _ in applied] == ["1.3.6", "1.4.0"]
     assert get_schema_version() == SCHEMA_VERSION
     assert not _table_exists("site_config")
 
@@ -110,22 +110,20 @@ def test_history_table_records_one_row_per_version(app, db):
     run_schema_migrations()  # 应用 1.3.6 -> 再追一行
 
     rows = db.session.scalars(db.select(SchemaVersion).order_by(SchemaVersion.version)).all()
-    assert [r.version for r in rows] == [SCHEMA_VERSION_BASELINE, SCHEMA_VERSION]
-    baseline, applied = rows
-    assert TS_RE.match(baseline.applied_time)
-    assert "推断" in baseline.note
-    assert TS_RE.match(applied.applied_time)
-    assert "site_config" in applied.note  # 说明来自迁移登记表
+    assert [r.version for r in rows] == [SCHEMA_VERSION_BASELINE, "1.3.6", SCHEMA_VERSION]
+    assert all(TS_RE.match(r.applied_time) for r in rows)
+    assert "推断" in rows[0].note
+    assert "site_config" in rows[1].note
 
     # 幂等:同一版本再戳一次只刷新那一行,不新增
     run_schema_migrations()
     versions = db.session.scalars(db.select(SchemaVersion.version)).all()
-    assert sorted(versions) == [SCHEMA_VERSION_BASELINE, SCHEMA_VERSION]
+    assert sorted(versions) == [SCHEMA_VERSION_BASELINE, "1.3.6", SCHEMA_VERSION]
 
 
 def test_db_ahead_of_code_is_never_migrated(app, db, caplog):
     """数据库版本高于程序(代码被降级):待迁移恒为空,不执行任何迁移."""
-    db.session.add(SchemaVersion(version="99.0.0", applied_time="2026-01-01 00:00:00"))
+    db.session.add(SchemaVersion(version="99.0.0", applied_time="2026-01-01T00:00:00Z"))
     db.session.commit()
 
     assert pending_schema_migrations() == []
@@ -145,7 +143,7 @@ def test_db_ahead_of_code_is_never_migrated(app, db, caplog):
 def test_release_version_comparison():
     """发布号比较:语义化比较而非字典序("1.3.10" > "1.3.6" 是关键分歧点)."""
     assert schema_version_cmp("1.3.10", "1.3.6") > 0  # 字典序会给出错误结论
-    assert schema_version_cmp("1.3.6", SCHEMA_VERSION) == 0
+    assert schema_version_cmp(SCHEMA_VERSION, SCHEMA_VERSION) == 0
     assert schema_version_cmp("1.3.5", "1.3.6") < 0
     assert schema_version_cmp("v1.3.6", "1.3.6") == 0  # 容忍 v 前缀
     assert schema_version_cmp("1.3", "1.3.0") == 0  # 段数不足按 0 补齐
@@ -157,11 +155,11 @@ def test_legacy_int_stamp_is_normalized_to_release_version(app, db):
 
     正式环境遇不到;这层兼容只为开发机上的旧库不报错,可继续迁移.
     """
-    db.session.add(SchemaVersion(version="2", applied_time="2026-01-01 00:00:00"))
+    db.session.add(SchemaVersion(version="2", applied_time="2026-01-01T00:00:00Z"))
     db.session.commit()
 
     assert get_schema_version() == "1.3.6"
-    assert pending_schema_migrations() == []  # 已等价于当前版本,无待迁移
+    assert [v for v, _ in pending_schema_migrations()] == ["1.4.0"]
 
 
 def test_v1_single_row_table_is_rebuilt_into_history(app, db):
@@ -229,7 +227,7 @@ def test_startup_refuses_boot_when_db_ahead(app, db):
     fail-fast(Sentry/NetBox 同款):异常必须真的传出去 -- create_app 构造失败,
     gunicorn/waitress 进程才起不来.守卫本身不动库.
     """
-    db.session.add(SchemaVersion(version="99.0.0", applied_time="2026-01-01 00:00:00"))
+    db.session.add(SchemaVersion(version="99.0.0", applied_time="2026-01-01T00:00:00Z"))
     db.session.commit()
     app.config["ALLOW_SCHEMA_AHEAD"] = False
 
@@ -246,7 +244,7 @@ def test_startup_escape_hatch_allows_db_ahead(app, db, caplog):
 
     只告警,不动库,不置维护标志 -- pending 本就为空,闸门不会启用.
     """
-    db.session.add(SchemaVersion(version="99.0.0", applied_time="2026-01-01 00:00:00"))
+    db.session.add(SchemaVersion(version="99.0.0", applied_time="2026-01-01T00:00:00Z"))
     db.session.commit()
     app.config["ALLOW_SCHEMA_AHEAD"] = True
 
@@ -355,7 +353,7 @@ def test_banner_withdraw_and_activate_stamp_update_time(login_admin, db):
     """banner.update_time:撤回/重新启用各自刷新(撤回后它就是'撤回时间')."""
     from app.models import Banner
 
-    banner = Banner(img_path="/uploads/banner/x.jpg", title="轮播A", create_time="2026-01-01 00:00:00")
+    banner = Banner(img_path="/uploads/banner/x.jpg", title="轮播A", create_time="2026-01-01T00:00:00Z")
     db.session.add(banner)
     db.session.commit()
 

@@ -34,7 +34,7 @@
                     {% endif %}
                 </td>
                 <td>
-                    <small class="text-muted">{{ item.update_time or item.create_time or '' }}</small>
+                    <small class="text-muted">{{ local_time(item.update_time or item.create_time or '') }}</small>
                     {% if not item.is_active %}
                     <div><small class="text-muted">{{ _('撤回时间') }}</small></div>
                     {% endif %}

@@ -383,7 +383,7 @@
                     {% if author_name %}
                     <span class="article-meta-pill"><i class="bi bi-person-circle"></i> {{ author_name }}</span>
                     {% endif %}
-                    <span class="article-meta-pill"><i class="bi bi-calendar3"></i> {{ _('发布：%(time)s', time=article.create_time) }}</span>
+                    <span class="article-meta-pill"><i class="bi bi-calendar3"></i> {{ _('发布：') }} {{ local_time(article.create_time) }}</span>
                     <span class="article-meta-pill"><i class="bi bi-justify-left"></i> {{ article.word_count }} {{ _('字') }}</span>
                     <span class="article-meta-pill"><i class="bi bi-stopwatch"></i> {{ _('约 %(minutes)s 分钟阅读', minutes=article.reading_time) }}</span>
                 </div>
@@ -445,7 +445,7 @@
         {% for c in comments %}
         <div class="mb-4 border-start border-primary ps-3 py-2">
             <div class="fw-semibold">{{ c.username }}
-                <span class="text-muted small">{{ c.create_time }}</span>
+                <span class="text-muted small">{{ local_time(c.create_time) }}</span>
             </div>
             <p class="text-secondary">{{ c.content }}</p>
             {% if comments_enabled %}
@@ -467,7 +467,7 @@
                     {% for r in c.reply_list %}
                     <div class="bg-light rounded p-2 mb-2">
                         <span class="fw-semibold">{{ r.username }}</span>
-                        <span class="text-muted small ms-2">{{ r.create_time }}</span>
+                        <span class="text-muted small ms-2">{{ local_time(r.create_time) }}</span>
                         <p class="mb-0">{{ r.content }}</p>
                     </div>
                     {% endfor %}

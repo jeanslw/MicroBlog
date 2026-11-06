@@ -147,7 +147,7 @@ def test_add_comment_to_nonexistent(client):
 
 def test_add_reply_success(client, article, db):
     """回复评论应成功"""
-    c = Comment(article_id=article.id, username="u", content="c", create_time="2026-01-01 00:00:00")
+    c = Comment(article_id=article.id, username="u", content="c", create_time="2026-01-01T00:00:00Z")
     db.session.add(c)
     db.session.commit()
 
@@ -166,7 +166,7 @@ def test_add_reply_success(client, article, db):
 
 def test_add_reply_empty_content(client, article, db):
     """空内容回复应被拒绝"""
-    c = Comment(article_id=article.id, username="u", content="c", create_time="2026-01-01 00:00:00")
+    c = Comment(article_id=article.id, username="u", content="c", create_time="2026-01-01T00:00:00Z")
     db.session.add(c)
     db.session.commit()
 
@@ -198,7 +198,7 @@ def test_add_reply_to_nonexistent_comment(client, article):
 
 def test_add_reply_to_wrong_article(client, article, db):
     """评论与文章不匹配应失败"""
-    c = Comment(article_id=article.id, username="u", content="c", create_time="2026-01-01 00:00:00")
+    c = Comment(article_id=article.id, username="u", content="c", create_time="2026-01-01T00:00:00Z")
     db.session.add(c)
     db.session.commit()
 
@@ -216,7 +216,7 @@ def test_add_reply_to_wrong_article(client, article, db):
 
 def test_comments_displayed_on_detail(client, article, db):
     """评论应展示在文章详情页"""
-    c = Comment(article_id=article.id, username="访客甲", content="看完了", create_time="2026-01-01 00:00:00")
+    c = Comment(article_id=article.id, username="访客甲", content="看完了", create_time="2026-01-01T00:00:00Z")
     db.session.add(c)
     db.session.commit()
 
@@ -236,10 +236,10 @@ def test_comment_manage_requires_login(client, article):
 
 def test_comment_manage_lists_comments_and_replies(login_admin, article, db):
     """评论管理页应列出该文章的评论与回复"""
-    c = Comment(article_id=article.id, username="访客甲", content="待删除评论", create_time="2026-01-01 00:00:00")
+    c = Comment(article_id=article.id, username="访客甲", content="待删除评论", create_time="2026-01-01T00:00:00Z")
     db.session.add(c)
     db.session.commit()
-    db.session.add(Reply(comment_id=c.id, username="访客乙", content="待删除回复", create_time="2026-01-01 00:00:01"))
+    db.session.add(Reply(comment_id=c.id, username="访客乙", content="待删除回复", create_time="2026-01-01T00:00:01Z"))
     db.session.commit()
 
     rv = login_admin.get(f"/comment/manage/{article.id}")
@@ -261,10 +261,10 @@ def test_comment_manage_nonexistent_article(login_admin):
 
 def test_comment_delete_cascades_replies(login_admin, article, db):
     """删除评论时其下的回复应一并删除,并回到该文章的评论管理页"""
-    c = Comment(article_id=article.id, username="u", content="c", create_time="2026-01-01 00:00:00")
+    c = Comment(article_id=article.id, username="u", content="c", create_time="2026-01-01T00:00:00Z")
     db.session.add(c)
     db.session.commit()
-    db.session.add(Reply(comment_id=c.id, username="r", content="r", create_time="2026-01-01 00:00:01"))
+    db.session.add(Reply(comment_id=c.id, username="r", content="r", create_time="2026-01-01T00:00:01Z"))
     db.session.commit()
     cid = c.id
 
@@ -277,10 +277,10 @@ def test_comment_delete_cascades_replies(login_admin, article, db):
 
 def test_reply_delete_keeps_comment(login_admin, article, db):
     """删除单条回复不应影响其所属评论"""
-    c = Comment(article_id=article.id, username="u", content="c", create_time="2026-01-01 00:00:00")
+    c = Comment(article_id=article.id, username="u", content="c", create_time="2026-01-01T00:00:00Z")
     db.session.add(c)
     db.session.commit()
-    r = Reply(comment_id=c.id, username="r", content="r", create_time="2026-01-01 00:00:01")
+    r = Reply(comment_id=c.id, username="r", content="r", create_time="2026-01-01T00:00:01Z")
     db.session.add(r)
     db.session.commit()
     rid = r.id
@@ -294,7 +294,7 @@ def test_reply_delete_keeps_comment(login_admin, article, db):
 
 def test_comment_delete_requires_login(client, article, db):
     """未登录不能删除评论"""
-    c = Comment(article_id=article.id, username="u", content="c", create_time="2026-01-01 00:00:00")
+    c = Comment(article_id=article.id, username="u", content="c", create_time="2026-01-01T00:00:00Z")
     db.session.add(c)
     db.session.commit()
     cid = c.id
@@ -313,7 +313,7 @@ def test_comment_delete_nonexistent(login_admin):
 
 def test_article_manage_shows_comment_count_and_entry(login_admin, article, db):
     """文章列表应显示评论数,并提供'评论管理'入口"""
-    db.session.add(Comment(article_id=article.id, username="u", content="c", create_time="2026-01-01 00:00:00"))
+    db.session.add(Comment(article_id=article.id, username="u", content="c", create_time="2026-01-01T00:00:00Z"))
     db.session.commit()
 
     rv = login_admin.get("/article/manage")

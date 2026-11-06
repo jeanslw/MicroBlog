@@ -5,8 +5,8 @@
 本模块仅保留:
 - init_db(): 创建所有表 + 轻量幂等迁移
 - ensure_admin_exists(): 初始化管理员
-- ensure_default_settings(): 初始化三张单行配置表(site_setting/mail_setting/about_profile)
-- get_site_setting / get_mail_setting / get_about_profile: 统一读取三张单行配置表
+- ensure_default_settings(): 初始化单行配置表(site_setting/mail_setting/about_profile/system_settings)
+- get_site_setting / get_mail_setting / get_about_profile / get_system_setting: 统一读取单行配置表
 - get_or_create_*: 读取,缺失时创建默认行(后台各设置页使用)
 
 注:文件名从 db.py 改为 database.py,避免与 app.extensions.db 实例
@@ -21,6 +21,7 @@ from flask import current_app
 from sqlalchemy.exc import IntegrityError, OperationalError
 
 from app.extensions import db, log
+from app.timeutil import to_utc_str, utc_now_str
 from config import SCHEMA_VERSION
 
 
@@ -72,8 +73,9 @@ def init_db():
     _migrate_admin()
     _migrate_article()
     _migrate_banner()
-    _migrate_rate_limit()
+    _migrate_missing_indexes()
     _migrate_login_attempt()
+    _migrate_site_setting_feed_switches()
     # 带数据搬迁的迁移由版本化迁移框架驱动（见 run_schema_migrations）
 
 
@@ -181,6 +183,22 @@ def _migrate_login_attempt():
         log.warning("login_attempt update_time 列迁移失败,可手动执行 ALTER TABLE: %s", e)
 
 
+def _migrate_site_setting_feed_switches():
+    """为旧版 site_setting 表补齐订阅源开关列(幂等)."""
+    try:
+        inspector = db.inspect(db.engine)
+        if "site_setting" not in inspector.get_table_names():
+            return
+        cols = {c["name"] for c in inspector.get_columns("site_setting")}
+        with db.engine.begin() as conn:
+            if "rss_enabled" not in cols:
+                conn.execute(db.text("ALTER TABLE site_setting ADD COLUMN rss_enabled BOOLEAN NOT NULL DEFAULT 1"))
+            if "atom_enabled" not in cols:
+                conn.execute(db.text("ALTER TABLE site_setting ADD COLUMN atom_enabled BOOLEAN NOT NULL DEFAULT 1"))
+    except Exception as e:
+        log.warning("site_setting 订阅源开关列迁移失败,可手动执行 ALTER TABLE: %s", e)
+
+
 def _migrate_site_config_split():
     """v1.3.6:site_config 单表拆分为 site_setting / mail_setting / about_profile(幂等).
 
@@ -286,12 +304,68 @@ def _migrate_site_config_split():
     log.info("site_config 已拆分迁移至 site_setting / mail_setting / about_profile,旧表已删除")
 
 
+def _migrate_utc_time_and_system_settings():
+    """v1.4.0:时间列统一为 UTC 字符串,SMTP 配置并入 system_settings(幂等)."""
+    from app.models import (
+        Article,
+        Banner,
+        Category,
+        Comment,
+        LoginAttempt,
+        MailSetting,
+        RateLimit,
+        Reply,
+        SchemaVersion,
+        SystemSetting,
+        VoteLog,
+    )
+
+    columns_by_model = (
+        (Category, ("create_time",)),
+        (Article, ("create_time", "update_time")),
+        (Comment, ("create_time",)),
+        (Reply, ("create_time",)),
+        (Banner, ("create_time", "update_time")),
+        (VoteLog, ("create_time",)),
+        (LoginAttempt, ("update_time",)),
+        (RateLimit, ("create_time",)),
+        (SchemaVersion, ("applied_time",)),
+    )
+    inspector = db.inspect(db.engine)
+    tables = set(inspector.get_table_names())
+    for model, columns in columns_by_model:
+        if model.__tablename__ not in tables:
+            continue
+        for row in db.session.scalars(db.select(model)).all():
+            for column in columns:
+                raw = getattr(row, column, None)
+                if raw:
+                    converted = to_utc_str(str(raw))
+                    if converted != raw:
+                        setattr(row, column, converted)
+    db.session.commit()
+
+    setting = _get_or_create_single_row(SystemSetting)
+    mail = _get_single_row(MailSetting) if "mail_setting" in tables else None
+    if mail is not None and not (setting.mail_host or "").strip():
+        setting.mail_host = mail.mail_host or ""
+        setting.mail_port = mail.mail_port or 587
+        setting.mail_user = mail.mail_user or ""
+        setting.mail_password = mail.mail_password or ""
+        setting.mail_from = mail.mail_from or ""
+        setting.mail_use_ssl = bool(mail.mail_use_ssl)
+        setting.mail_use_tls = bool(mail.mail_use_tls)
+        db.session.commit()
+    log.info("时间列已统一为 UTC,SMTP 配置已并入 system_settings")
+
+
 # 无版本行的老库所处的基线版本
 SCHEMA_VERSION_BASELINE = "1.3.5"
 
 # 发布号 -> (说明, 迁移函数)；迁移函数必须幂等
 _SCHEMA_MIGRATIONS: dict[str, tuple[str, Callable[[], None]]] = {
     "1.3.6": ("站点配置表拆分:site_config → site_setting / mail_setting / about_profile", _migrate_site_config_split),
+    "1.4.0": ("时间统一为 UTC,新增 system_settings 并并入邮件配置", _migrate_utc_time_and_system_settings),
 }
 
 # 开发期写入的整数序号映射为真实发布号
@@ -334,12 +408,10 @@ def get_schema_version() -> str | None:
 
 def _stamp_schema_version(version: str, note: str = "") -> None:
     """向履历表幂等戳记一行；并发冲突时回滚并以库中记录为准。"""
-    from datetime import datetime
-
     from app.models import SchemaVersion
 
     try:
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        now = utc_now_str()
         inspector = db.inspect(db.engine)
         if "schema_version" not in inspector.get_table_names():
             from app import models  # noqa: F401
@@ -508,17 +580,17 @@ def ensure_admin_exists():
 
 
 def ensure_default_settings():
-    """确保三张单行配置表(site_setting / mail_setting / about_profile)各有一行默认配置.
+    """确保四张单行配置表各有一行默认配置.
 
-    迁移(_migrate_site_config_split)已填充的表不会被覆盖;新装环境
-    (SQLite create_all / MySQL init.sql)在此补齐缺失的默认行.
+    迁移已填充的表不会被覆盖;新装环境在此补齐缺失的默认行.
     """
-    from app.models import AboutProfile, MailSetting, SiteSetting
+    from app.models import AboutProfile, MailSetting, SiteSetting, SystemSetting
 
     for model, defaults in (
         (SiteSetting, {"site_name": "My Blog", "favicon_path": "static/favicon.ico"}),
         (MailSetting, {}),
         (AboutProfile, {}),
+        (SystemSetting, {}),
     ):
         try:
             cnt = db.session.scalar(db.select(db.func.count(model.id)))
@@ -536,26 +608,33 @@ def ensure_default_settings():
                     raise
 
 
-def _migrate_rate_limit():
-    """为 rate_limit 补 (action, create_time) 复合索引(幂等).
-
-    限流每次请求都会按 action + 时间窗口做一次 DELETE 清理,旧库若只有
-    (ip, action) 索引,清理条件里的 create_time 用不上索引,会退化为全表
-    扫描;表越大每次请求越慢.新库由模型 RateLimit.__table_args__ 直接建好,
-    这里兜住已有的旧库.失败只告警:缺索引不影响功能正确性.
-    """
+def _migrate_missing_indexes():
+    """按模型定义补齐已有库缺失的索引(幂等)."""
     try:
         inspector = db.inspect(db.engine)
-        if "rate_limit" not in inspector.get_table_names():
-            return
-        names = {idx["name"] for idx in inspector.get_indexes("rate_limit")}
-        if "idx_action_time" in names:
-            return
-        with db.engine.begin() as conn:
-            conn.execute(db.text("CREATE INDEX idx_action_time ON rate_limit (action, create_time)"))
-        log.info("已为 rate_limit 创建复合索引 idx_action_time(action, create_time)")
+        tables = set(inspector.get_table_names())
     except Exception as e:
-        log.warning("rate_limit 索引迁移失败（仅影响清理性能，不影响功能）: %s", e)
+        log.warning("索引补齐迁移无法读取表信息: %s", e)
+        return
+    for table in db.metadata.sorted_tables:
+        if table.name not in tables:
+            continue
+        try:
+            known = {idx["name"] for idx in inspector.get_indexes(table.name)}
+        except Exception as e:
+            log.warning("读取 %s 索引失败: %s", table.name, e)
+            continue
+        for index in table.indexes:
+            if not index.name or index.name in known:
+                continue
+            columns = ", ".join(column.name for column in index.columns)
+            try:
+                with db.engine.begin() as conn:
+                    conn.execute(db.text(f"CREATE INDEX {index.name} ON {table.name} ({columns})"))
+                known.add(index.name)
+                log.info("已为 %s 创建索引 %s(%s)", table.name, index.name, columns)
+            except Exception as e:
+                log.warning("为 %s 创建索引 %s 失败: %s", table.name, index.name, e)
 
 
 def _get_single_row(model):
@@ -593,6 +672,13 @@ def get_about_profile():
     from app.models import AboutProfile
 
     return _get_single_row(AboutProfile)
+
+
+def get_system_setting():
+    """读取系统设置行(system_settings 表)."""
+    from app.models import SystemSetting
+
+    return _get_single_row(SystemSetting)
 
 
 def _get_or_create_single_row(model, **defaults):
@@ -636,3 +722,10 @@ def get_or_create_about_profile():
     from app.models import AboutProfile
 
     return _get_or_create_single_row(AboutProfile)
+
+
+def get_or_create_system_setting():
+    """读取系统设置行,缺失时创建默认行."""
+    from app.models import SystemSetting
+
+    return _get_or_create_single_row(SystemSetting)

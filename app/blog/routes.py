@@ -9,10 +9,8 @@
 
 import math
 import re
-from datetime import datetime, timedelta, timezone, tzinfo
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from flask import Response, current_app, flash, redirect, render_template, request, url_for
+from flask import Response, abort, current_app, flash, redirect, render_template, request, url_for
 from flask_babel import _
 from flask_login import current_user
 from sqlalchemy import func, update
@@ -30,6 +28,8 @@ from app.database import get_about_profile, get_site_setting
 from app.extensions import admin_required, db, flash_form_errors, log
 from app.forms import ArticleForm, CategoryForm
 from app.models import Admin, Article, Category, Comment, Reply
+from app.settings import feed_enabled
+from app.timeutil import parse_stored_time, utc_now_str
 from app.utils import asset_url_exists, collect_upload_urls, remove_uploaded_file, strip_html
 
 TITLE_MAX_LEN = 500
@@ -145,7 +145,7 @@ def _auto_seo(content, title, category):
 
 @blog_bp.route("/")
 def index():
-    page_size = current_app.config.get("PAGE_SIZE", 6)
+    page_size = current_app.config["PAGE_SIZE"]
     articles, total_page, page = get_article_list(_page_arg(), page_size)
     category_map, archive = get_sidebar_tree()
     return render_template(
@@ -160,7 +160,7 @@ def index():
 
 @blog_bp.route("/category/<int:cid>")
 def category(cid):
-    page_size = current_app.config.get("PAGE_SIZE", 6)
+    page_size = current_app.config["PAGE_SIZE"]
     articles, total_page, page = get_article_list(_page_arg(), page_size, cid)
     category_map, archive = get_sidebar_tree()
     return render_template(
@@ -218,7 +218,7 @@ def article_new():
         (c.id, c.cat_name) for c in db.session.scalars(db.select(Category).order_by(Category.id.desc())).all()
     ]
     if form.validate_on_submit():
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        now = utc_now_str()
         cid = form.category_id.data or None
         if cid == 0:
             cid = None
@@ -261,7 +261,7 @@ def article_edit(aid):
         (c.id, c.cat_name) for c in db.session.scalars(db.select(Category).order_by(Category.id.desc())).all()
     ]
     if form.validate_on_submit():
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        now = utc_now_str()
         cid = form.category_id.data or None
         if cid == 0:
             cid = None
@@ -296,7 +296,7 @@ def article_pin(aid):
         flash(_("文章不存在"), "warning")
         return redirect(url_for("blog.index"))
     article.is_pinned = not article.is_pinned
-    article.update_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    article.update_time = utc_now_str()
     try:
         db.session.commit()
         flash(_("文章置顶状态已更新"), "success")
@@ -380,7 +380,7 @@ def article_recall(aid):
         flash(_("文章不存在"), "warning")
         return redirect(url_for("blog.article_manage"))
     article.status = "draft"
-    article.update_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    article.update_time = utc_now_str()
     try:
         db.session.commit()
         flash(_("已撤回至草稿箱"), "success")
@@ -476,7 +476,7 @@ def reply_del(rid):
 def add_category():
     form = CategoryForm()
     if form.validate_on_submit():
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        now = utc_now_str()
         cat = Category(
             cat_name=form.cat_name.data.strip(),
             tag_text=(form.tag_text.data or "").strip(),
@@ -582,28 +582,12 @@ def search():
     page = _page_arg()
     if not q:
         return render_template("blog/search.html", articles=[], page=1, total_page=1, q="", total=0)
-    page_size = current_app.config.get("PAGE_SIZE", 6)
+    page_size = current_app.config["PAGE_SIZE"]
     articles, total_page, total, page = search_articles(q, page, page_size)
     return render_template("blog/search.html", articles=articles, page=page, total_page=total_page, q=q, total=total)
 
 
 # ── RSS/Atom 订阅源 ─────────────────────────────────────
-_CN_TZ: tzinfo  # ZoneInfo 与固定偏移两种取值类型不同,统一标注为基类
-try:
-    _CN_TZ = ZoneInfo("Asia/Shanghai")
-except ZoneInfoNotFoundError:
-    # Windows / 精简容器镜像缺少 IANA 时区数据库时,退化为固定 UTC+8(与上海时区等价)
-    _CN_TZ = timezone(timedelta(hours=8))
-
-
-def _parse_feed_time(value: str) -> datetime | None:
-    """将 "YYYY-MM-DD HH:MM:SS" 转为带时区的 datetime,解析失败返回 None"""
-    try:
-        return datetime.strptime(value, "%Y-%m-%d %H:%M:%S").replace(tzinfo=_CN_TZ)
-    except (TypeError, ValueError):
-        return None
-
-
 def _build_feed():
     """构建订阅源对象(Atom/RSS 共用同一份数据).
 
@@ -631,10 +615,10 @@ def _build_feed():
         entry.title(art.title)
         entry.link(href=f"{base_url}/article/{art.id}")
         entry.summary(strip_html(art.content))
-        published = _parse_feed_time(art.create_time)
+        published = parse_stored_time(art.create_time)
         if published:
             entry.published(published)
-        updated = _parse_feed_time(art.update_time)
+        updated = parse_stored_time(art.update_time)
         if updated:
             entry.updated(updated)
     return feed
@@ -643,10 +627,14 @@ def _build_feed():
 @blog_bp.route("/feed")
 def feed_atom():
     """Atom 订阅源"""
+    if not feed_enabled("atom"):
+        abort(404)
     return Response(_build_feed().atom_str(pretty=True), mimetype="application/atom+xml")
 
 
 @blog_bp.route("/rss")
 def feed_rss():
     """RSS 2.0 订阅源"""
+    if not feed_enabled("rss"):
+        abort(404)
     return Response(_build_feed().rss_str(pretty=True), mimetype="application/rss+xml")

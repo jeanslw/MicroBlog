@@ -17,9 +17,9 @@ All static resources are loaded locally, it supports SQLite and MySQL, and comes
 
 > **[Chinese](README_ZH-CN.md)**
 
-![Overview](MyBlog.png)
+![Overview](docs/Images/MyBlog.png)
 
-![Overview](MyBlog_Admin_Panel.png)
+![Overview](docs/Images/MyBlog_Admin_Panel.png)
 
 ---
 
@@ -85,7 +85,7 @@ Three orchestration profiles:
 Built-in out-of-the-box guarantees:
 
 - **Readiness orchestration**: a `/healthz` check (verifying both the process and the database) gates startup — web waits until MySQL finishes its first-time initialization, and Nginx only routes traffic after web is healthy. The app also retries the MySQL connection on startup as a fallback.
-- **Auto schema & admin**: MySQL auto-imports [MySQL/init.sql](MySQL/init.sql) on first boot. If no initial admin password is configured, visit `/admin/setup` and follow the wizard — or set `BLOG_INIT_ADMIN_PWD` in `.env.docker` to auto-create one.
+- **Auto schema & admin**: the app creates tables from its models on startup; MySQL can also import [MySQL/init.sql](MySQL/init.sql) on first boot. Both produce the same schema (columns, defaults, indexes and InnoDB engine), and startup migrations fill in missing indexes on existing databases. If no initial admin password is configured, visit `/admin/setup` and follow the wizard — or set `BLOG_INIT_ADMIN_PWD` in `.env.docker` to auto-create one.
 - **Login works over plain HTTP**: the bundled Nginx serves HTTP (port 80) only, so `BLOG_COOKIE_SECURE=false` by default; set it to `true` once you enable HTTPS.
 - **Proxy headers preconfigured**: `BLOG_PROXY_XFOR=1`, `BLOG_PROXY_XPROTO=1`, `BLOG_PROXY_XHOST=0`.
 - **Pre-start guard**: before `db` starts, `env-check` validates `MySQL/init.sql` and the database passwords — template placeholders or explicitly configured public test passwords abort startup (see `docker compose --profile full logs env-check`); with no `.env.docker` at all it only warns and passes, using the built-in test passwords for local trials.
@@ -183,7 +183,8 @@ All JS/CSS files are localized. **No CDN is required after deployment**, fully u
 | Change Password | `/admin/change_pwd` | Login required |
 | Forgot Password | `/admin/forgot` | Enter username + bound email; reset link sent by email (rate-limited) |
 | Reset Password | `/admin/reset/<token>` | Set a new password via the email link (token valid 30 minutes) |
-| Account & Email | `/admin/account` | Login required, bind admin email and configure SMTP |
+| System Settings | `/admin/system_setting` | Login required, time zone, runtime options, admin mailbox and SMTP |
+| Login History | `/admin/login_history` | Login required, failed sign-ins and lock expiry |
 | Banner Management | `/banner/list` | Login required, manage banners |
 | Language Switch | `/set_lang/zh_CN` or `/set_lang/en` | Switch Chinese/English |
 
@@ -198,8 +199,8 @@ All JS/CSS files are localized. **No CDN is required after deployment**, fully u
 
 **Forgot password:** on the login page click "Forgot password" → `/admin/forgot`, enter the admin username **and** the email bound to the account; if both match, an email with a reset link is sent. Prerequisites:
 
-1. Bind the admin email at `/admin/account` after logging in.
-2. Configure SMTP — either via `BLOG_MAIL_HOST` / `BLOG_MAIL_PORT` / `BLOG_MAIL_USER` / `BLOG_MAIL_PASSWORD` / `BLOG_MAIL_FROM` in `app.env`, or at `/admin/account` (SMTP settings section); use `/admin/mail_test` to verify delivery first.
+1. Set the admin mailbox at `/admin/system_setting` after logging in.
+2. Configure SMTP on the same page and use "Send Test Mail" to verify delivery.
 3. The reset link is signed with `BLOG_SECRET_KEY` and expires in 30 minutes (`BLOG_RESET_TOKEN_MAX_AGE`, default 1800s); it becomes invalid immediately once the password is changed. Forgot requests are limited to 5 per 5 minutes per IP, and the response is identical whether or not the account exists (anti-enumeration).
 
 ## 6. Internationalization (i18n)

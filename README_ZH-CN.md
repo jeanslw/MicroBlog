@@ -17,9 +17,9 @@
 
 > **[英文版](README.md)**
 
-![Overview](MyBlog_ZH-CN.png)
+![Overview](docs/Images/MyBlog_ZH-CN.png)
 
-![Overview](MyBlog_Admin_Panel_ZH-CN.png)
+![Overview](docs/Images/MyBlog_Admin_Panel_ZH-CN.png)
 
 ---
 
@@ -85,7 +85,7 @@ docker compose --env-file .env.docker --profile full up -d
 开箱即用的内置保障：
 
 - **就绪编排**：容器内置 `/healthz` 健康检查（同时探测进程与数据库），web 等 MySQL 首次初始化完成后才启动，Nginx 等 web 健康后才接入流量；应用启动时另有 MySQL 连接重试
-- **自动建表建号**：MySQL 首次启动自动导入 [MySQL/init.sql](MySQL/init.sql)；未配置初始管理员密码时，首访 `/admin/setup` 按引导创建管理员，也可在 `.env.docker` 设置 `BLOG_INIT_ADMIN_PWD` 自动创建
+- **自动建表建号**：应用启动按模型建表；MySQL 首次启动也可由容器导入 [MySQL/init.sql](MySQL/init.sql)，两者结构一致（字段、默认值、索引、InnoDB 引擎），已有库缺失索引由启动迁移补齐。未配置初始管理员密码时，首访 `/admin/setup` 按引导创建管理员，也可在 `.env.docker` 设置 `BLOG_INIT_ADMIN_PWD` 自动创建
 - **HTTP 可直接登录**：内置 Nginx 仅提供明文 HTTP(80)，默认 `BLOG_COOKIE_SECURE=false`；自行配置 HTTPS 后置为 `true`
 - **反代头已配好**：默认 `BLOG_PROXY_XFOR=1`、`BLOG_PROXY_XPROTO=1`、`BLOG_PROXY_XHOST=0`
 - **启动前预检**：`env-check` 守卫在 `db` 启动前校验 `MySQL/init.sql` 与数据库口令——密码仍是模板占位符或被显式设为公开测试口令会中止启动（原因看 `docker compose --profile full logs env-check`）；完全未建 `.env.docker` 时只告警放行，用内置测试口令本机试用
@@ -183,7 +183,8 @@ waitress-serve --listen=127.0.0.1:5000 wsgi:application
 | 修改密码 | `/admin/change_pwd` | 需登录 |
 | 找回密码 | `/admin/forgot` | 输入用户名 + 绑定邮箱，匹配后发送重置邮件（有频率限制） |
 | 重置密码 | `/admin/reset/<token>` | 通过邮件链接设置新密码（链接 30 分钟内有效） |
-| 账户与邮件 | `/admin/account` | 需登录，绑定管理员邮箱、配置 SMTP 发信 |
+| 系统设置 | `/admin/system_setting` | 需登录，配置时区、运行时参数、管理员邮箱与 SMTP |
+| 登录历史 | `/admin/login_history` | 需登录，查看登录失败记录与锁定截止时间 |
 | 轮播图管理 | `/banner/list` | 需登录，管理 Banner |
 | 语言切换 | `/set_lang/zh_CN` 或 `/set_lang/en` | 切换中/英文 |
 
@@ -198,8 +199,8 @@ waitress-serve --listen=127.0.0.1:5000 wsgi:application
 
 **忘记密码：**在登录页点击「忘记密码」进入 `/admin/forgot`，输入管理员用户名**和**账号绑定的邮箱，两者匹配时发送重置链接邮件。使用前提：
 
-1. 登录后先在 `/admin/account` 绑定管理员邮箱。
-2. 配置 SMTP：可在 `app.env` 设置 `BLOG_MAIL_HOST` / `BLOG_MAIL_PORT` / `BLOG_MAIL_USER` / `BLOG_MAIL_PASSWORD` / `BLOG_MAIL_FROM`，也可在 `/admin/account` 的 SMTP 设置区配置；建议先用 `/admin/mail_test` 测试发信。
+1. 登录后在 `/admin/system_setting` 填写管理员邮箱。
+2. 在同一页配置 SMTP，并用「发送测试邮件」验证发信。
 3. 重置链接用 `BLOG_SECRET_KEY` 签名，30 分钟内有效（`BLOG_RESET_TOKEN_MAX_AGE`，默认 1800 秒），密码修改成功后旧链接立即失效；找回接口按 IP 限流（5 分钟最多 5 次），且无论账号是否存在都返回相同提示，防止账号枚举。
 
 ## 6. 国际化（i18n）

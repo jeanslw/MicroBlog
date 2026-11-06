@@ -93,13 +93,13 @@ Common variables:
 | `BLOG_MYSQL_HOST` / `BLOG_MYSQL_USER` / `BLOG_MYSQL_PWD` / `BLOG_MYSQL_DB` | - | MySQL connection info |
 | `BLOG_SQLITE_PATH` | `data/blog.db` | SQLite file path; the app refuses to start (with fix instructions) when its directory is not writable, e.g. a serverless read-only code dir — see [2.7 Deploying to Vercel](#27-deploying-to-vercel-serverless-demo-only) |
 | `BLOG_AUTO_MIGRATE` | `true` | Schema migration mode: `true` applies pending migrations automatically on startup; `false` is manual mode — the site enters maintenance (503) when migrations are pending and an admin applies them from the admin "Migrate Database" page, see [2.8 Upgrading and Schema Migrations](#28-upgrading-and-schema-migrations) |
-| `BLOG_PAGE_SIZE` | `6` | Articles per page |
+| `BLOG_PAGE_SIZE` | `10` | Articles per page |
 | `BLOG_STATIC_MAX_AGE` | `0` | Static file cache seconds (compose template defaults to 43200) |
 | `BLOG_SESSION_LIFETIME` | `86400` | Session lifetime in seconds (default 24h; applies to the admin login session) |
 | `BLOG_INIT_ADMIN_USER` | `admin` | Admin username created on first startup |
 | `BLOG_INIT_ADMIN_PWD` | (none) | Auto-created admin password, takes effect only once when the admin table is empty; **leave empty and create the admin via the `/admin/setup` wizard on first visit** |
-| `BLOG_MAIL_HOST` / `BLOG_MAIL_PORT` / `BLOG_MAIL_USER` / `BLOG_MAIL_PASSWORD` / `BLOG_MAIL_FROM` | - | SMTP settings for password-recovery emails; can also be configured at `/admin/account` after login, test with `/admin/mail_test` |
-| `BLOG_MAIL_USE_SSL` / `BLOG_MAIL_USE_TLS` | `false` / `true` | SMTP encryption (typically SSL on port 465, STARTTLS on 587) |
+| Mail settings | - | SMTP and admin mailbox are configured in the admin System Settings page; not read from environment variables |
+| Runtime options | - | The admin System Settings page overrides log level, slow-request threshold, page size and others; unset values fall back to the variables above |
 | `BLOG_RESET_TOKEN_MAX_AGE` | `1800` | Password-reset link lifetime in seconds (default 30 minutes) |
 | `BLOG_LOG_DIR` | `logs` | Log directory (console + rotating `app.log`, 10MB × 5; `/app/logs` inside Docker) |
 | `BLOG_LOG_FORMAT` | `auto` | `auto` (JSON in production / text in dev & test), `json` (for ELK/Loki), `text` |
@@ -147,7 +147,7 @@ export BLOG_MYSQL_DB=flask_blog
 export BLOG_INIT_ADMIN_PWD='your-admin-password'
 ```
 
-3. Import schema (optional, app auto-creates tables on startup):
+3. Import schema (optional, equivalent to the app's own table creation):
 
 ```bash
 mysql -u root -p flask_blog < MySQL/init.sql
@@ -155,7 +155,7 @@ mysql -u root -p flask_blog < MySQL/init.sql
 
 ### 2.4 Manual Schema Init SQL (for MySQL users)
 
-Use [`MySQL/init.sql`](../MySQL/init.sql) directly (validated with STRICT_TRANS_TABLES strict mode, includes indexes, charset, and field lengths):
+Use [`MySQL/init.sql`](../MySQL/init.sql) directly (identical to the app-created schema, includes indexes, charset, and field lengths):
 
 ```bash
 mysql -uroot -p < MySQL/init.sql
@@ -163,7 +163,7 @@ mysql -uroot -p < MySQL/init.sql
 
 > ⚠️ **MySQL strict mode is recommended in production** to avoid silent data truncation.
 
-**Key field lengths** (correctly set in init.sql; do not shrink when creating tables manually):
+**Key field lengths** (identical in init.sql and app/models.py; do not shrink when creating tables manually):
 
 | Field | Length | Reason |
 |-------|--------|--------|
@@ -294,7 +294,7 @@ The orchestration includes these guarantees out of the box — no custom wait sc
 | Mechanism | Behavior |
 |-----------|----------|
 | `/healthz` probe | The web container health check calls `GET /healthz`; the app runs `SELECT 1` and returns 200 on success or 503 if the database fails. This path is exempt from the Host allowlist |
-| db health check | MySQL container uses `mysqladmin ping` and auto-imports [MySQL/init.sql](../MySQL/init.sql) on first boot |
+| db health check | MySQL container uses `mysqladmin ping` and auto-imports [MySQL/init.sql](../MySQL/init.sql) on first boot; the app also creates tables from its models and fills in missing indexes |
 | Startup order | web `depends_on` db being healthy (ignored automatically in SQLite mode); nginx only routes traffic once web is healthy |
 | App-level wait | On startup the web app waits until MySQL accepts connections (probe every 3s, up to 90s) before creating tables/initializing — no skipped initialization due to slow MySQL first boot |
 | Mount permissions | The container entrypoint [docker-entrypoint.sh](../docker-entrypoint.sh) fixes ownership of `./data`, `./uploads/banner`, `./uploads/image`, and `./backups`, then drops privileges — the root-owned bind-mount problem on native Linux Docker is handled automatically |

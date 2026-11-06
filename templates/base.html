@@ -12,8 +12,12 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='lib/bootstrap-icons.css') }}">
     <link href="{{ url_for('static', filename='lib/prism-tomorrow.min.css') }}" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/themes.css') }}?v=20260911a" rel="stylesheet">
+    {% if rss_enabled %}
     <link rel="alternate" type="application/rss+xml" title="{{ site_name }} - RSS" href="{{ url_for('blog.feed_rss') }}">
+    {% endif %}
+    {% if atom_enabled %}
     <link rel="alternate" type="application/atom+xml" title="{{ site_name }} - Atom" href="{{ url_for('blog.feed_atom') }}">
+    {% endif %}
     <style>
         body { background:transparent; min-height:100vh; display:flex; flex-direction:column; margin:0; }
         main { flex:1; padding:8px 0; }
@@ -164,12 +168,16 @@
     <div class="container footer-inner">
         <p class="mb-0 footer-copyright">© {{ now_year }} {{ site_name }} · <a href="http://github.com/jeanslw" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">jeanslw</a> · {{ _('All Rights Reserved') }} · <span class="footer-version">version: v{{ app_version }}</span></p>
         <div class="footer-feed-icons">
+            {% if rss_enabled %}
             <a href="{{ url_for('blog.feed_rss') }}" class="rss-link" title="{{ _('RSS 订阅') }}" aria-label="{{ _('RSS 订阅') }}">
                 <i class="bi bi-rss"></i>
             </a>
+            {% endif %}
+            {% if atom_enabled %}
             <a href="{{ url_for('blog.feed_atom') }}" class="rss-link" title="{{ _('Atom 订阅') }}" aria-label="{{ _('Atom 订阅') }}">
                 <i class="bi bi-rss-fill"></i>
             </a>
+            {% endif %}
         </div>
     </div>
 </footer>
@@ -210,6 +218,8 @@
 <script src="{{ url_for('static', filename='js/flash-toast.js') }}?v=20260906a"></script>
 <script src="{{ url_for('static', filename='js/lang-toggle.js') }}"></script>
 <script src="{{ url_for('static', filename='js/cursor-effect.js') }}"></script>
+<script type="application/json" id="tzConfig">{{ {'siteTimezone': site_timezone, 'followBrowser': follow_browser_tz, 'cookieName': browser_tz_cookie} | tojson }}</script>
+<script src="{{ url_for('static', filename='js/local-time.js') }}?v=20261106a"></script>
 {% block extra_js %}{% endblock %}
 </body>
 </html>

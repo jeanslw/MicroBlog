@@ -218,6 +218,34 @@ def test_get_or_create_never_creates_a_second_row(app, db):
         assert db.session.scalar(db.select(db.func.count(model.id))) == 1
 
 
+def test_site_setting_form_saves_feed_switches(login_admin, db):
+    site = get_or_create_site_setting()
+    rv = login_admin.post(
+        "/admin/site_setting",
+        data={
+            "site_name": site.site_name,
+            "bg_style": site.bg_style,
+            "sidebar_style": site.sidebar_style,
+            "comments_enabled": "y",
+        },
+    )
+    assert rv.status_code == 302
+    db.session.refresh(site)
+    assert site.rss_enabled is False
+    assert site.atom_enabled is False
+
+
+def test_default_settings_button_applies_values(login_admin, db):
+    from app.database import get_or_create_system_setting
+    from app.settings import DEFAULT_RUNTIME_VALUES
+
+    rv = login_admin.post("/admin/system_setting/defaults")
+    assert rv.status_code == 302
+    setting = get_or_create_system_setting()
+    assert setting.page_size == DEFAULT_RUNTIME_VALUES["page_size"]
+    assert setting.slow_request_ms == DEFAULT_RUNTIME_VALUES["slow_request_ms"]
+
+
 def test_get_or_create_creates_default_rows_when_missing(app, db):
     for model in (SiteSetting, MailSetting, AboutProfile):
         db.session.execute(db.delete(model))

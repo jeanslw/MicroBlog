@@ -2,7 +2,7 @@
 
 import logging
 import time
-from datetime import datetime
+from datetime import timedelta
 from functools import wraps
 from urllib.parse import urlparse, urlsplit
 
@@ -13,6 +13,7 @@ from flask_login import LoginManager, current_user
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf import CSRFProtect
 
+from app.timeutil import BROWSER_TZ_COOKIE, DEFAULT_TIMEZONE, TIMEZONE_CHOICES, UTC_FORMAT, utc_now, utc_now_str
 from app.utils import asset_url_exists
 
 # 扩展实例(不绑定 app)
@@ -93,7 +94,7 @@ def record_login_fail(ip: str, username: str, lock_seconds: int = 300) -> int:
             rec = LoginAttempt(ip=ip, username=username, fail_count=0, lock_until=0)
             db.session.add(rec)
         rec.fail_count += 1
-        rec.update_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        rec.update_time = utc_now_str()
         if rec.fail_count >= 5:
             rec.lock_until = time.time() + lock_seconds
         db.session.commit()
@@ -149,7 +150,14 @@ def _default_global_context():
         "site_bg_style": "bg1",
         "site_bg_custom": "",
         "comments_enabled": True,
+        "rss_enabled": True,
+        "atom_enabled": True,
         "site_sidebar_style": "book",
+        "site_timezone": DEFAULT_TIMEZONE,
+        "display_timezone": DEFAULT_TIMEZONE,
+        "follow_browser_tz": True,
+        "timezone_choices": TIMEZONE_CHOICES,
+        "browser_tz_cookie": BROWSER_TZ_COOKIE,
     }
 
 
@@ -202,13 +210,17 @@ def fetch_global_context():
         site_bg_custom = (site.bg_custom or "") if site else ""
         raw_comments_enabled = site.comments_enabled if site else None
         comments_enabled = True if raw_comments_enabled is None else bool(raw_comments_enabled)
+        rss_enabled = True if site is None else bool(getattr(site, "rss_enabled", True))
+        atom_enabled = True if site is None else bool(getattr(site, "atom_enabled", True))
         site_sidebar_style = (site.sidebar_style or "book") if site else "book"
     except Exception:
         # 同 load_user：先 rollback 再降级，否则后续渲染查询全部失败
         db.session.rollback()
         log.error("全局模板上下文数据库报错", exc_info=True)
         return _default_global_context()
-    return {
+    from app.settings import timezone_context
+
+    context = {
         "categories": cats,
         "all_article_count": total_art,
         "site_name": site_name,
@@ -219,8 +231,12 @@ def fetch_global_context():
         "site_bg_style": site_bg_style,
         "site_bg_custom": site_bg_custom,
         "comments_enabled": comments_enabled,
+        "rss_enabled": rss_enabled,
+        "atom_enabled": atom_enabled,
         "site_sidebar_style": site_sidebar_style,
     }
+    context.update(timezone_context())
+    return context
 
 
 def safe_url(url: str) -> str:
@@ -289,6 +305,13 @@ _FIELD_LABEL_KEYS = {
     "mail_password": _l("密码"),
     "mail_from": _l("发件人邮箱"),
     "site_name": _l("站点名称"),
+    "timezone": _l("站点默认时区"),
+    "rss_enabled": _l("开启 RSS"),
+    "atom_enabled": _l("开启 Atom"),
+    "admin_email": _l("管理员邮箱"),
+    "page_size": _l("每页条数"),
+    "log_level": _l("日志级别"),
+    "log_format": _l("日志格式"),
     "about_nickname": _l("昵称"),
     "about_email": _l("邮箱"),
     "about_github": _l("GitHub 链接"),
@@ -306,8 +329,8 @@ def flash_form_errors(form) -> None:
 
 
 def _rate_limit_window_str(window_seconds: int) -> str:
-    """返回窗口起始时间的字符串(与 create_time 同格式,便于字符串比较)"""
-    return datetime.fromtimestamp(time.time() - window_seconds).strftime("%Y-%m-%d %H:%M:%S")
+    """返回窗口起始时刻的 UTC 存储字符串，供 create_time 字典序比较。"""
+    return (utc_now() - timedelta(seconds=window_seconds)).strftime(UTC_FORMAT)
 
 
 def check_and_record_rate_limit(action: str, ip: str, limit: int, window_seconds: int = 300) -> bool:
@@ -331,8 +354,7 @@ def check_and_record_rate_limit(action: str, ip: str, limit: int, window_seconds
         )
         if count >= limit:
             return False
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        db.session.add(RateLimit(ip=ip, action=action, create_time=now))
+        db.session.add(RateLimit(ip=ip, action=action, create_time=utc_now_str()))
         db.session.commit()
         return True
     except Exception:

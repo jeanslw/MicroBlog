@@ -1487,3 +1487,351 @@ msgstr "Normal"
 
 msgid "暂无登录失败记录"
 msgstr "No failed sign-in attempts"
+
+
+msgid "系统设置"
+msgstr "System Settings"
+
+
+msgid "登录历史"
+msgstr "Login History"
+
+
+msgid "时区设置"
+msgstr "Time Zone"
+
+
+msgid "站点默认时区"
+msgstr "Default Time Zone"
+
+
+msgid "跟随访客浏览器时区"
+msgstr "Follow Browser Time Zone"
+
+
+msgid "运行时参数"
+msgstr "Runtime Options"
+
+
+msgid "管理员邮箱"
+msgstr "Admin Mailbox"
+
+
+msgid "锁定截止时间"
+msgstr "Lock Expires"
+
+
+msgid "发布："
+msgstr "Published:"
+
+
+msgid "系统设置已保存"
+msgstr "System settings saved"
+
+
+msgid "每页条数"
+msgstr "Items per Page"
+
+
+msgid "日志级别"
+msgstr "Log Level"
+
+
+msgid "日志格式"
+msgstr "Log Format"
+
+
+msgid "时间与运行时参数统一在此配置；留空的数值项沿用环境变量。"
+msgstr "Time zone and runtime options are configured here. Unset numeric values fall back to environment variables."
+
+
+msgid "可从列表选择常用时区，也可直接输入任意 IANA 时区名。"
+msgstr "Pick a common time zone from the list, or type any IANA time zone name."
+
+
+msgid "页面时间按 24 小时制显示到秒，并附时区标识，例如 HH:MM:SS UTC。"
+msgstr "Page times use a 24-hour clock with seconds and a time zone label, e.g. HH:MM:SS UTC."
+
+
+msgid "慢请求阈值(毫秒)"
+msgstr "Slow Request Threshold (ms)"
+
+
+msgid "慢 SQL 阈值(毫秒)"
+msgstr "Slow SQL Threshold (ms)"
+
+
+msgid "静态资源缓存秒数"
+msgstr "Static Asset Cache (seconds)"
+
+
+msgid "会话有效期(秒)"
+msgstr "Session Lifetime (seconds)"
+
+
+msgid "找回令牌有效期(秒)"
+msgstr "Reset Token Lifetime (seconds)"
+
+
+msgid "启动时自动迁移数据库"
+msgstr "Run database migrations on startup"
+
+
+msgid "允许数据库版本高于程序版本"
+msgstr "Allow a database newer than the code"
+
+
+msgid "仅 HTTPS 下发会话 Cookie"
+msgstr "HTTPS-only session cookie"
+
+
+msgid "请先在「系统设置」页填写管理员邮箱"
+msgstr "Set the admin mailbox in System Settings first"
+
+
+msgid "同一 IP + 账号失败 5 次将被临时锁定；下表为最近 50 条失败记录。"
+msgstr "Five consecutive failures from the same IP and account lock it temporarily. The table shows the last 50 failures."
+
+
+msgid "跟随环境变量"
+msgstr "Follow environment variable"
+
+
+msgid "自动"
+msgstr "Auto"
+
+
+msgid "文本"
+msgstr "Text"
+
+
+msgid "协调世界时"
+msgstr "Coordinated Universal Time"
+
+
+msgid "中国 · 上海"
+msgstr "China · Shanghai"
+
+
+msgid "中国 · 香港"
+msgstr "China · Hong Kong"
+
+
+msgid "中国 · 台北"
+msgstr "China · Taipei"
+
+
+msgid "日本 · 东京"
+msgstr "Japan · Tokyo"
+
+
+msgid "韩国 · 首尔"
+msgstr "South Korea · Seoul"
+
+
+msgid "新加坡"
+msgstr "Singapore"
+
+
+msgid "泰国 · 曼谷"
+msgstr "Thailand · Bangkok"
+
+
+msgid "印度尼西亚 · 雅加达"
+msgstr "Indonesia · Jakarta"
+
+
+msgid "菲律宾 · 马尼拉"
+msgstr "Philippines · Manila"
+
+
+msgid "马来西亚 · 吉隆坡"
+msgstr "Malaysia · Kuala Lumpur"
+
+
+msgid "越南 · 胡志明市"
+msgstr "Vietnam · Ho Chi Minh City"
+
+
+msgid "印度 · 加尔各答"
+msgstr "India · Kolkata"
+
+
+msgid "阿联酋 · 迪拜"
+msgstr "UAE · Dubai"
+
+
+msgid "沙特 · 利雅得"
+msgstr "Saudi Arabia · Riyadh"
+
+
+msgid "伊朗 · 德黑兰"
+msgstr "Iran · Tehran"
+
+
+msgid "以色列 · 耶路撒冷"
+msgstr "Israel · Jerusalem"
+
+
+msgid "英国 · 伦敦"
+msgstr "United Kingdom · London"
+
+
+msgid "爱尔兰 · 都柏林"
+msgstr "Ireland · Dublin"
+
+
+msgid "法国 · 巴黎"
+msgstr "France · Paris"
+
+
+msgid "德国 · 柏林"
+msgstr "Germany · Berlin"
+
+
+msgid "西班牙 · 马德里"
+msgstr "Spain · Madrid"
+
+
+msgid "意大利 · 罗马"
+msgstr "Italy · Rome"
+
+
+msgid "荷兰 · 阿姆斯特丹"
+msgstr "Netherlands · Amsterdam"
+
+
+msgid "瑞士 · 苏黎世"
+msgstr "Switzerland · Zurich"
+
+
+msgid "瑞典 · 斯德哥尔摩"
+msgstr "Sweden · Stockholm"
+
+
+msgid "俄罗斯 · 莫斯科"
+msgstr "Russia · Moscow"
+
+
+msgid "土耳其 · 伊斯坦布尔"
+msgstr "Turkey · Istanbul"
+
+
+msgid "葡萄牙 · 里斯本"
+msgstr "Portugal · Lisbon"
+
+
+msgid "埃及 · 开罗"
+msgstr "Egypt · Cairo"
+
+
+msgid "肯尼亚 · 内罗毕"
+msgstr "Kenya · Nairobi"
+
+
+msgid "南非 · 约翰内斯堡"
+msgstr "South Africa · Johannesburg"
+
+
+msgid "美国 · 纽约"
+msgstr "United States · New York"
+
+
+msgid "美国 · 芝加哥"
+msgstr "United States · Chicago"
+
+
+msgid "美国 · 丹佛"
+msgstr "United States · Denver"
+
+
+msgid "美国 · 洛杉矶"
+msgstr "United States · Los Angeles"
+
+
+msgid "加拿大 · 多伦多"
+msgstr "Canada · Toronto"
+
+
+msgid "加拿大 · 温哥华"
+msgstr "Canada · Vancouver"
+
+
+msgid "墨西哥 · 墨西哥城"
+msgstr "Mexico · Mexico City"
+
+
+msgid "巴西 · 圣保罗"
+msgstr "Brazil · Sao Paulo"
+
+
+msgid "阿根廷 · 布宜诺斯艾利斯"
+msgstr "Argentina · Buenos Aires"
+
+
+msgid "智利 · 圣地亚哥"
+msgstr "Chile · Santiago"
+
+
+msgid "澳大利亚 · 悉尼"
+msgstr "Australia · Sydney"
+
+
+msgid "澳大利亚 · 墨尔本"
+msgstr "Australia · Melbourne"
+
+
+msgid "澳大利亚 · 珀斯"
+msgstr "Australia · Perth"
+
+
+msgid "新西兰 · 奥克兰"
+msgstr "New Zealand · Auckland"
+
+
+msgid "美国 · 檀香山"
+msgstr "United States · Honolulu"
+
+
+msgid "斐济"
+msgstr "Fiji"
+
+
+msgid "设置"
+msgstr "Settings"
+
+
+msgid "订阅源设置"
+msgstr "Feed Settings"
+
+
+msgid "开启 RSS 订阅源（/rss）"
+msgstr "Enable RSS feed (/rss)"
+
+
+msgid "开启 Atom 订阅源（/feed）"
+msgstr "Enable Atom feed (/feed)"
+
+
+msgid "开启 RSS"
+msgstr "Enable RSS"
+
+
+msgid "开启 Atom"
+msgstr "Enable Atom"
+
+
+msgid "使用默认设置"
+msgstr "Use Default Settings"
+
+
+msgid "已应用默认设置"
+msgstr "Default settings applied"
+
+
+msgid "输入框中的浅色数字为当前生效值；点击「使用默认设置」可一键填入推荐值。"
+msgstr "The faded numbers show the current effective values. Use the Default Settings button to fill in the recommended values."
+
+
+msgid "输入框中的浅色数字为推荐默认值；点击「使用默认设置」可一键填入。"
+msgstr "The faded numbers are the recommended defaults. Use the Default Settings button to fill them in."

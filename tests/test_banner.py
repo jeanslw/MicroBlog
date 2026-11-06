@@ -36,7 +36,7 @@ def test_banner_list_shows_items(login_admin, db):
             title="T1",
             link_url="https://example.com",
             sort=1,
-            create_time="2026-01-01 00:00:00",
+            create_time="2026-01-01T00:00:00Z",
         )
     )
     db.session.commit()
@@ -108,7 +108,7 @@ def test_banner_add_invalid_format(login_admin, db):
 
 def test_banner_edit_metadata(login_admin, db):
     """仅编辑文字字段(不换图)应成功"""
-    b = Banner(img_path="/uploads/banner/old.jpg", title="旧", create_time="2026-01-01 00:00:00")
+    b = Banner(img_path="/uploads/banner/old.jpg", title="旧", create_time="2026-01-01T00:00:00Z")
     db.session.add(b)
     db.session.commit()
 
@@ -132,7 +132,7 @@ def test_banner_edit_metadata(login_admin, db):
 
 def test_banner_edit_replace_image(login_admin, db):
     """更换图片应更新 img_path"""
-    b = Banner(img_path="/uploads/banner/old.jpg", title="x", create_time="2026-01-01 00:00:00")
+    b = Banner(img_path="/uploads/banner/old.jpg", title="x", create_time="2026-01-01T00:00:00Z")
     db.session.add(b)
     db.session.commit()
     old_path = b.img_path
@@ -174,7 +174,7 @@ def test_banner_edit_not_found(login_admin):
 
 def test_banner_del_success(login_admin, db):
     """删除 banner 应从数据库移除"""
-    b = Banner(img_path="/uploads/banner/del.jpg", title="待删", create_time="2026-01-01 00:00:00")
+    b = Banner(img_path="/uploads/banner/del.jpg", title="待删", create_time="2026-01-01T00:00:00Z")
     db.session.add(b)
     db.session.commit()
     bid = b.id
@@ -202,7 +202,7 @@ def test_banner_withdraw_success(login_admin, db):
     b = Banner(
         img_path="/uploads/banner/a.jpg",
         title="a",
-        create_time="2026-01-01 00:00:00",
+        create_time="2026-01-01T00:00:00Z",
         is_active=True,
     )
     db.session.add(b)
@@ -222,7 +222,7 @@ def test_banner_withdraw_twice(login_admin, db):
     b = Banner(
         img_path="/uploads/banner/a.jpg",
         title="a",
-        create_time="2026-01-01 00:00:00",
+        create_time="2026-01-01T00:00:00Z",
         is_active=False,
     )
     db.session.add(b)
@@ -252,7 +252,7 @@ def test_banner_activate_success(login_admin, db):
     b = Banner(
         img_path="/uploads/banner/b.jpg",
         title="b",
-        create_time="2026-01-01 00:00:00",
+        create_time="2026-01-01T00:00:00Z",
         is_active=False,
     )
     db.session.add(b)
@@ -276,13 +276,13 @@ def test_homepage_hides_withdrawn_banner(client, db):
     on = Banner(
         img_path="/uploads/banner/on.jpg",
         title="ONBANNER",
-        create_time="2026-01-01 00:00:00",
+        create_time="2026-01-01T00:00:00Z",
         is_active=True,
     )
     off = Banner(
         img_path="/uploads/banner/off.jpg",
         title="OFFBANNER",
-        create_time="2026-01-02 00:00:00",
+        create_time="2026-01-02T00:00:00Z",
         is_active=False,
     )
     db.session.add_all([on, off])

@@ -4,7 +4,7 @@ import logging
 import os
 import time
 import traceback
-from datetime import date, timedelta
+from datetime import timedelta
 from logging.handlers import RotatingFileHandler
 from urllib.parse import urlsplit
 
@@ -222,6 +222,19 @@ def create_app(config_name: str | None = None):
     csrf.init_app(app)
     babel.init_app(app, locale_selector=_select_locale)
 
+    from markupsafe import Markup
+
+    from app.timeutil import to_utc_str
+
+    @app.template_global()
+    def local_time(value, force_browser=False):
+        """把 UTC 时间字符串渲染为前端可换算的 time 标签。"""
+        utc = to_utc_str(value)
+        if not utc:
+            return Markup("")
+        force = Markup(' data-force-browser="1"') if force_browser else ""
+        return Markup('<time class="local-time" datetime="{}" data-utc="{}"{}>{}</time>').format(utc, utc, force, utc)
+
     # CSRFProtect 只校验 POST/PUT/DELETE/PATCH，GET 静态文件与 favicon 不受影响
     _setup_logging(app)
 
@@ -253,14 +266,20 @@ def create_app(config_name: str | None = None):
             except Exception as e:
                 app.logger.warning("%s 跳过: %s", _init_step.__name__, e)
 
+        from app.settings import apply_runtime_settings
+
+        apply_runtime_settings(app)
         run_startup_schema_migrations(app)
 
     @app.context_processor
     def global_vars():
+        from app.timeutil import DEFAULT_TIMEZONE, in_timezone, utc_now, utc_now_str
+
         ctx = fetch_global_context()
+        local_now = in_timezone(utc_now_str(), ctx.get("display_timezone", DEFAULT_TIMEZONE))
         ctx.update(
             {
-                "now_year": date.today().year,
+                "now_year": local_now.year if local_now else utc_now().year,
                 "current_lang": _select_locale(),
                 "app_version": APP_VERSION,
             }
@@ -307,6 +326,18 @@ def create_app(config_name: str | None = None):
     @app.before_request
     def _assign_request_id():
         begin_request_id()
+
+    @app.before_request
+    def _apply_runtime_settings():
+        from app.settings import apply_runtime_settings
+
+        if request.endpoint in ("static", "main.healthz"):
+            return None
+        try:
+            apply_runtime_settings(app)
+        except Exception:
+            app.logger.debug("运行时设置读取失败", exc_info=True)
+        return None
 
     @app.after_request
     def _echo_request_id(response):

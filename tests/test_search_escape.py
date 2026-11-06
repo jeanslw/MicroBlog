@@ -8,7 +8,7 @@
 from app.models import Article
 
 
-def _add_article(db, title, content="<p>正文</p>", ctime="2026-02-01 00:00:00"):
+def _add_article(db, title, content="<p>正文</p>", ctime="2026-02-01T00:00:00Z"):
     art = Article(
         title=title,
         content=content,

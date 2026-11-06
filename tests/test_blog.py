@@ -450,7 +450,7 @@ def test_edit_category_duplicate(login_admin, db, category):
     """重命名为其他栏目已有名称应失败并提示重复"""
     import json
 
-    db.session.add(Category(cat_name="已占用名称", tag_text="", create_time="2026-01-01 00:00:00"))
+    db.session.add(Category(cat_name="已占用名称", tag_text="", create_time="2026-01-01T00:00:00Z"))
     db.session.commit()
     rv = login_admin.post(
         f"/category/edit/{category.id}",

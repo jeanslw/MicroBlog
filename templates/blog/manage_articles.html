@@ -25,7 +25,7 @@
                 <tr>
                     <td><a href="{{ url_for('blog.article_detail', aid=art.id) }}" target="_blank">{{ art.title }}</a></td>
                     <td>{{ art.category.cat_name if art.category else _('未分类') }}</td>
-                    <td><small class="text-muted">{{ art.update_time }}</small></td>
+                    <td><small class="text-muted">{{ local_time(art.update_time) }}</small></td>
                     <td><span class="badge bg-info-subtle text-dark">{{ art.comment_num if art.comment_num else 0 }}</span></td>
                     <td class="d-flex gap-2 flex-wrap">
                         <a href="{{ url_for('blog.comment_manage', aid=art.id) }}" class="btn btn-sm btn-outline-secondary">{{ _('评论管理') }}</a>

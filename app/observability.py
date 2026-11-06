@@ -24,6 +24,8 @@ from contextvars import ContextVar
 from flask import g, request
 from sqlalchemy import event
 
+from app.timeutil import LOG_TIME_FORMAT
+
 request_id_var: ContextVar[str | None] = ContextVar("request_id", default=None)
 
 REQUEST_ID_HEADER = "X-Request-ID"
@@ -81,9 +83,11 @@ def log_event(logger: logging.Logger, level: int, event: str, **fields) -> None:
 class JsonFormatter(logging.Formatter):
     """单行 JSON 格式(供 ELK / Loki / CloudWatch 直接采集解析)."""
 
+    converter = time.gmtime
+
     def format(self, record: logging.LogRecord) -> str:
         payload: dict = {
-            "ts": self.formatTime(record, "%Y-%m-%dT%H:%M:%S"),
+            "ts": self.formatTime(record, LOG_TIME_FORMAT) + f".{int(record.msecs):03d}Z",
             "level": record.levelname,
             "logger": record.name,
             "request_id": getattr(record, "request_id", "-"),
@@ -99,12 +103,13 @@ class JsonFormatter(logging.Formatter):
 
 
 class TextFormatter(logging.Formatter):
-    """本地可读格式:[time] LEVEL [request_id] in logger: msg key=val ..."""
+    """本地可读格式:[UTC time] LEVEL [request_id] in logger: msg key=val ..."""
 
-    _FMT = "[%(asctime)s] %(levelname)s [%(request_id)s] in %(name)s: %(message)s"
+    converter = time.gmtime
+    _FMT = "[%(asctime)s.%(msecs)03dZ] %(levelname)s [%(request_id)s] in %(name)s: %(message)s"
 
     def __init__(self) -> None:
-        super().__init__(self._FMT)
+        super().__init__(self._FMT, datefmt=LOG_TIME_FORMAT)
 
     def format(self, record: logging.LogRecord) -> str:
         if not getattr(record, "request_id", None):

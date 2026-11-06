@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.4.0 (2026-11-07)
+
+- **Added**
+  - Database and admin times are stored in UTC; pages show them in the selected time zone.
+  - System settings offer major world time zones, custom time zone input and a browser time zone switch.
+  - A login history page shows failure counts, last failure time and lock expiry.
+  - Mail and runtime options moved into system settings and take effect on save.
+  - Independent RSS and Atom switches, with feed links hidden when disabled.
+  - Default runtime values with a one-click apply button; the default page size is 10.
+  - The admin settings group and breadcrumbs are named Settings.
+  - The ORM-created schema matches the manual SQL script, and startup migrations add missing indexes to existing databases.
+- **Fixed**
+  - Feed, sitemap, backup and archive times.
+  - Rate-limit windows and login lockout time base.
+  - Log timestamps carry a UTC marker and milliseconds.
+- **Improved**
+  - Containers keep the default UTC time zone.
+  - Environment templates and guides match the current settings.
+
 ## v1.3.6 (2026-10-11)
 
 - **Added**

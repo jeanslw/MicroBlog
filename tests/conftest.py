@@ -114,7 +114,7 @@ def category(db):
     """创建一个示例栏目"""
     from app.models import Category
 
-    cat = Category(cat_name="测试栏目", tag_text="test", create_time="2026-01-01 00:00:00")
+    cat = Category(cat_name="测试栏目", tag_text="test", create_time="2026-01-01T00:00:00Z")
     db.session.add(cat)
     db.session.commit()
     return cat
@@ -130,8 +130,8 @@ def article(db, category):
         content="<p>这是测试文章的 <strong>正文</strong> 内容。</p>",
         status="publish",
         category_id=category.id,
-        create_time="2026-01-01 00:00:00",
-        update_time="2026-01-01 00:00:00",
+        create_time="2026-01-01T00:00:00Z",
+        update_time="2026-01-01T00:00:00Z",
         vote_num=0,
     )
     db.session.add(art)
@@ -149,8 +149,8 @@ def draft(db, category):
         content="<p>草稿正文</p>",
         status="draft",
         category_id=category.id,
-        create_time="2026-01-01 00:00:00",
-        update_time="2026-01-01 00:00:00",
+        create_time="2026-01-01T00:00:00Z",
+        update_time="2026-01-01T00:00:00Z",
         vote_num=0,
     )
     db.session.add(art)

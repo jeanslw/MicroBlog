@@ -8,7 +8,6 @@
 """
 
 import os
-from datetime import datetime
 
 from flask import current_app, flash, redirect, render_template, url_for
 from flask_babel import _
@@ -17,6 +16,7 @@ from app.banner import banner_bp
 from app.extensions import admin_required, db, flash_form_errors, log, safe_url
 from app.forms import BannerForm
 from app.models import Banner
+from app.timeutil import utc_now_str
 from app.utils import (
     build_safe_filename,
     process_and_save_image,
@@ -77,7 +77,7 @@ def banner_add():
     title = (form.title.data or "").strip()[:100]
     desc = (form.desc_text.data or "").strip()[:200]
     sort_num = form.sort_num.data or 0
-    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    now = utc_now_str()
 
     banner = Banner(
         img_path=img_path,
@@ -111,7 +111,7 @@ def banner_edit(bid):
     banner.title = (form.title.data or "").strip()[:100]
     banner.desc_text = (form.desc_text.data or "").strip()[:200]
     banner.sort = form.sort_num.data or 0
-    banner.update_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    banner.update_time = utc_now_str()
 
     img = form.banner_img.data
     if img and img.filename:
@@ -181,7 +181,7 @@ def banner_withdraw(bid):
         return redirect(url_for("banner.banner_list"))
 
     banner.is_active = False
-    banner.update_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # 撤回时间
+    banner.update_time = utc_now_str()  # 撤回时间
     db.session.commit()
     flash(_("已撤回，首页不再展示该轮播图"), "success")
     return redirect(url_for("banner.banner_list"))
@@ -200,7 +200,7 @@ def banner_activate(bid):
         return redirect(url_for("banner.banner_list"))
 
     banner.is_active = True
-    banner.update_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # 启用时间
+    banner.update_time = utc_now_str()  # 启用时间
     db.session.commit()
     flash(_("已重新启用"), "success")
     return redirect(url_for("banner.banner_list"))

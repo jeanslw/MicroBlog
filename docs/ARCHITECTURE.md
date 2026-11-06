@@ -20,7 +20,7 @@ MicroBlog/
 ├── nginx/
 │   └── nginx.conf                 # Nginx reverse proxy config (for Docker)
 ├── MySQL/
-│   └── init.sql                   # MySQL schema init script
+│   └── init.sql                   # Manual schema script (matches the models)
 ├── translations/                  # i18n translation files
 │   ├── en/LC_MESSAGES/            # English (.po source + .mo compiled)
 │   └── zh_CN/LC_MESSAGES/         # Chinese
@@ -31,6 +31,8 @@ MicroBlog/
 │   ├── models.py                  # SQLAlchemy models (Admin/Article/Comment etc.)
 │   ├── forms.py                   # Flask-WTF form classes (article/category/login/upload etc.)
 │   ├── utils.py                   # HTML sanitization, text extraction, image processing, path utils
+│   ├── timeutil.py                # UTC time format, legacy conversion, time zone list
+│   ├── settings.py                # System settings lookup and runtime config overrides
 │   ├── blog/                      # Blog module (browse/publish/edit/delete)
 │   │   ├── routes.py              # Routes
 │   │   └── queries.py             # ORM query layer

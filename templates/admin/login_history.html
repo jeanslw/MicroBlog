@@ -1,0 +1,52 @@
+{% extends "admin/admin_base.html" %}
+{% block title %}{{ _('登录历史') }} - {{ site_name }}{% endblock %}
+
+{% block breadcrumb %}
+<li class="breadcrumb-item">{{ _('账户安全') }}</li>
+<li class="breadcrumb-item active" aria-current="page">{{ _('登录历史') }}</li>
+{% endblock %}
+
+{% block admin_content %}
+<div class="row g-4">
+    <div class="col-12">
+        <div class="card admin-panel-card p-4">
+            <h4 class="mb-1 fw-bold"><i class="bi bi-shield-lock"></i> {{ _('登录失败记录') }}</h4>
+            <p class="text-muted small mb-3">{{ _('同一 IP + 账号失败 5 次将被临时锁定；下表为最近 50 条失败记录。') }}</p>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>{{ _('IP') }}</th>
+                            <th>{{ _('账号') }}</th>
+                            <th style="width:110px">{{ _('失败次数') }}</th>
+                            <th style="width:200px">{{ _('最近失败时间') }}</th>
+                            <th style="width:200px">{{ _('锁定截止时间') }}</th>
+                            <th style="width:110px">{{ _('状态') }}</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in attempts %}
+                        <tr>
+                            <td><small>{{ item.ip }}</small></td>
+                            <td><small>{{ item.username }}</small></td>
+                            <td><span class="badge bg-secondary">{{ item.fail_count }}</span></td>
+                            <td><small class="text-muted">{{ local_time(item.update_time) }}</small></td>
+                            <td><small class="text-muted">{{ local_time(item.lock_until_utc) }}</small></td>
+                            <td>
+                                {% if item.locked %}
+                                <span class="badge bg-danger">{{ _('已锁定') }}</span>
+                                {% else %}
+                                <span class="badge bg-success">{{ _('正常') }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="6" class="text-center text-muted">{{ _('暂无登录失败记录') }}</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

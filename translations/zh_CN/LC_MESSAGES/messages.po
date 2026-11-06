@@ -1380,3 +1380,351 @@ msgstr "Normal"
 
 msgid "暂无登录失败记录"
 msgstr "No failed sign-in attempts"
+
+
+msgid "系统设置"
+msgstr "系统设置"
+
+
+msgid "登录历史"
+msgstr "登录历史"
+
+
+msgid "时区设置"
+msgstr "时区设置"
+
+
+msgid "站点默认时区"
+msgstr "站点默认时区"
+
+
+msgid "跟随访客浏览器时区"
+msgstr "跟随访客浏览器时区"
+
+
+msgid "运行时参数"
+msgstr "运行时参数"
+
+
+msgid "管理员邮箱"
+msgstr "管理员邮箱"
+
+
+msgid "锁定截止时间"
+msgstr "锁定截止时间"
+
+
+msgid "发布："
+msgstr "发布："
+
+
+msgid "系统设置已保存"
+msgstr "系统设置已保存"
+
+
+msgid "每页条数"
+msgstr "每页条数"
+
+
+msgid "日志级别"
+msgstr "日志级别"
+
+
+msgid "日志格式"
+msgstr "日志格式"
+
+
+msgid "时间与运行时参数统一在此配置；留空的数值项沿用环境变量。"
+msgstr "时间与运行时参数统一在此配置；留空的数值项沿用环境变量。"
+
+
+msgid "可从列表选择常用时区，也可直接输入任意 IANA 时区名。"
+msgstr "可从列表选择常用时区，也可直接输入任意 IANA 时区名。"
+
+
+msgid "页面时间按 24 小时制显示到秒，并附时区标识，例如 HH:MM:SS UTC。"
+msgstr "页面时间按 24 小时制显示到秒，并附时区标识，例如 HH:MM:SS UTC。"
+
+
+msgid "慢请求阈值(毫秒)"
+msgstr "慢请求阈值(毫秒)"
+
+
+msgid "慢 SQL 阈值(毫秒)"
+msgstr "慢 SQL 阈值(毫秒)"
+
+
+msgid "静态资源缓存秒数"
+msgstr "静态资源缓存秒数"
+
+
+msgid "会话有效期(秒)"
+msgstr "会话有效期(秒)"
+
+
+msgid "找回令牌有效期(秒)"
+msgstr "找回令牌有效期(秒)"
+
+
+msgid "启动时自动迁移数据库"
+msgstr "启动时自动迁移数据库"
+
+
+msgid "允许数据库版本高于程序版本"
+msgstr "允许数据库版本高于程序版本"
+
+
+msgid "仅 HTTPS 下发会话 Cookie"
+msgstr "仅 HTTPS 下发会话 Cookie"
+
+
+msgid "请先在「系统设置」页填写管理员邮箱"
+msgstr "请先在「系统设置」页填写管理员邮箱"
+
+
+msgid "同一 IP + 账号失败 5 次将被临时锁定；下表为最近 50 条失败记录。"
+msgstr "同一 IP + 账号失败 5 次将被临时锁定；下表为最近 50 条失败记录。"
+
+
+msgid "跟随环境变量"
+msgstr "跟随环境变量"
+
+
+msgid "自动"
+msgstr "自动"
+
+
+msgid "文本"
+msgstr "文本"
+
+
+msgid "协调世界时"
+msgstr "协调世界时"
+
+
+msgid "中国 · 上海"
+msgstr "中国 · 上海"
+
+
+msgid "中国 · 香港"
+msgstr "中国 · 香港"
+
+
+msgid "中国 · 台北"
+msgstr "中国 · 台北"
+
+
+msgid "日本 · 东京"
+msgstr "日本 · 东京"
+
+
+msgid "韩国 · 首尔"
+msgstr "韩国 · 首尔"
+
+
+msgid "新加坡"
+msgstr "新加坡"
+
+
+msgid "泰国 · 曼谷"
+msgstr "泰国 · 曼谷"
+
+
+msgid "印度尼西亚 · 雅加达"
+msgstr "印度尼西亚 · 雅加达"
+
+
+msgid "菲律宾 · 马尼拉"
+msgstr "菲律宾 · 马尼拉"
+
+
+msgid "马来西亚 · 吉隆坡"
+msgstr "马来西亚 · 吉隆坡"
+
+
+msgid "越南 · 胡志明市"
+msgstr "越南 · 胡志明市"
+
+
+msgid "印度 · 加尔各答"
+msgstr "印度 · 加尔各答"
+
+
+msgid "阿联酋 · 迪拜"
+msgstr "阿联酋 · 迪拜"
+
+
+msgid "沙特 · 利雅得"
+msgstr "沙特 · 利雅得"
+
+
+msgid "伊朗 · 德黑兰"
+msgstr "伊朗 · 德黑兰"
+
+
+msgid "以色列 · 耶路撒冷"
+msgstr "以色列 · 耶路撒冷"
+
+
+msgid "英国 · 伦敦"
+msgstr "英国 · 伦敦"
+
+
+msgid "爱尔兰 · 都柏林"
+msgstr "爱尔兰 · 都柏林"
+
+
+msgid "法国 · 巴黎"
+msgstr "法国 · 巴黎"
+
+
+msgid "德国 · 柏林"
+msgstr "德国 · 柏林"
+
+
+msgid "西班牙 · 马德里"
+msgstr "西班牙 · 马德里"
+
+
+msgid "意大利 · 罗马"
+msgstr "意大利 · 罗马"
+
+
+msgid "荷兰 · 阿姆斯特丹"
+msgstr "荷兰 · 阿姆斯特丹"
+
+
+msgid "瑞士 · 苏黎世"
+msgstr "瑞士 · 苏黎世"
+
+
+msgid "瑞典 · 斯德哥尔摩"
+msgstr "瑞典 · 斯德哥尔摩"
+
+
+msgid "俄罗斯 · 莫斯科"
+msgstr "俄罗斯 · 莫斯科"
+
+
+msgid "土耳其 · 伊斯坦布尔"
+msgstr "土耳其 · 伊斯坦布尔"
+
+
+msgid "葡萄牙 · 里斯本"
+msgstr "葡萄牙 · 里斯本"
+
+
+msgid "埃及 · 开罗"
+msgstr "埃及 · 开罗"
+
+
+msgid "肯尼亚 · 内罗毕"
+msgstr "肯尼亚 · 内罗毕"
+
+
+msgid "南非 · 约翰内斯堡"
+msgstr "南非 · 约翰内斯堡"
+
+
+msgid "美国 · 纽约"
+msgstr "美国 · 纽约"
+
+
+msgid "美国 · 芝加哥"
+msgstr "美国 · 芝加哥"
+
+
+msgid "美国 · 丹佛"
+msgstr "美国 · 丹佛"
+
+
+msgid "美国 · 洛杉矶"
+msgstr "美国 · 洛杉矶"
+
+
+msgid "加拿大 · 多伦多"
+msgstr "加拿大 · 多伦多"
+
+
+msgid "加拿大 · 温哥华"
+msgstr "加拿大 · 温哥华"
+
+
+msgid "墨西哥 · 墨西哥城"
+msgstr "墨西哥 · 墨西哥城"
+
+
+msgid "巴西 · 圣保罗"
+msgstr "巴西 · 圣保罗"
+
+
+msgid "阿根廷 · 布宜诺斯艾利斯"
+msgstr "阿根廷 · 布宜诺斯艾利斯"
+
+
+msgid "智利 · 圣地亚哥"
+msgstr "智利 · 圣地亚哥"
+
+
+msgid "澳大利亚 · 悉尼"
+msgstr "澳大利亚 · 悉尼"
+
+
+msgid "澳大利亚 · 墨尔本"
+msgstr "澳大利亚 · 墨尔本"
+
+
+msgid "澳大利亚 · 珀斯"
+msgstr "澳大利亚 · 珀斯"
+
+
+msgid "新西兰 · 奥克兰"
+msgstr "新西兰 · 奥克兰"
+
+
+msgid "美国 · 檀香山"
+msgstr "美国 · 檀香山"
+
+
+msgid "斐济"
+msgstr "斐济"
+
+
+msgid "设置"
+msgstr "设置"
+
+
+msgid "订阅源设置"
+msgstr "订阅源设置"
+
+
+msgid "开启 RSS 订阅源（/rss）"
+msgstr "开启 RSS 订阅源（/rss）"
+
+
+msgid "开启 Atom 订阅源（/feed）"
+msgstr "开启 Atom 订阅源（/feed）"
+
+
+msgid "开启 RSS"
+msgstr "开启 RSS"
+
+
+msgid "开启 Atom"
+msgstr "开启 Atom"
+
+
+msgid "使用默认设置"
+msgstr "使用默认设置"
+
+
+msgid "已应用默认设置"
+msgstr "已应用默认设置"
+
+
+msgid "输入框中的浅色数字为当前生效值；点击「使用默认设置」可一键填入推荐值。"
+msgstr "输入框中的浅色数字为当前生效值；点击「使用默认设置」可一键填入推荐值。"
+
+
+msgid "输入框中的浅色数字为推荐默认值；点击「使用默认设置」可一键填入。"
+msgstr "输入框中的浅色数字为推荐默认值；点击「使用默认设置」可一键填入。"

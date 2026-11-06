@@ -46,7 +46,7 @@
                 <tr>
                     <td class="text-break">{{ b.name }}</td>
                     <td>{{ (b.size / 1024) | round(1) }} KB</td>
-                    <td>{{ b.mtime_str }}</td>
+                    <td>{{ local_time(b.mtime_str, force_browser=True) }}</td>
                     <td class="text-end">
                         <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('admin.backup_download', name=b.name) }}">
                             <i class="bi bi-download"></i> {{ _('下载') }}
