@@ -151,19 +151,17 @@ CREATE TABLE IF NOT EXISTS `site_setting` (
 
 
 -- --------------------------------------------------------
--- 表：mail_setting（SMTP 邮件设置，仅一行）
--- v1.3.6 起从 site_config 拆分：SMTP 凭据与前台展示字段分表存放
+-- 表：login_history（登录历史，成功与失败各一行）
 -- --------------------------------------------------------
-CREATE TABLE IF NOT EXISTS `mail_setting` (
+CREATE TABLE IF NOT EXISTS `login_history` (
   `id` int NOT NULL AUTO_INCREMENT,
-  `mail_host` varchar(200) DEFAULT '' COMMENT 'SMTP 服务器（后台配置优先于 app.env）',
-  `mail_port` int DEFAULT 587 COMMENT 'SMTP 端口',
-  `mail_user` varchar(200) DEFAULT '' COMMENT 'SMTP 用户名',
-  `mail_password` varchar(200) DEFAULT '' COMMENT 'SMTP 密码/授权码（Fernet 加密后存储）',
-  `mail_from` varchar(200) DEFAULT '' COMMENT '发件人邮箱',
-  `mail_use_ssl` tinyint(1) NOT NULL DEFAULT '0' COMMENT '是否使用 SSL（465）',
-  `mail_use_tls` tinyint(1) NOT NULL DEFAULT '1' COMMENT '是否使用 STARTTLS（587）',
-  PRIMARY KEY (`id`)
+  `username` varchar(100) NOT NULL COMMENT '登录账号',
+  `ip` varchar(100) NOT NULL COMMENT '来源 IP',
+  `success` tinyint(1) NOT NULL DEFAULT '0' COMMENT '登录是否成功',
+  `create_time` varchar(50) NOT NULL COMMENT '登录时间（UTC）',
+  PRIMARY KEY (`id`),
+  KEY `idx_login_history_time` (`create_time`),
+  KEY `idx_login_history_ip_user` (`ip`, `username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
@@ -277,7 +275,6 @@ CREATE TABLE IF NOT EXISTS `schema_version` (
 -- INSERT IGNORE：脚本可重复执行，重复导入不会因主键冲突中断，也不会覆盖已有配置
 INSERT IGNORE INTO `site_setting` (`id`, `site_name`, `favicon_path`)
 VALUES (1, 'My Blog', 'static/favicon.ico');
-INSERT IGNORE INTO `mail_setting` (`id`) VALUES (1);
 INSERT IGNORE INTO `about_profile` (`id`) VALUES (1);
 INSERT IGNORE INTO `system_settings` (`id`) VALUES (1);
 INSERT IGNORE INTO `schema_version` (`version`, `applied_time`, `note`)

@@ -19,7 +19,9 @@ from app import run_startup_schema_migrations
 from app.database import (
     SCHEMA_VERSION,
     SCHEMA_VERSION_BASELINE,
+    _drop_legacy_mail_setting,
     _migrate_schema_version,
+    get_or_create_system_setting,
     get_schema_version,
     pending_schema_migrations,
     run_schema_migrations,
@@ -384,12 +386,43 @@ def test_login_attempt_stamps_update_time(client, db):
     assert TS_RE.match(rec.update_time or "")
 
 
-def test_account_page_shows_login_failures(login_admin, db):
-    """账户安全页展示登录失败记录(IP / 账号 / 次数 / 最近失败时间 / 锁定状态)."""
-    from app.extensions import record_login_fail
+def test_account_page_shows_login_history(login_admin, db):
+    """登录历史页展示用户名、IP、日期与结果."""
+    from app.models import LoginHistory
+    from app.timeutil import utc_now_str
 
-    record_login_fail("10.0.0.9", "admin")
+    db.session.add(LoginHistory(username="admin", ip="10.0.0.9", success=False, create_time=utc_now_str()))
+    db.session.commit()
     html = login_admin.get("/admin/account").get_data(as_text=True)
-    assert "登录失败记录" in html
+    assert "登录历史" in html
     assert "10.0.0.9" in html
-    assert "最近失败时间" in html
+    assert "用户名" in html
+
+
+def test_legacy_mail_setting_is_migrated_and_dropped(app, db):
+    """旧库升级:SMTP 配置复制到 system_settings 后删除 mail_setting 表."""
+    with db.engine.begin() as conn:
+        conn.execute(
+            db.text(
+                "CREATE TABLE mail_setting (id INTEGER PRIMARY KEY, mail_host VARCHAR(200), mail_port INTEGER, "
+                "mail_user VARCHAR(200), mail_password VARCHAR(200), mail_from VARCHAR(200), "
+                "mail_use_ssl BOOLEAN, mail_use_tls BOOLEAN)"
+            )
+        )
+        conn.execute(
+            db.text(
+                "INSERT INTO mail_setting "
+                "(id, mail_host, mail_port, mail_user, mail_password, mail_from, mail_use_ssl, mail_use_tls) "
+                "VALUES (1, 'smtp.legacy.com', 465, 'u', 'p', 'f@x.com', 1, 0)"
+            )
+        )
+    setting = get_or_create_system_setting()
+    setting.mail_host = ""
+    db.session.commit()
+
+    _drop_legacy_mail_setting()
+
+    db.session.refresh(setting)
+    assert setting.mail_host == "smtp.legacy.com"
+    assert setting.mail_port == 465
+    assert not _table_exists("mail_setting")

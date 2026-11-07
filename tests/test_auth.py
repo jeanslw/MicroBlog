@@ -273,3 +273,14 @@ def test_home_nav_hides_logout_when_anonymous(client, admin_user):
     rv = client.get("/")
     assert rv.status_code == 200
     assert 'action="/admin/logout"' not in rv.data.decode("utf-8")
+
+
+def test_login_history_records_success_and_failure(client, admin_user, db):
+    """登录成功与失败各写一条登录历史."""
+    from app.models import LoginHistory
+
+    client.post("/admin/login", data={"username": "admin", "password": "wrong-password"})
+    client.post("/admin/login", data={"username": "admin", "password": "admin123456"})
+    rows = db.session.scalars(db.select(LoginHistory).order_by(LoginHistory.id)).all()
+    assert [row.success for row in rows] == [False, True]
+    assert all(row.username == "admin" for row in rows)

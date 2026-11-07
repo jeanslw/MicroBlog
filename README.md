@@ -187,7 +187,7 @@ All JS/CSS files are localized. **No CDN is required after deployment**, fully u
 | Forgot Password | `/admin/forgot` | Enter username + bound email; reset link sent by email (rate-limited) |
 | Reset Password | `/admin/reset/<token>` | Set a new password via the email link (token valid 30 minutes) |
 | System Settings | `/admin/system_setting` | Login required, time zone, runtime options, admin mailbox and SMTP |
-| Login History | `/admin/login_history` | Login required, failed sign-ins and lock expiry |
+| Login History | `/admin/login_history` | Login required, username / IP / date / result for each sign-in |
 | Banner Management | `/banner/list` | Login required, manage banners |
 | Language Switch | `/set_lang/zh_CN` or `/set_lang/en` | Switch Chinese/English |
 

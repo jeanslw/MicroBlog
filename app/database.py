@@ -1,16 +1,10 @@
-"""数据库初始化工具.
+"""数据库初始化与单行配置读写.
 
-原 db.py 提供裸 SQL 连接管理 + 自建表 + DictCursor 适配层,
-重构后由 Flask-SQLAlchemy 统一负责连接池,ORM,schema 同步.
-本模块仅保留:
 - init_db(): 创建所有表 + 轻量幂等迁移
 - ensure_admin_exists(): 初始化管理员
-- ensure_default_settings(): 初始化单行配置表(site_setting/mail_setting/about_profile/system_settings)
-- get_site_setting / get_mail_setting / get_about_profile / get_system_setting: 统一读取单行配置表
-- get_or_create_*: 读取,缺失时创建默认行(后台各设置页使用)
-
-注:文件名从 db.py 改为 database.py,避免与 app.extensions.db 实例
-在 app 包命名空间中产生属性遮蔽(module shadowing).
+- ensure_default_settings(): 初始化单行配置表(site_setting / about_profile / system_settings)
+- get_site_setting / get_about_profile / get_system_setting: 读取单行配置表
+- get_or_create_*: 读取,缺失时创建默认行
 """
 
 import os
@@ -76,6 +70,7 @@ def init_db():
     _migrate_missing_indexes()
     _migrate_login_attempt()
     _migrate_site_setting_feed_switches()
+    _drop_legacy_mail_setting()
     # 带数据搬迁的迁移由版本化迁移框架驱动（见 run_schema_migrations）
 
 
@@ -200,10 +195,10 @@ def _migrate_site_setting_feed_switches():
 
 
 def _migrate_site_config_split():
-    """v1.3.6:site_config 单表拆分为 site_setting / mail_setting / about_profile(幂等).
+    """v1.3.6:site_config 单表拆分到 site_setting / about_profile / system_settings(幂等).
 
     检测到 site_config 表存在即执行:
-    - 旧库升级:v1.3.5 及以前的单表拆到三张新表;
+    - 旧库升级:v1.3.5 及以前的单表拆到当前配置表;
     - 恢复旧备份:SQLite 文件替换 / MySQL dump 导入把库变回旧 schema 后,
       gunicorn SIGHUP 重启时 create_all 重建新表,本函数再拆一次;此时旧行
       是用户明确要恢复的权威状态,故覆盖新表的残留数据.
@@ -215,7 +210,7 @@ def _migrate_site_config_split():
     1. 读旧行,复制,行数校验与 DROP 全部在**同一条连接/事务**内顺序完成:
        若用 db.session 读旧行而由 engine 另一连接 DROP,MySQL 下未提交事务
        持有 site_config 的共享 MDL,DROP 需排他 MDL,会阻塞到 lock_wait_timeout;
-    2. 三表各恰好一行才执行 DROP -- MySQL 的 DDL 隐式提交,无法与 DML 同事务,
+    2. 配置表各恰好一行才执行 DROP -- MySQL 的 DDL 隐式提交,无法与 DML 同事务,
        '先校验后删'是该引擎下最接近原子性的做法;
     3. 任何失败都向上抛出,由版本化迁移框架负责'不戳记,下次重试';在此吞掉
        异常会让 run_schema_migrations 把版本戳成已应用,用户配置丢失且无提示;
@@ -243,7 +238,6 @@ def _migrate_site_config_split():
                 return default if v is None else v
 
             conn.execute(db.text("DELETE FROM site_setting"))
-            conn.execute(db.text("DELETE FROM mail_setting"))
             conn.execute(db.text("DELETE FROM about_profile"))
             conn.execute(
                 db.text(
@@ -262,23 +256,34 @@ def _migrate_site_config_split():
                     "sidebar_style": val("sidebar_style", "book"),
                 },
             )
-            conn.execute(
-                db.text(
-                    "INSERT INTO mail_setting "
-                    "(id, mail_host, mail_port, mail_user, mail_password, mail_from, mail_use_ssl, mail_use_tls) "
-                    "VALUES (1, :mail_host, :mail_port, :mail_user, :mail_password, :mail_from, "
-                    ":mail_use_ssl, :mail_use_tls)"
-                ),
-                {
-                    "mail_host": val("mail_host", ""),
-                    "mail_port": _int_or(val("mail_port", 587), 587),
-                    "mail_user": val("mail_user", ""),
-                    "mail_password": val("mail_password", ""),
-                    "mail_from": val("mail_from", ""),
-                    "mail_use_ssl": 1 if val("mail_use_ssl", False) else 0,
-                    "mail_use_tls": 1 if val("mail_use_tls", True) else 0,
-                },
-            )
+            smtp = {
+                "mail_host": val("mail_host", ""),
+                "mail_port": _int_or(val("mail_port", 587), 587),
+                "mail_user": val("mail_user", ""),
+                "mail_password": val("mail_password", ""),
+                "mail_from": val("mail_from", ""),
+                "mail_use_ssl": 1 if val("mail_use_ssl", False) else 0,
+                "mail_use_tls": 1 if val("mail_use_tls", True) else 0,
+            }
+            if conn.execute(db.text("SELECT COUNT(*) FROM system_settings")).scalar():
+                conn.execute(
+                    db.text(
+                        "UPDATE system_settings SET mail_host=:mail_host, mail_port=:mail_port, "
+                        "mail_user=:mail_user, mail_password=:mail_password, mail_from=:mail_from, "
+                        "mail_use_ssl=:mail_use_ssl, mail_use_tls=:mail_use_tls"
+                    ),
+                    smtp,
+                )
+            else:
+                conn.execute(
+                    db.text(
+                        "INSERT INTO system_settings "
+                        "(id, mail_host, mail_port, mail_user, mail_password, mail_from, mail_use_ssl, mail_use_tls) "
+                        "VALUES (1, :mail_host, :mail_port, :mail_user, :mail_password, :mail_from, "
+                        ":mail_use_ssl, :mail_use_tls)"
+                    ),
+                    smtp,
+                )
             conn.execute(
                 db.text(
                     "INSERT INTO about_profile "
@@ -295,28 +300,25 @@ def _migrate_site_config_split():
                     "about_nickname": val("about_nickname", ""),
                 },
             )
-            # 校验三张新表各恰好一行，否则整体回滚
-            for table in ("site_setting", "mail_setting", "about_profile"):
+            for table in ("site_setting", "about_profile", "system_settings"):
                 cnt = conn.execute(db.text(f"SELECT COUNT(*) FROM {table}")).scalar()
                 if cnt != 1:
                     raise RuntimeError(f"{table} 迁移校验失败: 期望 1 行,实际 {cnt} 行")
         conn.execute(db.text("DROP TABLE site_config"))
-    log.info("site_config 已拆分迁移至 site_setting / mail_setting / about_profile,旧表已删除")
+    log.info("site_config 已拆分迁移至当前配置表,旧表已删除")
 
 
 def _migrate_utc_time_and_system_settings():
-    """v1.4.0:时间列统一为 UTC 字符串,SMTP 配置并入 system_settings(幂等)."""
+    """v1.4.0:时间列统一为 UTC 字符串(幂等).遗留 mail_setting 已由启动迁移清理."""
     from app.models import (
         Article,
         Banner,
         Category,
         Comment,
         LoginAttempt,
-        MailSetting,
         RateLimit,
         Reply,
         SchemaVersion,
-        SystemSetting,
         VoteLog,
     )
 
@@ -345,18 +347,50 @@ def _migrate_utc_time_and_system_settings():
                         setattr(row, column, converted)
     db.session.commit()
 
-    setting = _get_or_create_single_row(SystemSetting)
-    mail = _get_single_row(MailSetting) if "mail_setting" in tables else None
-    if mail is not None and not (setting.mail_host or "").strip():
-        setting.mail_host = mail.mail_host or ""
-        setting.mail_port = mail.mail_port or 587
-        setting.mail_user = mail.mail_user or ""
-        setting.mail_password = mail.mail_password or ""
-        setting.mail_from = mail.mail_from or ""
-        setting.mail_use_ssl = bool(mail.mail_use_ssl)
-        setting.mail_use_tls = bool(mail.mail_use_tls)
-        db.session.commit()
-    log.info("时间列已统一为 UTC,SMTP 配置已并入 system_settings")
+    log.info("时间列已统一为 UTC")
+
+
+def _drop_legacy_mail_setting():
+    """遗留 mail_setting 表已并入 system_settings;每次启动幂等删除(若仍存在).
+
+    不挂版本化迁移:已发布 1.4.0 的库其 schema_version 已是 1.4.0,不会再跑
+    版本化迁移,故改由 init_db 每次启动检查并清理,确保旧库升级后也能删表.
+    """
+    try:
+        inspector = db.inspect(db.engine)
+        tables = set(inspector.get_table_names())
+    except Exception as e:
+        log.warning("检查遗留 mail_setting 失败: %s", e)
+        return
+    if "mail_setting" not in tables:
+        return
+    try:
+        with db.engine.connect() as conn:
+            legacy = conn.execute(db.text("SELECT * FROM mail_setting ORDER BY id LIMIT 1")).mappings().first()
+    except Exception as e:
+        log.warning("读取遗留 mail_setting 失败: %s", e)
+        legacy = None
+    if legacy is not None:
+        try:
+            setting = get_or_create_system_setting()
+            if not (setting.mail_host or "").strip():
+                setting.mail_host = legacy["mail_host"] or ""
+                setting.mail_port = legacy["mail_port"] or 587
+                setting.mail_user = legacy["mail_user"] or ""
+                setting.mail_password = legacy["mail_password"] or ""
+                setting.mail_from = legacy["mail_from"] or ""
+                setting.mail_use_ssl = bool(legacy["mail_use_ssl"])
+                setting.mail_use_tls = bool(legacy["mail_use_tls"])
+                db.session.commit()
+        except Exception as e:
+            log.warning("复制遗留 mail_setting 到 system_settings 失败: %s", e)
+            db.session.rollback()
+    try:
+        with db.engine.begin() as conn:
+            conn.execute(db.text("DROP TABLE mail_setting"))
+        log.info("遗留 mail_setting 表已删除")
+    except Exception as e:
+        log.warning("删除遗留 mail_setting 表失败: %s", e)
 
 
 # 无版本行的老库所处的基线版本
@@ -364,7 +398,10 @@ SCHEMA_VERSION_BASELINE = "1.3.5"
 
 # 发布号 -> (说明, 迁移函数)；迁移函数必须幂等
 _SCHEMA_MIGRATIONS: dict[str, tuple[str, Callable[[], None]]] = {
-    "1.3.6": ("站点配置表拆分:site_config → site_setting / mail_setting / about_profile", _migrate_site_config_split),
+    "1.3.6": (
+        "站点配置表拆分:site_config → site_setting / about_profile / system_settings",
+        _migrate_site_config_split,
+    ),
     "1.4.0": ("时间统一为 UTC,新增 system_settings 并并入邮件配置", _migrate_utc_time_and_system_settings),
 }
 
@@ -580,15 +617,11 @@ def ensure_admin_exists():
 
 
 def ensure_default_settings():
-    """确保四张单行配置表各有一行默认配置.
-
-    迁移已填充的表不会被覆盖;新装环境在此补齐缺失的默认行.
-    """
-    from app.models import AboutProfile, MailSetting, SiteSetting, SystemSetting
+    """确保三张单行配置表各有一行默认配置."""
+    from app.models import AboutProfile, SiteSetting, SystemSetting
 
     for model, defaults in (
         (SiteSetting, {"site_name": "My Blog", "favicon_path": "static/favicon.ico"}),
-        (MailSetting, {}),
         (AboutProfile, {}),
         (SystemSetting, {}),
     ):
@@ -660,13 +693,6 @@ def get_site_setting():
     return _get_single_row(SiteSetting)
 
 
-def get_mail_setting():
-    """读取 SMTP 邮件设置行(mail_setting 表)."""
-    from app.models import MailSetting
-
-    return _get_single_row(MailSetting)
-
-
 def get_about_profile():
     """读取'关于我'资料行(about_profile 表)."""
     from app.models import AboutProfile
@@ -708,13 +734,6 @@ def get_or_create_site_setting():
     from app.models import SiteSetting
 
     return _get_or_create_single_row(SiteSetting, site_name="My Blog", favicon_path="static/favicon.ico")
-
-
-def get_or_create_mail_setting():
-    """读取 SMTP 邮件设置行,缺失时创建默认行."""
-    from app.models import MailSetting
-
-    return _get_or_create_single_row(MailSetting)
 
 
 def get_or_create_about_profile():

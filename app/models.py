@@ -172,21 +172,6 @@ class SiteSetting(db.Model):
     sidebar_style = Column(String(20), default="book", nullable=False)
 
 
-class MailSetting(db.Model):
-    """SMTP 邮件设置:保留兼容旧库;当前 SMTP 配置由 system_settings 表提供."""
-
-    __tablename__ = "mail_setting"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    mail_host = Column(String(200), default="")
-    mail_port = Column(Integer, default=587)
-    mail_user = Column(String(200), default="")
-    mail_password = Column(String(200), default="")
-    mail_from = Column(String(200), default="")
-    mail_use_ssl = Column(Boolean, default=False, nullable=False)
-    mail_use_tls = Column(Boolean, default=True, nullable=False)
-
-
 class SystemSetting(db.Model):
     """系统设置:时区、运行时参数与 SMTP 邮件配置.
 
@@ -254,6 +239,22 @@ class LoginAttempt(db.Model):
     fail_count = Column(Integer, default=0, nullable=False)
     lock_until = Column(Integer, default=0, nullable=False)
     update_time = Column(String(50))
+
+
+class LoginHistory(db.Model):
+    """登录历史记录:每次登录成功或失败各写一行."""
+
+    __tablename__ = "login_history"
+    __table_args__ = (
+        Index("idx_login_history_time", "create_time"),
+        Index("idx_login_history_ip_user", "ip", "username"),
+    )
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    username = Column(String(100), nullable=False)
+    ip = Column(String(100), nullable=False)
+    success = Column(Boolean, nullable=False, default=False)
+    create_time = Column(String(50), nullable=False)
 
 
 class RateLimit(db.Model):

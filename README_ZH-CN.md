@@ -187,7 +187,7 @@ waitress-serve --listen=127.0.0.1:5000 wsgi:application
 | 找回密码 | `/admin/forgot` | 输入用户名 + 绑定邮箱，匹配后发送重置邮件（有频率限制） |
 | 重置密码 | `/admin/reset/<token>` | 通过邮件链接设置新密码（链接 30 分钟内有效） |
 | 系统设置 | `/admin/system_setting` | 需登录，配置时区、运行时参数、管理员邮箱与 SMTP |
-| 登录历史 | `/admin/login_history` | 需登录，查看登录失败记录与锁定截止时间 |
+| 登录历史 | `/admin/login_history` | 需登录，查看每次登录的用户名、IP、日期与结果 |
 | 轮播图管理 | `/banner/list` | 需登录，管理 Banner |
 | 语言切换 | `/set_lang/zh_CN` 或 `/set_lang/en` | 切换中/英文 |
 
