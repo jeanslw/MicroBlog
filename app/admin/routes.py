@@ -59,6 +59,7 @@ from app.extensions import (
     log,
     rate_limit,
     record_login_fail,
+    record_login_history,
     safe_redirect_path,
 )
 from app.forms import (
@@ -73,7 +74,7 @@ from app.forms import (
     UploadImageForm,
 )
 from app.mail import MailError, send_mail
-from app.models import Admin, LoginAttempt, SchemaVersion
+from app.models import Admin, LoginHistory, SchemaVersion
 from app.settings import DEFAULT_RUNTIME_VALUES, apply_runtime_settings
 from app.timeutil import backup_stamp, from_epoch
 from app.utils import (
@@ -119,6 +120,7 @@ def login():
 
         locked, remain = check_login_lock(ip, username)
         if locked:
+            record_login_history(username, ip, False)
             flash(_("登录失败次数过多,请 %(sec)s 秒后再试", sec=remain), "danger")
             return render_template("admin/login.html", form=form), 429
 
@@ -127,11 +129,13 @@ def login():
             login_user(admin, remember=False)
             session.permanent = True
             clear_login_fail(ip, username)
+            record_login_history(username, ip, True)
             flash(_("登录成功"), "success")
             next_url = safe_redirect_path(request.args.get("next")) or url_for("admin.panel")
             return redirect(next_url)
 
         fails = record_login_fail(ip, username)
+        record_login_history(username, ip, False)
         if fails >= 5:
             flash(_("登录失败次数过多,请 5 分钟后再试"), "danger")
         else:
@@ -523,23 +527,24 @@ def system_setting_defaults():
 
 
 def _login_history_view():
-    """读取最近登录失败记录并渲染登录历史页。"""
-    attempts = (
-        db.session.execute(db.select(LoginAttempt).order_by(LoginAttempt.update_time.desc()).limit(50)).scalars().all()
+    """读取最近登录记录并渲染登录历史页。"""
+    rows = (
+        db.session.execute(
+            db.select(LoginHistory).order_by(LoginHistory.create_time.desc(), LoginHistory.id.desc()).limit(50)
+        )
+        .scalars()
+        .all()
     )
-    now_ts = int(time.time())
     records = [
         {
-            "ip": rec.ip,
-            "username": rec.username,
-            "fail_count": rec.fail_count,
-            "update_time": rec.update_time,
-            "lock_until_utc": from_epoch(rec.lock_until) if rec.lock_until else "",
-            "locked": bool(rec.lock_until and rec.lock_until > now_ts),
+            "username": row.username,
+            "ip": row.ip,
+            "create_time": row.create_time,
+            "success": bool(row.success),
         }
-        for rec in attempts
+        for row in rows
     ]
-    return render_template("admin/login_history.html", attempts=records)
+    return render_template("admin/login_history.html", records=records)
 
 
 @admin_bp.route("/login_history")

@@ -60,7 +60,7 @@ flask create-admin
 
 - Counted per **IP + username**; after **5** consecutive failures the pair is locked for **5 minutes**; while locked, sign-in returns `429` together with the remaining seconds.
 - The counter is persisted in the `login_attempt` table (shared across workers, survives restarts) and is **cleared on a successful sign-in**.
-- Where to look: Admin "Account → Login History" — the last 50 entries (IP / username / attempts / last failure / lock expiry / status: locked or normal).
+- Login records: Admin "Account → Login History" lists the last 50 sign-ins (username / IP / date / result), recording both successes and failures; the lockout counter still lives in the `login_attempt` table.
 - If you locked yourself out, wait 5 minutes, or clear the matching rows yourself (`DELETE FROM login_attempt`).
 
 ### 2.4 Forgot password (email recovery)
@@ -96,7 +96,7 @@ The sidebar (a drawer on narrow screens) has four groups:
 | Banners | Banner List | `/banner/` | Add, edit, withdraw/enable, delete |
 | Banners | New Banner | `/banner/` (form on the page) | Upload image + title / link / description / sort weight |
 | Account | Change Password | `/admin/change_pwd` | Change the login password |
-| Account | Login History | `/admin/login_history` | Last 50 failed sign-ins and lock expiry |
+| Account | Login History | `/admin/login_history` | Last 50 sign-ins (username / IP / date / result) |
 | Account | Sign out | `/admin/logout` | POST sign-out |
 | Operations & Security | Database Backup | `/admin/backup` | Back up now / download / restore / delete |
 | Operations & Security | Migrate Database | `/admin/migrate` | Version status, run migration, migration history |
@@ -246,7 +246,7 @@ Columns and actions:
 - **Default settings**: "Use Default Settings" writes the recommended values (10 items per page, 500 ms slow request, 200 ms slow SQL, 86400 s session, 1800 s reset token) and applies them immediately. The faded numbers in the inputs show the recommended defaults.
 - **Mail settings**: admin mailbox, SMTP host / port / username / password / sender, STARTTLS / SSL and a test mail. An empty password keeps the existing one.
 
-**Login History**: the last 50 failed sign-ins (IP / username / attempts / last failure / lock expiry / status), rendered in the current display zone (see [§2.3](#23-login-lockout-brute-force-protection)).
+**Login History**: the last 50 sign-ins (username / IP / date / result), recording both successes and failures, rendered in the current display zone.
 
 ### 8.2 Database backup and restore (`/admin/backup`)
 

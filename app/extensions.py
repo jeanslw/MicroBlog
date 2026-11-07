@@ -147,6 +147,18 @@ def clear_login_fail(ip: str, username: str):
         log.warning("clear_login_fail 失败,跳过清除", exc_info=True)
 
 
+def record_login_history(username: str, ip: str, success: bool):
+    """写入一条登录历史记录；写入失败不影响登录流程。"""
+    from app.models import LoginHistory
+
+    try:
+        db.session.add(LoginHistory(username=username, ip=ip, success=bool(success), create_time=utc_now_str()))
+        db.session.commit()
+    except Exception:
+        db.session.rollback()
+        log.warning("登录历史写入失败", exc_info=True)
+
+
 def admin_required(f):
     """装饰器:要求管理员登录(基于 Flask-Login current_user)"""
     from flask_login import login_required

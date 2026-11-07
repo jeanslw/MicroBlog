@@ -167,16 +167,16 @@ def test_ensure_admin_exists_creates_admin(app, db):
 def test_ensure_default_settings_creates_defaults(app, db):
     """三张单行配置表清空后,ensure_default_settings 应各补一行默认配置"""
     from app.database import ensure_default_settings
-    from app.models import AboutProfile, MailSetting, SiteSetting
+    from app.models import AboutProfile, SiteSetting, SystemSetting
 
-    for model in (SiteSetting, MailSetting, AboutProfile):
+    for model in (SiteSetting, AboutProfile, SystemSetting):
         db.session.query(model).delete()
     db.session.commit()
     ensure_default_settings()
     s = db.session.get(SiteSetting, 1)
     assert s is not None
     assert s.site_name == "My Blog"
-    assert db.session.get(MailSetting, 1) is not None
+    assert db.session.get(SystemSetting, 1) is not None
     assert db.session.get(AboutProfile, 1) is not None
 
 

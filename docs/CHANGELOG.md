@@ -5,12 +5,14 @@
 - **Added**
   - Database and admin times are stored in UTC; pages show them in the selected time zone.
   - System settings offer major world time zones, custom time zone input and a browser time zone switch.
-  - A login history page shows failure counts, last failure time and lock expiry.
+  - A login history page records the username, IP, date and result of every sign-in, both successful and failed.
   - Mail and runtime options moved into system settings and take effect on save.
   - Independent RSS and Atom switches, with feed links hidden when disabled.
   - Default runtime values with a one-click apply button; the default page size is 10.
   - The admin settings group and breadcrumbs are named Settings.
   - The ORM-created schema matches the manual SQL script, and startup migrations add missing indexes to existing databases.
+- **Improved**
+  - The redundant mail settings table is removed; mail configuration now comes from the single system settings table.
 - **Fixed**
   - Feed, sitemap, backup and archive times.
   - Rate-limit windows and login lockout time base.

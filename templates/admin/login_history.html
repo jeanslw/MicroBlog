@@ -2,7 +2,7 @@
 {% block title %}{{ _('登录历史') }} - {{ site_name }}{% endblock %}
 
 {% block breadcrumb %}
-<li class="breadcrumb-item">{{ _('账户安全') }}</li>
+<li class="breadcrumb-item">{{ _('设置') }}</li>
 <li class="breadcrumb-item active" aria-current="page">{{ _('登录历史') }}</li>
 {% endblock %}
 
@@ -10,38 +10,34 @@
 <div class="row g-4">
     <div class="col-12">
         <div class="card admin-panel-card p-4">
-            <h4 class="mb-1 fw-bold"><i class="bi bi-shield-lock"></i> {{ _('登录失败记录') }}</h4>
-            <p class="text-muted small mb-3">{{ _('同一 IP + 账号失败 5 次将被临时锁定；下表为最近 50 条失败记录。') }}</p>
+            <h4 class="mb-1 fw-bold"><i class="bi bi-clock-history"></i> {{ _('登录历史') }}</h4>
+            <p class="text-muted small mb-3">{{ _('记录每次登录的用户名、IP、时间与结果，显示最近 50 条。') }}</p>
             <div class="table-responsive">
                 <table class="table table-sm align-middle mb-0">
                     <thead>
                         <tr>
+                            <th>{{ _('用户名') }}</th>
                             <th>{{ _('IP') }}</th>
-                            <th>{{ _('账号') }}</th>
-                            <th style="width:110px">{{ _('失败次数') }}</th>
-                            <th style="width:200px">{{ _('最近失败时间') }}</th>
-                            <th style="width:200px">{{ _('锁定截止时间') }}</th>
-                            <th style="width:110px">{{ _('状态') }}</th>
+                            <th style="width:220px">{{ _('日期') }}</th>
+                            <th style="width:110px">{{ _('结果') }}</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for item in attempts %}
+                        {% for item in records %}
                         <tr>
-                            <td><small>{{ item.ip }}</small></td>
                             <td><small>{{ item.username }}</small></td>
-                            <td><span class="badge bg-secondary">{{ item.fail_count }}</span></td>
-                            <td><small class="text-muted">{{ local_time(item.update_time) }}</small></td>
-                            <td><small class="text-muted">{{ local_time(item.lock_until_utc) }}</small></td>
+                            <td><small>{{ item.ip }}</small></td>
+                            <td><small class="text-muted">{{ local_time(item.create_time) }}</small></td>
                             <td>
-                                {% if item.locked %}
-                                <span class="badge bg-danger">{{ _('已锁定') }}</span>
+                                {% if item.success %}
+                                <span class="badge bg-success">{{ _('成功') }}</span>
                                 {% else %}
-                                <span class="badge bg-success">{{ _('正常') }}</span>
+                                <span class="badge bg-danger">{{ _('失败') }}</span>
                                 {% endif %}
                             </td>
                         </tr>
                         {% else %}
-                        <tr><td colspan="6" class="text-center text-muted">{{ _('暂无登录失败记录') }}</td></tr>
+                        <tr><td colspan="4" class="text-center text-muted">{{ _('暂无登录记录') }}</td></tr>
                         {% endfor %}
                     </tbody>
                 </table>
