@@ -71,7 +71,7 @@ def banner_add():
             gif_max_frame_height=current_app.config.get("GIF_MAX_FRAME_HEIGHT", 10000),
         )
     except ImageProcessError as e:
-        flash(str(e), "danger")
+        flash(e.user_message, "danger")
         return redirect(url_for("banner.banner_list"))
     except Exception as e:
         log.error("Banner 图片处理失败: %s", e, exc_info=True)
@@ -146,7 +146,7 @@ def banner_edit(bid):
                 gif_max_frame_height=current_app.config.get("GIF_MAX_FRAME_HEIGHT", 10000),
             )
         except ImageProcessError as e:
-            flash(str(e), "danger")
+            flash(e.user_message, "danger")
             return redirect(url_for("banner.banner_list"))
         except Exception as e:
             log.error("Banner 图片处理失败: %s", e, exc_info=True)

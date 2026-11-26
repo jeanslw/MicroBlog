@@ -268,7 +268,7 @@ def _site_setting_view(template):
                     )
                     site.bg_style = "custom"
                 except ImageProcessError as e:
-                    flash(str(e), "danger")
+                    flash(e.user_message, "danger")
                     return render_template(template, form=form, site=site)
                 except Exception:
                     log.error("背景图上传失败", exc_info=True)
@@ -363,7 +363,7 @@ def upload_image():
         )
     except ImageProcessError as e:
         log.warning("GIF 上传被拒绝: %s", e)
-        return jsonify({"error": str(e)}), 400
+        return jsonify({"error": e.user_message}), 400
     except Exception as e:
         # 图片本身非法(无法识别/损坏/超像素上限)属客户端错误,返回 400;
         # 其余(磁盘写失败等)才是服务端故障,返回 500
