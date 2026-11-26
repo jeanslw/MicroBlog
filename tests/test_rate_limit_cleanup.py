@@ -85,3 +85,37 @@ def test_concurrent_first_insert_race(app, db, monkeypatch):
     assert check_and_record_rate_limit("comment", "6.6.6.6", limit=5, window_seconds=300) is True
     counter = db.session.scalar(db.select(RateLimitCounter).filter_by(action="comment", ip="6.6.6.6"))
     assert counter.count == 2
+
+
+def test_rate_limit_window_is_bucket_aligned():
+    """窗口起点必须对齐固定桶:滑动下沿会让桶切换重置丢掉窗内未过期计数,放行可达约 2 倍阈值"""
+    import time as _time
+
+    from app.extensions import _rate_limit_window_str
+
+    epoch = int(_time.time())
+    expect = epoch // 300 * 300
+    assert _rate_limit_window_str(300) == _time.strftime(UTC_FORMAT, _time.gmtime(expect))
+
+
+def test_counter_reset_only_at_bucket_boundary(app, db):
+    """上一桶的行重置为 1;当前桶的行累加且达阈值即拒"""
+    import time as _time
+
+    from app.extensions import _rate_limit_window_str
+
+    window = 300
+    epoch = int(_time.time())
+    floor = _rate_limit_window_str(window)
+    prev_bucket = _time.strftime(UTC_FORMAT, _time.gmtime(epoch // window * window - window))
+
+    db.session.add(RateLimitCounter(action="vote", ip="9.8.7.6", window_start=prev_bucket, count=5))
+    db.session.commit()
+    assert check_and_record_rate_limit("vote", "9.8.7.6", limit=5, window_seconds=window) is True
+    c = db.session.scalar(db.select(RateLimitCounter).filter_by(action="vote", ip="9.8.7.6"))
+    assert c.window_start == floor
+    assert c.count == 1
+
+    db.session.add(RateLimitCounter(action="vote", ip="9.8.7.5", window_start=floor, count=5))
+    db.session.commit()
+    assert check_and_record_rate_limit("vote", "9.8.7.5", limit=5, window_seconds=window) is False

@@ -18,6 +18,7 @@ from functools import partial
 from pathlib import Path
 
 from flask import (
+    Response,
     abort,
     current_app,
     flash,
@@ -86,6 +87,7 @@ from app.utils import (
     process_and_save_image,
     project_root,
     remove_uploaded_file,
+    restore_isolated_marker_path,
     upload_dir,
 )
 
@@ -368,25 +370,34 @@ _SETUP_LOCK_NAME = "microblog_setup"
 
 
 def _setup_access_denied():
-    """生产环境网页安装准入校验;通过返回 None,否则返回给用户的提示."""
+    """生产环境网页安装准入校验;通过返回 None,否则返回 403 信息页.
+
+    拒绝时必须直接渲染响应而不能重定向到登录页:admin 表为空时
+    _require_setup 会把 login 再重定向回 setup,形成重定向死循环.
+    """
     if not current_app.config.get("IS_PRODUCTION"):
         return None
     expected = current_app.config.get("SETUP_TOKEN", "")
-    if not expected:
-        return _("网页安装已在生产环境禁用，请通过 flask create-admin 创建管理员")
-    provided = request.values.get("setup_token", "")
-    if not hmac.compare_digest(provided, expected):
-        return _("安装链接无效：请在链接中携带初始化令牌（BLOG_SETUP_TOKEN）")
-    return None
+    if expected:
+        provided = request.values.get("setup_token", "")
+        # encode 后比较:compare_digest 对含非 ASCII 的 str 会抛 TypeError
+        if hmac.compare_digest(provided.encode("utf-8"), expected.encode("utf-8")):
+            return None
+        message = _("安装链接无效：请在链接中携带初始化令牌（BLOG_SETUP_TOKEN）")
+    else:
+        message = _(
+            "网页安装已在生产环境禁用：请通过 flask create-admin 创建管理员，"
+            "或在环境变量配置 BLOG_SETUP_TOKEN 后携带 ?setup_token=<值> 访问"
+        )
+    return Response(f"<h1>403</h1><p>{message}</p>", 403, mimetype="text/html; charset=utf-8")
 
 
 @admin_bp.route("/setup", methods=["GET", "POST"])
 def setup():
     """首次安装引导：仅在 admin 表为空或缺失时可用，创建首个管理员账号；生产环境需初始化令牌。"""
     denied = _setup_access_denied()
-    if denied:
-        flash(denied, "danger")
-        return redirect(url_for("admin.login"))
+    if denied is not None:
+        return denied
     db.create_all()
     count = db.session.scalar(db.select(db.func.count(Admin.id))) or 0
     if count > 0:
@@ -861,6 +872,30 @@ def _flash_restore_failure():
         flash(_("恢复失败，详情请查看应用日志"), "danger")
 
 
+def mark_restore_isolated():
+    """进入恢复隔离:置位配置并落盘标记,保证跨进程重启仍然生效."""
+    current_app.config["RESTORE_ISOLATED"] = True
+    log.error("恢复失败且回滚未完成,站点进入恢复隔离状态")
+    marker = restore_isolated_marker_path()
+    try:
+        os.makedirs(os.path.dirname(marker), exist_ok=True)
+        with open(marker, "w", encoding="utf-8") as f:
+            f.write(backup_stamp())
+    except OSError:
+        log.error("恢复隔离标记文件写入失败,进程重启后隔离状态将丢失", exc_info=True)
+
+
+def clear_restore_isolated():
+    """解除恢复隔离:清除配置与标记文件."""
+    current_app.config["RESTORE_ISOLATED"] = False
+    try:
+        os.remove(restore_isolated_marker_path())
+    except FileNotFoundError:
+        pass
+    except OSError:
+        log.warning("恢复隔离标记文件删除失败", exc_info=True)
+
+
 def _create_backup(backup_dir, tag=""):
     """备份打包为 zip:内含 .db(SQLite)或 .sql(MySQL)单个文件.
 
@@ -1210,7 +1245,13 @@ def backup_restore(name):
         if _db_type() == "mysql":
             data = _strip_lock_statements(data)
         # 恢复前自动备份一次（文件名带 _snapshot 标记），便于回滚
-        snapshot_name = _create_backup(_backup_dir(), tag="_snapshot")
+        try:
+            snapshot_name = _create_backup(_backup_dir(), tag="_snapshot")
+        except Exception as e:
+            # 快照失败意味着尚未开始恢复,不能沿用"已回滚"提示误导排查
+            log.error("恢复前快照创建失败,已中止恢复: %s", e, exc_info=True)
+            flash(_("恢复前快照创建失败，已中止本次恢复，数据库未做任何改动，详情请查看应用日志"), "danger")
+            return redirect(url_for("admin.backup"))
         # SQLite 分支据其返回值判断是否需要提示人工重启(见 _restore_sqlite_database)
         restart_needed = False
         if _db_type() == "mysql":
@@ -1241,12 +1282,11 @@ def backup_restore(name):
                 if _rollback_mysql_restore(snapshot_name):
                     log.info("恢复失败,已用恢复前快照回滚")
                     raise
-                current_app.config["RESTORE_ISOLATED"] = True
-                log.error("恢复失败且回滚未完成,站点进入恢复隔离状态")
+                mark_restore_isolated()
                 raise
         else:
             restart_needed = _restore_sqlite_database(data)
-        current_app.config["RESTORE_ISOLATED"] = False
+        clear_restore_isolated()
         flash(_("恢复成功"), "success")
         if restart_needed:
             flash(

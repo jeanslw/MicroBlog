@@ -31,7 +31,7 @@ from app.observability import (
     log_event,
     register_slow_sql,
 )
-from app.utils import configure_pillow
+from app.utils import configure_pillow, restore_isolated_marker_path
 from config import APP_VERSION, get_config
 
 
@@ -363,6 +363,9 @@ def create_app(config_name: str | None = None):
         if not _is_trusted_host(request.host):
             app.logger.warning("拒绝非白名单 Host 请求: %s (ip=%s)", request.host, request.remote_addr)
             return jsonify({"error": "Invalid Host header"}), 400
+
+    # 恢复隔离状态跨进程重启保持有效：标记文件由后台恢复流程写入,恢复成功后清除
+    app.config["RESTORE_ISOLATED"] = os.path.isfile(restore_isolated_marker_path())
 
     # 维护闸门：待迁移期间将业务请求导流到 503 升级页，放行登录 / 迁移 / 静态资源 / 健康探针
     @app.before_request

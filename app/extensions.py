@@ -405,8 +405,15 @@ def flash_form_errors(form) -> None:
 
 
 def _rate_limit_window_str(window_seconds: int) -> str:
-    """返回窗口起始时刻的 UTC 存储字符串，供 create_time 字典序比较。"""
-    return (utc_now() - timedelta(seconds=window_seconds)).strftime(UTC_FORMAT)
+    """返回当前限流桶的起始时刻(向下对齐到 window_seconds 边界)的 UTC 存储字符串.
+
+    必须用固定桶而非滑动窗口下沿:计数器模型在 window_start < floor 时整体
+    重置计数,若 floor 随时间滑动,重置会连滑窗内 [floor, now) 尚未过期的
+    历史请求一并丢弃,实际放行可达约 2 倍阈值;固定桶语义下重置只会发生在
+    桶边界,丢弃的都是已过期的请求.
+    """
+    epoch = int(time.time()) // window_seconds * window_seconds
+    return time.strftime(UTC_FORMAT, time.gmtime(epoch))
 
 
 def check_and_record_rate_limit(
@@ -420,7 +427,6 @@ def check_and_record_rate_limit(
     from app.models import RateLimitCounter
 
     try:
-        now = utc_now_str()
         floor = _rate_limit_window_str(window_seconds)
 
         def _conditional_increment():
@@ -434,7 +440,7 @@ def check_and_record_rate_limit(
                 .values(
                     count=case((RateLimitCounter.window_start < floor, 1), else_=RateLimitCounter.count + 1),
                     window_start=case(
-                        (RateLimitCounter.window_start < floor, now), else_=RateLimitCounter.window_start
+                        (RateLimitCounter.window_start < floor, floor), else_=RateLimitCounter.window_start
                     ),
                 )
             )
@@ -452,7 +458,7 @@ def check_and_record_rate_limit(
         if exists is not None:
             return False
         try:
-            db.session.execute(db.insert(RateLimitCounter).values(action=action, ip=ip, window_start=now, count=1))
+            db.session.execute(db.insert(RateLimitCounter).values(action=action, ip=ip, window_start=floor, count=1))
             db.session.commit()
             return True
         except IntegrityError:

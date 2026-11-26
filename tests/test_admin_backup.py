@@ -369,3 +369,33 @@ def test_restore_isolated_gate_blocks_business_requests(app, client):
         assert rv.status_code == 302, "备份页未登录时走登录跳转,不被闸门拦截"
     finally:
         app.config["RESTORE_ISOLATED"] = False
+
+
+def test_restore_isolated_marker_roundtrip(app, monkeypatch, tmp_path):
+    """隔离状态落盘:置位写标记、解除删标记;启动流程据标记恢复状态"""
+    import app.utils as utils_mod
+
+    marker = tmp_path / "backups" / ".restore_isolated"
+    monkeypatch.setattr(utils_mod, "project_root", lambda: str(tmp_path))
+
+    admin_routes.mark_restore_isolated()
+    assert app.config["RESTORE_ISOLATED"] is True
+    assert marker.is_file()
+
+    admin_routes.clear_restore_isolated()
+    assert app.config["RESTORE_ISOLATED"] is False
+    assert not marker.is_file()
+
+
+def test_restore_isolated_marker_read_on_startup(monkeypatch, tmp_path):
+    """重启后依据标记文件恢复隔离状态,半残库不因进程重启恢复对外服务"""
+    import app.utils as utils_mod
+    from app import create_app
+
+    marker_dir = tmp_path / "backups"
+    marker_dir.mkdir()
+    (marker_dir / ".restore_isolated").write_text("x", encoding="utf-8")
+    monkeypatch.setattr(utils_mod, "project_root", lambda: str(tmp_path))
+
+    app2 = create_app("testing")
+    assert app2.config["RESTORE_ISOLATED"] is True

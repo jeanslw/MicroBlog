@@ -239,6 +239,16 @@ def project_root() -> str:
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
+def restore_isolated_marker_path() -> str:
+    """恢复隔离标记文件路径（backups/.restore_isolated）.
+
+    恢复失败且回滚未完成时站点进入恢复隔离状态;该状态必须跨进程重启
+    保持有效(半残数据库不能因为 worker 重启就恢复对外服务),故落盘标记,
+    启动时读取置位,恢复成功后清除.
+    """
+    return os.path.join(project_root(), "backups", ".restore_isolated")
+
+
 # 上传资源目录（项目根 uploads/，与内置 static/ 分离）：banner = 轮播图，image = 正文插图 / Logo / 头像 / 背景
 UPLOAD_CATEGORIES = ("banner", "image")
 
