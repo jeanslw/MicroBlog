@@ -6,8 +6,10 @@ from datetime import timedelta
 from app.timeutil import UTC_FORMAT, utc_now, utc_now_str
 
 
-def test_login_ip_rate_limit(client, admin_user):
+def test_login_ip_rate_limit(client, admin_user, monkeypatch):
     """同一 IP 短时间内超过阈值后,登录入口被限流"""
+    # 冻结时间避免请求跨越限流桶边界导致计数重置
+    monkeypatch.setattr(time, "time", lambda: 1000000000.5)
     for _ in range(20):
         client.post("/admin/login", data={"username": "admin", "password": "wrong"})
     rv = client.post("/admin/login", data={"username": "admin", "password": "wrong"}, follow_redirects=False)
