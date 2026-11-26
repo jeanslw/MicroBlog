@@ -6,6 +6,7 @@
 """
 
 import contextlib
+import hmac
 import os
 import re
 import signal
@@ -32,6 +33,7 @@ from flask_babel import _
 from flask_login import current_user, login_required, login_user, logout_user
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from PIL import Image, UnidentifiedImageError
+from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 from werkzeug.security import check_password_hash, generate_password_hash
 from werkzeug.utils import safe_join
@@ -49,6 +51,7 @@ from app.database import (
     sync_schema_version,
 )
 from app.extensions import (
+    LOGIN_FAIL_LOCK_THRESHOLD,
     admin_required,
     check_login_lock,
     clear_login_fail,
@@ -108,6 +111,7 @@ def _require_setup():
 
 
 @admin_bp.route("/login", methods=["GET", "POST"])
+@rate_limit("login", limit=20, window_seconds=300)
 def login():
     if current_user.is_authenticated:
         return redirect(url_for("admin.panel"))
@@ -136,7 +140,7 @@ def login():
 
         fails = record_login_fail(ip, username)
         record_login_history(username, ip, False)
-        if fails >= 5:
+        if fails >= LOGIN_FAIL_LOCK_THRESHOLD:
             flash(_("登录失败次数过多,请 5 分钟后再试"), "danger")
         else:
             flash(_("账号或密码错误（剩余尝试 %(n)s 次）", n=5 - fails), "danger")
@@ -360,9 +364,29 @@ def upload_image():
     return jsonify({"url": f"/uploads/image/{final_name}"}), 200
 
 
+_SETUP_LOCK_NAME = "microblog_setup"
+
+
+def _setup_access_denied():
+    """生产环境网页安装准入校验;通过返回 None,否则返回给用户的提示."""
+    if not current_app.config.get("IS_PRODUCTION"):
+        return None
+    expected = current_app.config.get("SETUP_TOKEN", "")
+    if not expected:
+        return _("网页安装已在生产环境禁用，请通过 flask create-admin 创建管理员")
+    provided = request.values.get("setup_token", "")
+    if not hmac.compare_digest(provided, expected):
+        return _("安装链接无效：请在链接中携带初始化令牌（BLOG_SETUP_TOKEN）")
+    return None
+
+
 @admin_bp.route("/setup", methods=["GET", "POST"])
 def setup():
-    """首次安装引导：仅在 admin 表为空或缺失时可用，创建首个管理员账号。"""
+    """首次安装引导：仅在 admin 表为空或缺失时可用，创建首个管理员账号；生产环境需初始化令牌。"""
+    denied = _setup_access_denied()
+    if denied:
+        flash(denied, "danger")
+        return redirect(url_for("admin.login"))
     db.create_all()
     count = db.session.scalar(db.select(db.func.count(Admin.id))) or 0
     if count > 0:
@@ -373,13 +397,27 @@ def setup():
         if db.session.scalar(db.select(Admin).filter_by(username=username)):
             flash(_("该账号已存在"), "danger")
             return render_template("admin/setup.html", form=form)
-        admin = Admin(
-            username=username,
-            password=generate_password_hash(form.password.data),
-            email=(form.email.data or "").strip().lower(),
-        )
-        db.session.add(admin)
+        lock_conn = None
         try:
+            if db.engine.dialect.name == "mysql":
+                lock_conn = db.engine.connect()
+                got = lock_conn.execute(db.text("SELECT GET_LOCK(:name, 10)"), {"name": _SETUP_LOCK_NAME}).scalar()
+                if not got:
+                    flash(_("已有安装流程进行中，请稍后再试"), "warning")
+                    return render_template("admin/setup.html", form=form)
+            else:
+                # 占住 SQLite 写锁，使并发请求在本事务提交前阻塞并复查计数
+                db.session.execute(db.text("UPDATE schema_version SET note = note"))
+            if db.session.scalar(db.select(db.func.count(Admin.id))) or 0:
+                db.session.rollback()
+                flash(_("管理员已由其他进程创建,请直接登录"), "info")
+                return redirect(url_for("admin.login"))
+            admin = Admin(
+                username=username,
+                password=generate_password_hash(form.password.data),
+                email=(form.email.data or "").strip().lower(),
+            )
+            db.session.add(admin)
             db.session.commit()
         except IntegrityError:
             # 并发下其他进程可能已抢先建号，复查确认后视为安装完成
@@ -388,6 +426,11 @@ def setup():
                 flash(_("管理员已由其他进程创建,请直接登录"), "info")
                 return redirect(url_for("admin.login"))
             raise
+        finally:
+            if lock_conn is not None:
+                with contextlib.suppress(Exception):
+                    lock_conn.execute(db.text("SELECT RELEASE_LOCK(:name)"), {"name": _SETUP_LOCK_NAME})
+                lock_conn.close()
         login_user(admin, remember=False)
         session.permanent = True
         flash(_("安装完成，欢迎使用"), "success")
@@ -410,7 +453,7 @@ def _make_reset_token(admin):
 
 
 @admin_bp.route("/forgot", methods=["GET", "POST"])
-@rate_limit("forgot", limit=5, window_seconds=300)
+@rate_limit("forgot", limit=5, window_seconds=300, fail_closed=True)
 def forgot():
     if current_user.is_authenticated:
         return redirect(url_for("admin.panel"))
@@ -452,9 +495,18 @@ def reset(token):
         return redirect(url_for("admin.forgot"))
     form = ResetForm()
     if form.validate_on_submit():
-        admin.password = generate_password_hash(form.new_pwd.data)
-        # 版本号 +1:同一条链接用过即废,重置后不能再改第二次
-        admin.token_version += 1
+        res = db.session.execute(
+            update(Admin)
+            .where(Admin.id == admin.id, Admin.token_version == tv)
+            .values(
+                password=generate_password_hash(form.new_pwd.data),
+                token_version=Admin.token_version + 1,
+            )
+        )
+        if res.rowcount != 1:
+            db.session.rollback()
+            flash(_("重置链接无效或已过期"), "danger")
+            return redirect(url_for("admin.forgot"))
         db.session.commit()
         flash(_("密码已重置，请用新密码登录"), "success")
         return redirect(url_for("admin.login"))
@@ -769,6 +821,44 @@ def _mysql_restore_cmd(creds, tls_args, extra_args=()):
         creds["user"],
         creds["db"],
     ]
+
+
+def _strip_lock_statements(data: bytes) -> bytes:
+    """过滤 dump 中的 LOCK/UNLOCK TABLES 行,避免恢复期间被元数据锁阻塞."""
+    return b"\n".join(
+        line for line in data.split(b"\n") if not line.lstrip().startswith((b"LOCK TABLES", b"UNLOCK TABLES"))
+    )
+
+
+def _rollback_mysql_restore(snapshot_name: str) -> bool:
+    """恢复失败后用恢复前快照重导一次;返回回滚是否成功."""
+    try:
+        data, kind = _backup_payload(os.path.join(_backup_dir(), snapshot_name))
+        if kind != "sql":
+            log.error("恢复回滚快照类型异常: %s", kind)
+            return False
+        c = _mysql_creds()
+        env = os.environ.copy()
+        env["MYSQL_PWD"] = c["pwd"]
+        db.session.remove()
+        db.engine.dispose()
+        _run_db_client(partial(_mysql_restore_cmd, c), "mysql", env, input=_strip_lock_statements(data), timeout=120)
+        db.engine.dispose()
+        with db.engine.connect() as conn:
+            return bool(conn.execute(db.text("SELECT COUNT(*) FROM admin")).scalar())
+    except Exception as e:
+        log.error("恢复回滚失败: %s", e, exc_info=True)
+        return False
+
+
+def _flash_restore_failure():
+    """按数据库类型与回滚结果给出恢复失败提示."""
+    if current_app.config.get("RESTORE_ISOLATED"):
+        flash(_("恢复失败且回滚未完成，站点已进入恢复隔离状态，请处理后重新执行恢复"), "danger")
+    elif _db_type() == "mysql":
+        flash(_("恢复失败，数据库已回滚到恢复前状态，详情请查看应用日志"), "danger")
+    else:
+        flash(_("恢复失败，详情请查看应用日志"), "danger")
 
 
 def _create_backup(backup_dir, tag=""):
@@ -1118,39 +1208,45 @@ def backup_restore(name):
             )
             return redirect(url_for("admin.backup"))
         if _db_type() == "mysql":
-            # 过滤 dump 中的 LOCK/UNLOCK TABLES 语句，避免被并发请求的元数据锁阻塞
-            data = b"\n".join(
-                line for line in data.split(b"\n") if not line.lstrip().startswith((b"LOCK TABLES", b"UNLOCK TABLES"))
-            )
+            data = _strip_lock_statements(data)
         # 恢复前自动备份一次（文件名带 _snapshot 标记），便于回滚
-        _create_backup(_backup_dir(), tag="_snapshot")
+        snapshot_name = _create_backup(_backup_dir(), tag="_snapshot")
         # SQLite 分支据其返回值判断是否需要提示人工重启(见 _restore_sqlite_database)
         restart_needed = False
         if _db_type() == "mysql":
             c = _mysql_creds()
             env = os.environ.copy()
             env["MYSQL_PWD"] = c["pwd"]
-            # 归还当前请求的连接并清空连接池，避免元数据锁阻塞恢复端的 DROP TABLE
-            db.session.remove()
-            db.engine.dispose()
-            _run_db_client(partial(_mysql_restore_cmd, c), "mysql", env, input=data, timeout=120)
-            db.engine.dispose()
-            with db.engine.connect() as conn:
-                admin_count = conn.execute(
-                    db.text(
-                        "SELECT COUNT(*) FROM information_schema.tables "
-                        "WHERE table_schema = :db AND table_name = 'admin'"
-                    ),
-                    {"db": c["db"]},
-                ).scalar()
-                if admin_count:
-                    admin_count = conn.execute(db.text("SELECT COUNT(*) FROM admin")).scalar()
-            if not admin_count:
-                raise RuntimeError(_("恢复不完整：admin 表缺失或无数据，请直接重新执行一次恢复"))
-            # 请求 gunicorn 平滑重启，让其它 worker 重建连接
-            _request_worker_recycle()
+            try:
+                # 归还当前请求的连接并清空连接池，避免元数据锁阻塞恢复端的 DROP TABLE
+                db.session.remove()
+                db.engine.dispose()
+                _run_db_client(partial(_mysql_restore_cmd, c), "mysql", env, input=data, timeout=120)
+                db.engine.dispose()
+                with db.engine.connect() as conn:
+                    admin_count = conn.execute(
+                        db.text(
+                            "SELECT COUNT(*) FROM information_schema.tables "
+                            "WHERE table_schema = :db AND table_name = 'admin'"
+                        ),
+                        {"db": c["db"]},
+                    ).scalar()
+                    if admin_count:
+                        admin_count = conn.execute(db.text("SELECT COUNT(*) FROM admin")).scalar()
+                if not admin_count:
+                    raise RuntimeError(_("恢复不完整：admin 表缺失或无数据，请直接重新执行一次恢复"))
+                # 请求 gunicorn 平滑重启，让其它 worker 重建连接
+                _request_worker_recycle()
+            except Exception:
+                if _rollback_mysql_restore(snapshot_name):
+                    log.info("恢复失败,已用恢复前快照回滚")
+                    raise
+                current_app.config["RESTORE_ISOLATED"] = True
+                log.error("恢复失败且回滚未完成,站点进入恢复隔离状态")
+                raise
         else:
             restart_needed = _restore_sqlite_database(data)
+        current_app.config["RESTORE_ISOLATED"] = False
         flash(_("恢复成功"), "success")
         if restart_needed:
             flash(
@@ -1162,15 +1258,12 @@ def backup_restore(name):
             )
     except subprocess.TimeoutExpired:
         log.error("MySQL 恢复超时", exc_info=True)
-        flash(
-            _("恢复失败：MySQL 命令执行超时，请检查连接配置；如页面异常请重新执行一次恢复"),
-            "danger",
-        )
+        _flash_restore_failure()
     except Exception as e:
         # 异常后 Session 处于待回滚态，先 rollback 再降级
         db.session.rollback()
         log.error("恢复失败: %s", e, exc_info=True)
-        flash(_("恢复失败，详情请查看应用日志"), "danger")
+        _flash_restore_failure()
     finally:
         _release_restore_file_lock()
         _restore_lock.release()

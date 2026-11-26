@@ -7,7 +7,7 @@
 <meta property="og:type" content="article">
 <meta property="og:title" content="{{ article.title }}">
 {% if article.seo_description %}<meta property="og:description" content="{{ article.seo_description }}">{% endif %}
-<meta property="og:url" content="{{ url_for('blog.article_detail', aid=article.id, _external=True) }}">
+<meta property="og:url" content="{{ external_url_for('blog.article_detail', aid=article.id) }}">
 {% if article.og_image %}<meta property="og:image" content="{{ article.og_image }}">{% endif %}
 <meta property="og:site_name" content="{{ site_name }}">
 {% endblock %}

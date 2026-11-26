@@ -21,7 +21,7 @@ python run.py
 ```
 
 > For production use a WSGI server: gunicorn on Linux/WSL2, waitress on Windows — see [2.5 Start the Service](#25-start-the-service).
-> The app starts fine without `BLOG_INIT_ADMIN_PWD`; the first visit to `/admin/login` redirects to the `/admin/setup` wizard to create the admin.
+> The app starts fine without `BLOG_INIT_ADMIN_PWD`; the first visit to `/admin/login` redirects to the `/admin/setup` wizard to create the admin. In production set the `BLOG_SETUP_TOKEN` admission token (see the variable table below), otherwise the web wizard is disabled.
 
 ### 1.2 Docker One-Command Start (recommended for production)
 

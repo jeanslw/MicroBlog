@@ -60,6 +60,18 @@ def test_site_name_appears_in_navbar(login_admin, db):
     assert "测试站点XYZ".encode() in rv.data
 
 
+def test_article_og_url_uses_canonical(client, app, article):
+    """配置规范域名后,文章 og:url 固定为规范域名,不跟随请求 Host"""
+    app.config["CANONICAL_URL"] = "https://blog.example.com"
+    try:
+        rv = client.get(f"/article/{article.id}")
+        assert rv.status_code == 200
+        html = rv.get_data(as_text=True)
+        assert 'property="og:url" content="https://blog.example.com/article/' in html
+    finally:
+        app.config["CANONICAL_URL"] = ""
+
+
 def test_upload_image_requires_login(client):
     """未登录不能上传图片"""
     img = _make_image_bytes()

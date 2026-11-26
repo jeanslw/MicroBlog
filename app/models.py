@@ -272,6 +272,19 @@ class RateLimit(db.Model):
     create_time = Column(String(50), nullable=False)
 
 
+class RateLimitCounter(db.Model):
+    """通用频率限制计数器(按 IP + 动作),数据库端条件更新保证并发下不超阈值."""
+
+    __tablename__ = "rate_limit_counter"
+    __table_args__ = (UniqueConstraint("action", "ip", name="uk_action_ip"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    action = Column(String(50), nullable=False)
+    ip = Column(String(100), nullable=False)
+    window_start = Column(String(50), nullable=False)
+    count = Column(Integer, nullable=False, default=1)
+
+
 class SchemaVersion(db.Model):
     """数据库 schema 版本履历(每行一次戳记,version 为真实发布号主键)."""
 

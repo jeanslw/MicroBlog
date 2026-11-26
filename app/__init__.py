@@ -8,7 +8,7 @@ from datetime import timedelta
 from logging.handlers import RotatingFileHandler
 from urllib.parse import urlsplit
 
-from flask import Flask, current_app, g, jsonify, render_template, request, session
+from flask import Flask, Response, current_app, g, jsonify, render_template, request, session
 from flask_babel import Babel, _
 from flask_login import current_user
 from werkzeug.exceptions import HTTPException
@@ -17,6 +17,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from app.extensions import (
     csrf,
     db,
+    external_url_for,
     fetch_global_context,
     log,
     login_manager,
@@ -210,6 +211,9 @@ def create_app(config_name: str | None = None):
 
     configure_pillow(app.config.get("PIL_MAX_IMAGE_PIXELS", 50_000_000))
 
+    # 绝对链接统一走规范域名,避免模板直接基于请求 Host 拼接
+    app.jinja_env.globals["external_url_for"] = external_url_for
+
     db.init_app(app)
     try:
         from flask_migrate import Migrate
@@ -363,6 +367,23 @@ def create_app(config_name: str | None = None):
     # 维护闸门：待迁移期间将业务请求导流到 503 升级页，放行登录 / 迁移 / 静态资源 / 健康探针
     @app.before_request
     def _schema_upgrade_gate():
+        if app.config.get("RESTORE_ISOLATED"):
+            # 恢复隔离：回滚未完成时阻断业务请求，放行登录与备份恢复入口
+            if request.endpoint in (
+                "static",
+                "main.healthz",
+                "main.uploaded_file",
+                "admin.login",
+                "admin.logout",
+                "admin.backup",
+                "admin.backup_restore",
+            ):
+                return None
+            return Response(
+                "<h1>503 服务暂时不可用</h1><p>恢复失败且回滚未完成，请管理员登录后台重新执行恢复。</p>",
+                503,
+                mimetype="text/html; charset=utf-8",
+            )
         if not app.config.get("SCHEMA_UPGRADE_PENDING"):
             return None
         if request.endpoint in (

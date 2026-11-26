@@ -91,5 +91,56 @@ def test_reset_consumes_token(client, admin_user):
     )
     assert rv.status_code == 302, "重置应成功并跳转登录页"
 
+    from app.extensions import db as _db
+    from app.models import Admin
+
+    admin = _db.session.scalar(_db.select(Admin).filter_by(username="admin"))
+    first_hash = admin.password
+
     rv = client.get(f"/admin/reset/{token}", follow_redirects=False)
     assert rv.status_code == 302, "重置成功后链接应已作废"
+
+    rv = client.post(
+        f"/admin/reset/{token}",
+        data={"new_pwd": "hacked-pwd-1", "confirm_pwd": "hacked-pwd-1"},
+        follow_redirects=False,
+    )
+    assert rv.status_code == 302, "同一条令牌二次提交应被拒绝"
+
+    _db.session.expire_all()
+    admin = _db.session.scalar(_db.select(Admin).filter_by(username="admin"))
+    assert admin.password == first_hash, "重放请求不得改写密码"
+
+
+def test_reset_conditional_update_rejects_race(app, client, admin_user, monkeypatch):
+    """校验通过后令牌版本被并发消费时,条件更新必须拒绝写密码"""
+    from sqlalchemy import update as sa_update
+
+    from app.admin import routes as admin_routes
+    from app.extensions import db
+    from app.models import Admin
+
+    token = admin_routes._make_reset_token(admin_user)
+    old_hash = admin_user.password
+    original_hash = admin_routes.generate_password_hash
+
+    def racing_hash(pwd):
+        db.session.execute(
+            sa_update(Admin).where(Admin.id == admin_user.id).values(token_version=Admin.token_version + 1)
+        )
+        db.session.commit()
+        return original_hash(pwd)
+
+    monkeypatch.setattr(admin_routes, "generate_password_hash", racing_hash)
+
+    rv = client.post(
+        f"/admin/reset/{token}",
+        data={"new_pwd": "race-pwd-1", "confirm_pwd": "race-pwd-1"},
+        follow_redirects=False,
+    )
+    assert rv.status_code == 302
+
+    db.session.expire_all()
+    admin = db.session.scalar(db.select(Admin).filter_by(username="admin"))
+    assert admin.token_version == 1, "竞争请求不得再次递增令牌版本"
+    assert admin.password == old_hash, "竞争请求不得改写密码"

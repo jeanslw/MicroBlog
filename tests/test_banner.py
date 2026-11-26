@@ -1,8 +1,10 @@
 """Banner 轮播图功能测试."""
 
 import io
+import os
 
 from PIL import Image
+from sqlalchemy.orm import Session
 
 from app.models import Banner
 
@@ -188,6 +190,93 @@ def test_banner_del_not_found(login_admin):
     """删除不存在的 banner 应重定向"""
     rv = login_admin.post("/banner/del/99999", follow_redirects=False)
     assert rv.status_code == 302
+
+
+def _add_banner_with_file(login_admin, db, filename="first.png"):
+    rv = login_admin.post(
+        "/banner/add",
+        data={
+            "banner_img": (_make_image_bytes("PNG"), filename),
+            "link_url": "",
+            "title": "t",
+            "desc_text": "",
+            "sort_num": 0,
+        },
+        content_type="multipart/form-data",
+        follow_redirects=False,
+    )
+    assert rv.status_code == 302
+    banner = db.session.scalar(db.select(Banner))
+    return banner
+
+
+def _commit_boom(self):
+    raise RuntimeError("db down")
+
+
+def test_banner_edit_commit_failure_keeps_old_file(login_admin, db, app, monkeypatch):
+    """提交失败应清理新文件并保留数据库引用的旧文件"""
+    from app.utils import upload_dir
+
+    _add_banner_with_file(login_admin, db)
+    banner = db.session.scalar(db.select(Banner))
+    before = set(os.listdir(upload_dir("banner")))
+
+    monkeypatch.setattr(Session, "commit", _commit_boom)
+    rv = login_admin.post(
+        f"/banner/edit/{banner.id}",
+        data={
+            "banner_img": (_make_image_bytes("PNG"), "second.png"),
+            "title": "t2",
+            "link_url": "",
+            "desc_text": "",
+            "sort_num": 0,
+        },
+        content_type="multipart/form-data",
+        follow_redirects=False,
+    )
+    assert rv.status_code == 302
+
+    db.session.expire_all()
+    refreshed = db.session.get(Banner, banner.id)
+    assert refreshed.title == "t", "提交失败后数据库不应被修改"
+    assert set(os.listdir(upload_dir("banner"))) == before, "提交失败应清理新文件并保留旧文件"
+
+
+def test_banner_del_commit_failure_keeps_file(login_admin, db, app, monkeypatch):
+    """删除提交失败时记录与物理文件都必须保留"""
+    from app.utils import upload_dir
+
+    _add_banner_with_file(login_admin, db)
+    banner = db.session.scalar(db.select(Banner))
+    before = set(os.listdir(upload_dir("banner")))
+
+    monkeypatch.setattr(Session, "commit", _commit_boom)
+    rv = login_admin.post(f"/banner/del/{banner.id}", follow_redirects=False)
+    assert rv.status_code == 302
+
+    db.session.expire_all()
+    assert db.session.get(Banner, banner.id) is not None, "提交失败后记录应保留"
+    assert set(os.listdir(upload_dir("banner"))) == before, "提交失败不得删除物理文件"
+
+
+def test_banner_del_cleans_file_after_commit(login_admin, db, app):
+    """删除提交成功后物理文件应被清理"""
+    from app.utils import upload_dir
+
+    _add_banner_with_file(login_admin, db)
+    banner = db.session.scalar(db.select(Banner))
+    bid = banner.id
+    target = os.path.basename(banner.img_path)
+    before = set(os.listdir(upload_dir("banner")))
+
+    rv = login_admin.post(f"/banner/del/{bid}", follow_redirects=False)
+    assert rv.status_code == 302
+
+    assert db.session.get(Banner, bid) is None
+    after = set(os.listdir(upload_dir("banner")))
+    assert target not in after, "删除成功后物理文件应清理"
+    assert after == before - {target}
 
 
 def test_banner_add_requires_login(client):

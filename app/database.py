@@ -351,10 +351,11 @@ def _migrate_utc_time_and_system_settings():
 
 
 def _drop_legacy_mail_setting():
-    """遗留 mail_setting 表已并入 system_settings;每次启动幂等删除(若仍存在).
+    """遗留 mail_setting 表已并入 system_settings;复制并回读校验成功后才删除旧表.
 
     不挂版本化迁移:已发布 1.4.0 的库其 schema_version 已是 1.4.0,不会再跑
     版本化迁移,故改由 init_db 每次启动检查并清理,确保旧库升级后也能删表.
+    读取、复制、回读校验任一步失败都保留旧表,下次启动重试.
     """
     try:
         inspector = db.inspect(db.engine)
@@ -364,33 +365,72 @@ def _drop_legacy_mail_setting():
         return
     if "mail_setting" not in tables:
         return
+
+    def _drop():
+        try:
+            with db.engine.begin() as conn:
+                conn.execute(db.text("DROP TABLE mail_setting"))
+            log.info("遗留 mail_setting 表已删除")
+        except Exception as e:
+            log.warning("删除遗留 mail_setting 表失败: %s", e)
+
+    def _legacy_port():
+        try:
+            return int(legacy["mail_port"])
+        except (TypeError, ValueError):
+            return 587
+
     try:
         with db.engine.connect() as conn:
             legacy = conn.execute(db.text("SELECT * FROM mail_setting ORDER BY id LIMIT 1")).mappings().first()
     except Exception as e:
-        log.warning("读取遗留 mail_setting 失败: %s", e)
-        legacy = None
-    if legacy is not None:
-        try:
-            setting = get_or_create_system_setting()
-            if not (setting.mail_host or "").strip():
-                setting.mail_host = legacy["mail_host"] or ""
-                setting.mail_port = legacy["mail_port"] or 587
-                setting.mail_user = legacy["mail_user"] or ""
-                setting.mail_password = legacy["mail_password"] or ""
-                setting.mail_from = legacy["mail_from"] or ""
-                setting.mail_use_ssl = bool(legacy["mail_use_ssl"])
-                setting.mail_use_tls = bool(legacy["mail_use_tls"])
-                db.session.commit()
-        except Exception as e:
-            log.warning("复制遗留 mail_setting 到 system_settings 失败: %s", e)
-            db.session.rollback()
+        log.warning("读取遗留 mail_setting 失败,保留旧表: %s", e)
+        return
+    if legacy is None:
+        _drop()
+        return
     try:
-        with db.engine.begin() as conn:
-            conn.execute(db.text("DROP TABLE mail_setting"))
-        log.info("遗留 mail_setting 表已删除")
+        setting = get_or_create_system_setting()
     except Exception as e:
-        log.warning("删除遗留 mail_setting 表失败: %s", e)
+        db.session.rollback()
+        log.warning("读取 system_settings 失败,保留旧表: %s", e)
+        return
+    if (setting.mail_host or "").strip():
+        _drop()
+        return
+    try:
+        setting.mail_host = legacy["mail_host"] or ""
+        setting.mail_port = _legacy_port()
+        setting.mail_user = legacy["mail_user"] or ""
+        setting.mail_password = legacy["mail_password"] or ""
+        setting.mail_from = legacy["mail_from"] or ""
+        setting.mail_use_ssl = bool(legacy["mail_use_ssl"])
+        setting.mail_use_tls = bool(legacy["mail_use_tls"])
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        log.warning("复制遗留 mail_setting 到 system_settings 失败,保留旧表: %s", e)
+        return
+    try:
+        saved = get_system_setting()
+        matched = (
+            saved is not None
+            and (saved.mail_host or "") == (legacy["mail_host"] or "")
+            and int(saved.mail_port or 0) == _legacy_port()
+            and (saved.mail_user or "") == (legacy["mail_user"] or "")
+            and (saved.mail_password or "") == (legacy["mail_password"] or "")
+            and (saved.mail_from or "") == (legacy["mail_from"] or "")
+            and bool(saved.mail_use_ssl) == bool(legacy["mail_use_ssl"])
+            and bool(saved.mail_use_tls) == bool(legacy["mail_use_tls"])
+        )
+    except Exception as e:
+        db.session.rollback()
+        log.warning("回读校验遗留 mail_setting 失败,保留旧表: %s", e)
+        return
+    if not matched:
+        log.warning("system_settings 回读与旧表不一致,保留遗留 mail_setting 旧表")
+        return
+    _drop()
 
 
 # 无版本行的老库所处的基线版本
