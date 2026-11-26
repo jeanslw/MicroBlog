@@ -264,3 +264,27 @@ def test_removed_image_kept_when_referenced_outside_articles(app, db, login_admi
 
     assert rv.status_code == 200
     assert os.path.exists(path)
+
+
+def test_article_del_keeps_image_referenced_by_banner(app, db, login_admin):
+    """删除文章时,被轮播图引用的图片不清理"""
+    from app.models import Article, Banner
+    from app.timeutil import utc_now_str
+
+    save_dir = upload_dir("image")
+    os.makedirs(save_dir, exist_ok=True)
+    name = "del_keep_banner.jpg"
+    path = os.path.join(save_dir, name)
+    with open(path, "wb") as f:
+        f.write(b"fake")
+    url = f"/uploads/image/{name}"
+
+    art = Article(title="t", content=f'<p><img src="{url}"></p>', status="publish", create_time=utc_now_str())
+    db.session.add(art)
+    db.session.add(Banner(img_path=url, create_time=utc_now_str()))
+    db.session.commit()
+
+    rv = login_admin.post(f"/article/del/{art.id}", follow_redirects=True)
+
+    assert rv.status_code == 200
+    assert os.path.exists(path)
