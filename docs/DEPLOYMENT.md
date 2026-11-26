@@ -21,7 +21,7 @@ python run.py
 ```
 
 > For production use a WSGI server: gunicorn on Linux/WSL2, waitress on Windows — see [2.5 Start the Service](#25-start-the-service).
-> The app starts fine without `BLOG_INIT_ADMIN_PWD`; the first visit to `/admin/login` redirects to the `/admin/setup` wizard to create the admin.
+> The app starts fine without `BLOG_INIT_ADMIN_PWD`; the first visit to `/admin/login` redirects to the `/admin/setup` wizard to create the admin. In production set the `BLOG_SETUP_TOKEN` admission token (see the variable table below), otherwise the web wizard is disabled.
 
 ### 1.2 Docker One-Command Start (recommended for production)
 
@@ -98,6 +98,9 @@ Common variables:
 | `BLOG_SESSION_LIFETIME` | `86400` | Session lifetime in seconds (default 24h; applies to the admin login session) |
 | `BLOG_INIT_ADMIN_USER` | `admin` | Admin username created on first startup |
 | `BLOG_INIT_ADMIN_PWD` | (none) | Auto-created admin password, takes effect only once when the admin table is empty; **leave empty and create the admin via the `/admin/setup` wizard on first visit** |
+| `BLOG_SETUP_TOKEN` | (none) | Setup-wizard admission token: in production `/admin/setup` requires `?setup_token=<value>`; when empty the web wizard is disabled and `flask create-admin` must be used. Safe to remove after setup |
+| `BLOG_GIF_MAX_FRAMES` | `200` | Frame cap for animated GIF uploads: frames are processed one by one in memory; uploads exceeding the cap are rejected |
+| `BLOG_GIF_MAX_FRAME_HEIGHT` | `10000` | Per-frame height cap for animated GIF uploads: very tall frames decode into large memory buffers; uploads exceeding the cap are rejected |
 | Mail settings | - | SMTP and admin mailbox are configured in the admin System Settings page; not read from environment variables |
 | Runtime options | - | The admin System Settings page overrides log level, slow-request threshold, page size and others; unset values fall back to the variables above |
 | `BLOG_RESET_TOKEN_MAX_AGE` | `1800` | Password-reset link lifetime in seconds (default 30 minutes) |

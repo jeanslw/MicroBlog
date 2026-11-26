@@ -307,3 +307,95 @@ def test_create_backup_carries_non_root_compat_flags(app, monkeypatch, tmp_path)
     assert "--no-tablespaces" in cmds[0]
     assert "--set-gtid-purged=OFF" in cmds[0]
     assert "--skip-add-locks" in cmds[0]
+
+
+def test_rollback_mysql_restore_reimports_snapshot(app, db, monkeypatch, tmp_path):
+    """恢复失败回滚:用恢复前快照重新导入,返回 True"""
+    from app.models import Admin
+
+    db.create_all()
+    if not db.session.scalar(db.select(db.func.count(Admin.id))):
+        db.session.add(Admin(username="admin", password="x", email="a@b.c"))
+        db.session.commit()
+    dump = b"CREATE TABLE admin (id INT);\nINSERT INTO admin VALUES (1);\n"
+    snapshot = tmp_path / "mysql_backup_x_snapshot.zip"
+    with zipfile.ZipFile(snapshot, "w") as zf:
+        zf.writestr("mysql_backup_x.sql", dump)
+
+    monkeypatch.setattr(admin_routes, "_backup_dir", lambda: str(tmp_path))
+    monkeypatch.setattr(admin_routes, "_mysql_creds", lambda: {"host": "db", "user": "blog", "pwd": "p", "db": "blog"})
+    calls = []
+
+    def fake_run(cmd, **kwargs):
+        calls.append((cmd[0], kwargs.get("input")))
+        return _Completed(returncode=0)
+
+    monkeypatch.setattr(admin_routes.subprocess, "run", fake_run)
+    # 内存 SQLite 下 dispose 会清空库,置为空操作
+    monkeypatch.setattr(db.engine, "dispose", lambda *a, **k: None)
+
+    assert admin_routes._rollback_mysql_restore("mysql_backup_x_snapshot.zip") is True
+    assert len(calls) == 1
+    assert calls[0][0] == "mysql"
+    assert b"CREATE TABLE admin" in calls[0][1]
+
+
+def test_rollback_mysql_restore_failure_returns_false(app, monkeypatch, tmp_path):
+    """回滚导入失败时返回 False,由调用侧进入恢复隔离状态"""
+    snapshot = tmp_path / "mysql_backup_y_snapshot.zip"
+    with zipfile.ZipFile(snapshot, "w") as zf:
+        zf.writestr("mysql_backup_y.sql", b"CREATE TABLE t (id INT);\n")
+
+    monkeypatch.setattr(admin_routes, "_backup_dir", lambda: str(tmp_path))
+    monkeypatch.setattr(admin_routes, "_mysql_creds", lambda: {"host": "db", "user": "blog", "pwd": "p", "db": "blog"})
+
+    def fake_run(cmd, **kwargs):
+        return _Completed(returncode=1, stderr=b"mysql: access denied")
+
+    monkeypatch.setattr(admin_routes.subprocess, "run", fake_run)
+
+    assert admin_routes._rollback_mysql_restore("mysql_backup_y_snapshot.zip") is False
+
+
+def test_restore_isolated_gate_blocks_business_requests(app, client):
+    """回滚未完成时业务请求 503,登录与备份恢复入口放行"""
+    app.config["RESTORE_ISOLATED"] = True
+    try:
+        rv = client.get("/")
+        assert rv.status_code == 503
+        rv = client.get("/admin/login")
+        assert rv.status_code == 200
+        rv = client.get("/admin/backup")
+        assert rv.status_code == 302, "备份页未登录时走登录跳转,不被闸门拦截"
+    finally:
+        app.config["RESTORE_ISOLATED"] = False
+
+
+def test_restore_isolated_marker_roundtrip(app, monkeypatch, tmp_path):
+    """隔离状态落盘:置位写标记、解除删标记;启动流程据标记恢复状态"""
+    import app.utils as utils_mod
+
+    marker = tmp_path / "backups" / ".restore_isolated"
+    monkeypatch.setattr(utils_mod, "project_root", lambda: str(tmp_path))
+
+    admin_routes.mark_restore_isolated()
+    assert app.config["RESTORE_ISOLATED"] is True
+    assert marker.is_file()
+
+    admin_routes.clear_restore_isolated()
+    assert app.config["RESTORE_ISOLATED"] is False
+    assert not marker.is_file()
+
+
+def test_restore_isolated_marker_read_on_startup(monkeypatch, tmp_path):
+    """重启后依据标记文件恢复隔离状态,半残库不因进程重启恢复对外服务"""
+    import app.utils as utils_mod
+    from app import create_app
+
+    marker_dir = tmp_path / "backups"
+    marker_dir.mkdir()
+    (marker_dir / ".restore_isolated").write_text("x", encoding="utf-8")
+    monkeypatch.setattr(utils_mod, "project_root", lambda: str(tmp_path))
+
+    app2 = create_app("testing")
+    assert app2.config["RESTORE_ISOLATED"] is True

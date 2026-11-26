@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.4.1 (2026-11-26)
+
+- **Fixed**
+  - The setup wizard in production now requires an admission token when configured, and is disabled without one; concurrent first-time account creation is serialized so exactly one admin can exist.
+  - A failed MySQL restore automatically rolls back to the pre-restore snapshot; if the rollback fails, the site enters an isolated restore state that survives process restarts, with the restore entry kept reachable. A failed pre-restore snapshot aborts the restore with an honest message and leaves the database untouched.
+  - The legacy mail settings table is dropped only after copying and verification succeed; any failure keeps the old table and its data.
+  - Concurrent submissions of the same password reset link allow only one request to succeed.
+  - Login failure counts are incremented atomically in the database, with the lock time stored in the same update, so counts are not lost under concurrency.
+  - Rate limiting now uses conditional database updates so concurrent requests never exceed the limit; password recovery rejects requests on database errors while other actions stay open.
+  - Banner edit and delete commit to the database first and clean up files afterwards; on commit failure the new file is removed and the old file kept.
+  - The site enters maintenance mode when the database structure check does not fully succeed, and recovers automatically after the migration page retry succeeds.
+  - Stale comments, replies and votes pointing to deleted articles or comments, plus surplus rows in single-row settings tables, are cleaned up at startup.
+  - Images removed from an article body during editing are deleted from disk when no longer referenced by any article.
+  - Animated GIF uploads are limited to a frame cap (200 by default, adjustable via BLOG_GIF_MAX_FRAMES) and a per-frame height cap (10000px by default, adjustable via BLOG_GIF_MAX_FRAME_HEIGHT), with a clear rejection message.
+  - The sign-in endpoint is rate limited per IP (fixed-window buckets); login history and expired failure counters are cleaned up on a retention schedule.
+  - Article share-card URLs are fixed to the canonical domain instead of following the request host.
+- **Changed**
+  - Production requires both the canonical URL and trusted hosts to be configured.
+
 ## v1.4.0 (2026-11-07)
 
 - **Added**

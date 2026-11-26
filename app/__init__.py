@@ -8,7 +8,7 @@ from datetime import timedelta
 from logging.handlers import RotatingFileHandler
 from urllib.parse import urlsplit
 
-from flask import Flask, current_app, g, jsonify, render_template, request, session
+from flask import Flask, Response, current_app, g, jsonify, render_template, request, session
 from flask_babel import Babel, _
 from flask_login import current_user
 from werkzeug.exceptions import HTTPException
@@ -17,6 +17,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from app.extensions import (
     csrf,
     db,
+    external_url_for,
     fetch_global_context,
     log,
     login_manager,
@@ -30,7 +31,7 @@ from app.observability import (
     log_event,
     register_slow_sql,
 )
-from app.utils import configure_pillow
+from app.utils import configure_pillow, restore_isolated_marker_path
 from config import APP_VERSION, get_config
 
 
@@ -210,6 +211,9 @@ def create_app(config_name: str | None = None):
 
     configure_pillow(app.config.get("PIL_MAX_IMAGE_PIXELS", 50_000_000))
 
+    # 绝对链接统一走规范域名,避免模板直接基于请求 Host 拼接
+    app.jinja_env.globals["external_url_for"] = external_url_for
+
     db.init_app(app)
     try:
         from flask_migrate import Migrate
@@ -259,12 +263,24 @@ def create_app(config_name: str | None = None):
         except OSError:
             app.logger.warning("旧上传目录迁移失败", exc_info=True)
 
-        # 各步骤相互独立，单步失败不影响其余步骤
-        for _init_step in (init_db, ensure_default_settings, ensure_admin_exists):
+        # 轻量迁移失败进入维护模式；其余步骤相互独立，单步失败不影响其余步骤
+        light_failures: list[str] = []
+        try:
+            light_failures = init_db()
+        except Exception as e:
+            light_failures = ["init_db"]
+            app.logger.error("init_db 执行失败: %s", e, exc_info=True)
+        for _init_step in (ensure_default_settings, ensure_admin_exists):
             try:
                 _init_step()
             except Exception as e:
                 app.logger.warning("%s 跳过: %s", _init_step.__name__, e)
+        if light_failures:
+            app.config["SCHEMA_UPGRADE_PENDING"] = True
+            app.config["LIGHT_MIGRATE_FAILED"] = True
+            app.logger.error("轻量迁移失败(%s),站点进入维护模式", ",".join(light_failures))
+        else:
+            app.config["LIGHT_MIGRATE_FAILED"] = False
 
         from app.settings import apply_runtime_settings
 
@@ -360,9 +376,29 @@ def create_app(config_name: str | None = None):
             app.logger.warning("拒绝非白名单 Host 请求: %s (ip=%s)", request.host, request.remote_addr)
             return jsonify({"error": "Invalid Host header"}), 400
 
+    # 恢复隔离状态跨进程重启保持有效：标记文件由后台恢复流程写入,恢复成功后清除
+    app.config["RESTORE_ISOLATED"] = os.path.isfile(restore_isolated_marker_path())
+
     # 维护闸门：待迁移期间将业务请求导流到 503 升级页，放行登录 / 迁移 / 静态资源 / 健康探针
     @app.before_request
     def _schema_upgrade_gate():
+        if app.config.get("RESTORE_ISOLATED"):
+            # 恢复隔离：回滚未完成时阻断业务请求，放行登录与备份恢复入口
+            if request.endpoint in (
+                "static",
+                "main.healthz",
+                "main.uploaded_file",
+                "admin.login",
+                "admin.logout",
+                "admin.backup",
+                "admin.backup_restore",
+            ):
+                return None
+            return Response(
+                "<h1>503 服务暂时不可用</h1><p>恢复失败且回滚未完成，请管理员登录后台重新执行恢复。</p>",
+                503,
+                mimetype="text/html; charset=utf-8",
+            )
         if not app.config.get("SCHEMA_UPGRADE_PENDING"):
             return None
         if request.endpoint in (
@@ -381,6 +417,13 @@ def create_app(config_name: str | None = None):
                 pending_schema_migrations,
             )
 
+            if app.config.get("LIGHT_MIGRATE_FAILED"):
+                return Response(
+                    "<h1>503 服务暂时不可用</h1><p>数据库结构检查未全部完成，"
+                    "请管理员登录后台在「迁移数据库」页重试。</p>",
+                    503,
+                    mimetype="text/html; charset=utf-8",
+                )
             pending = pending_schema_migrations(quiet=True)
             if not pending:
                 app.config["SCHEMA_UPGRADE_PENDING"] = False
@@ -503,11 +546,14 @@ def register_cli(app: Flask):
             run_schema_migrations,
         )
 
-        init_db()
+        failures = init_db()
         run_schema_migrations()
         ensure_default_settings()
         ensure_admin_exists()
-        click.echo("Initialized database, applied schema migrations and ensured admin/settings tables.")
+        if failures:
+            click.echo(f"Initialized database with migration failures: {', '.join(failures)}")
+        else:
+            click.echo("Initialized database, applied schema migrations and ensured admin/settings tables.")
 
     @app.cli.command("create-admin")
     @click.option("--username", prompt=True)

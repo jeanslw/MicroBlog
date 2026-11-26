@@ -1,19 +1,16 @@
 # 博客系统部署文档
 
-版本：v1.3.5
-
 基于 Flask 3.1 框架，功能包括：文章发布与管理、Markdown文档上传、支持代码高亮与图片上传、评论与点赞、文章分类、Banner 轮播、中英双语 i18n。
 整体 UI 采用玻璃拟态透明风格，搭配动态炫酷背景（极光 / 星空 / 流光 / 气泡 / 经典），右下角悬浮调色盘按钮一键自由切换风格，选择记忆在 localStorage 中。
 全部静态资源本地加载，支持 SQLite 与 MySQL，内置 301 项自动化测试。
 
-<p align="center">
-  <a href="https://gitee.com/jeanslw/MicroBlog/releases/tag/v1.3.3"><img src="https://img.shields.io/github/v/release/jeanslw/MicroBlog?style=flat-square&label=Release" alt="Release"></a>
-  <a href="https://gitee.com/jeanslw/MicroBlog"><img src="https://img.shields.io/github/last-commit/jeanslw/MicroBlog?style=flat-square&label=Last%20Commit" alt="Last Commit"></a>
-  <a href="https://www.python.org"><img src="https://img.shields.io/badge/Python-3.11+-777BB4?logo=python&logoColor=white" alt="Language"></a>
-  <a href="https://flask.palletsprojects.com"><img src="https://img.shields.io/badge/Flask-3.1.0+-777BB4?logo=Flask&logoColor=white" alt="framework"></a>
-  <a href="https://gitee.com/jeanslw/MicroBlog/blob/main/LICENSE"><img src="https://img.shields.io/github/license/jeanslw/MicroBlog?style=flat-square" alt="License"></a>
-  <a href="https://hub.docker.com/r/jeanslw/microblog/tags"><img src="https://img.shields.io/docker/v/jeanslw/microblog/latest?label=version&logo=docker" alt="docker"></a>
-</p>
+[![Releases](https://img.shields.io/github/v/release/jeanslw/MicroBlog?style=flat-square&label=Release)](https://github.com/jeanslw/MicroBlog/releases/latest)
+[![CI Pipeline](https://github.com/jeanslw/MicroBlog/actions/workflows/ci.yml/badge.svg)](https://github.com/jeanslw/MicroBlog/actions/workflows/ci.yml)
+[![Security Check](https://github.com/jeanslw/MicroBlog/actions/workflows/security.yml/badge.svg)](https://github.com/jeanslw/MicroBlog/actions/workflows/security.yml)
+[![Last Commit](https://img.shields.io/github/last-commit/jeanslw/MicroBlog?style=flat-square&label=Last%20Commit)](https://github.com/jeanslw/MicroBlog/commits/main/)
+[![Docker Tag](https://img.shields.io/docker/v/jeanslw/microblog/latest?label=version&logo=docker)](https://hub.docker.com/r/jeanslw/microblog/tags)
+[![Docker Pulls](https://img.shields.io/docker/pulls/jeanslw/microblog)](https://hub.docker.com/r/jeanslw/microblog)
+[![framework](https://img.shields.io/badge/Flask-3.1.0+-777BB4?logo=Flask&logoColor=white)](https://flask.palletsprojects.com)
 
 > **[英文版](README.md)**
 

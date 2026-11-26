@@ -12,7 +12,7 @@ from flask_babel import lazy_gettext as _l
 from flask_login import LoginManager, current_user
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf import CSRFProtect
-from sqlalchemy import update
+from sqlalchemy import and_, case, or_, update
 from sqlalchemy.exc import IntegrityError
 
 from app.timeutil import BROWSER_TZ_COOKIE, DEFAULT_TIMEZONE, TIMEZONE_CHOICES, UTC_FORMAT, utc_now, utc_now_str
@@ -70,6 +70,10 @@ def external_url_for(endpoint: str, **values) -> str:
     return url_for(endpoint, _external=True, **values)
 
 
+# 登录失败锁定阈值;lock_seconds 由调用处传入
+LOGIN_FAIL_LOCK_THRESHOLD = 5
+
+
 def check_login_lock(ip: str, username: str):
     """检查登录是否被锁定,返回 (locked, remain_seconds)"""
     from app.models import LoginAttempt
@@ -83,50 +87,56 @@ def check_login_lock(ip: str, username: str):
 
     if not rec:
         return False, 0
-    if rec.fail_count >= 5 and rec.lock_until and time.time() < rec.lock_until:
+    if rec.fail_count >= LOGIN_FAIL_LOCK_THRESHOLD and rec.lock_until and time.time() < rec.lock_until:
         return True, int(rec.lock_until - time.time())
     # 锁定已过期,自动清零
-    if rec.fail_count >= 5 and rec.lock_until and time.time() >= rec.lock_until:
+    if rec.fail_count >= LOGIN_FAIL_LOCK_THRESHOLD and rec.lock_until and time.time() >= rec.lock_until:
         db.session.delete(rec)
         db.session.commit()
     return False, 0
 
 
 def record_login_fail(ip: str, username: str, lock_seconds: int = 300) -> int:
-    """记录一次登录失败，达阈值则锁定；返回当前失败次数。"""
+    """记录一次登录失败，达阈值则锁定；返回当前失败次数。
+
+    计数用数据库端自增,并发下不丢失;锁定时间与计数在同一条 UPDATE 中落库。
+    """
     from app.models import LoginAttempt
 
     try:
-        rec = db.session.execute(db.select(LoginAttempt).filter_by(ip=ip, username=username)).scalar_one_or_none()
-        if not rec:
-            rec = LoginAttempt(ip=ip, username=username, fail_count=0, lock_until=0)
-            db.session.add(rec)
-        rec.fail_count += 1
-        rec.update_time = utc_now_str()
-        if rec.fail_count >= 5:
-            rec.lock_until = time.time() + lock_seconds
-        db.session.commit()
-        # Column[int] 运行时即 int
-        return rec.fail_count  # type: ignore[return-value]
-    except IntegrityError:
-        # 并发下其他 worker 已抢先插入同 (ip, username) 行:改为原子 +1 后重读,
-        # 否则这里吞掉异常返回 0 会让登录页误报"剩余 5 次",计数也丢失
-        db.session.rollback()
+        now_epoch = int(time.time())
+        now = utc_now_str()
         try:
             db.session.execute(
-                update(LoginAttempt)
-                .where(LoginAttempt.ip == ip, LoginAttempt.username == username)
-                .values(fail_count=LoginAttempt.fail_count + 1, update_time=utc_now_str())
+                db.insert(LoginAttempt).values(ip=ip, username=username, fail_count=1, lock_until=0, update_time=now)
             )
-            rec = db.session.execute(db.select(LoginAttempt).filter_by(ip=ip, username=username)).scalar_one_or_none()
-            if rec is not None and rec.fail_count >= 5 and time.time() >= (rec.lock_until or 0):
-                rec.lock_until = time.time() + lock_seconds
             db.session.commit()
-            return rec.fail_count if rec is not None else 0
-        except Exception:
+            return 1
+        except IntegrityError:
             db.session.rollback()
-            log.warning("record_login_fail 并发重试失败,跳过记录", exc_info=True)
-            return 0
+        db.session.execute(
+            update(LoginAttempt)
+            .where(LoginAttempt.ip == ip, LoginAttempt.username == username)
+            .values(
+                fail_count=LoginAttempt.fail_count + 1,
+                update_time=now,
+                lock_until=case(
+                    (
+                        and_(
+                            LoginAttempt.fail_count + 1 >= LOGIN_FAIL_LOCK_THRESHOLD,
+                            or_(LoginAttempt.lock_until.is_(None), LoginAttempt.lock_until <= now_epoch),
+                        ),
+                        now_epoch + lock_seconds,
+                    ),
+                    else_=LoginAttempt.lock_until,
+                ),
+            )
+        )
+        db.session.commit()
+        count = db.session.scalar(
+            db.select(LoginAttempt.fail_count).where(LoginAttempt.ip == ip, LoginAttempt.username == username)
+        )
+        return int(count or 0)
     except Exception:
         db.session.rollback()
         log.warning("record_login_fail 失败,跳过记录", exc_info=True)
@@ -147,11 +157,38 @@ def clear_login_fail(ip: str, username: str):
         log.warning("clear_login_fail 失败,跳过清除", exc_info=True)
 
 
+# 登录记录保留期限与清理节流
+LOGIN_HISTORY_RETENTION_DAYS = 90
+LOGIN_ATTEMPT_RETENTION_DAYS = 30
+_LOGIN_RECORD_CLEANUP_INTERVAL = 3600
+_login_records_last_cleanup = 0.0
+
+
+def _maybe_cleanup_login_records():
+    """按保留期限清理登录历史与过期的登录失败计数;每小时最多触发一次."""
+    global _login_records_last_cleanup
+    if time.time() - _login_records_last_cleanup < _LOGIN_RECORD_CLEANUP_INTERVAL:
+        return
+    _login_records_last_cleanup = time.time()
+    from app.models import LoginAttempt, LoginHistory
+
+    history_cutoff = (utc_now() - timedelta(days=LOGIN_HISTORY_RETENTION_DAYS)).strftime(UTC_FORMAT)
+    attempt_cutoff = (utc_now() - timedelta(days=LOGIN_ATTEMPT_RETENTION_DAYS)).strftime(UTC_FORMAT)
+    db.session.execute(db.delete(LoginHistory).where(LoginHistory.create_time < history_cutoff))
+    db.session.execute(db.delete(LoginAttempt).where(LoginAttempt.update_time < attempt_cutoff))
+    db.session.commit()
+
+
 def record_login_history(username: str, ip: str, success: bool):
     """写入一条登录历史记录；写入失败不影响登录流程。"""
     from app.models import LoginHistory
 
     try:
+        try:
+            _maybe_cleanup_login_records()
+        except Exception:
+            db.session.rollback()
+            log.warning("登录记录过期清理失败", exc_info=True)
         db.session.add(LoginHistory(username=username, ip=ip, success=bool(success), create_time=utc_now_str()))
         db.session.commit()
     except Exception:
@@ -368,48 +405,84 @@ def flash_form_errors(form) -> None:
 
 
 def _rate_limit_window_str(window_seconds: int) -> str:
-    """返回窗口起始时刻的 UTC 存储字符串，供 create_time 字典序比较。"""
-    return (utc_now() - timedelta(seconds=window_seconds)).strftime(UTC_FORMAT)
+    """返回当前限流桶的起始时刻(向下对齐到 window_seconds 边界)的 UTC 存储字符串.
+
+    必须用固定桶而非滑动窗口下沿:计数器模型在 window_start < floor 时整体
+    重置计数,若 floor 随时间滑动,重置会连滑窗内 [floor, now) 尚未过期的
+    历史请求一并丢弃,实际放行可达约 2 倍阈值;固定桶语义下重置只会发生在
+    桶边界,丢弃的都是已过期的请求.
+    """
+    epoch = int(time.time()) // window_seconds * window_seconds
+    return time.strftime(UTC_FORMAT, time.gmtime(epoch))
 
 
-def check_and_record_rate_limit(action: str, ip: str, limit: int, window_seconds: int = 300) -> bool:
-    """检查并记录一次频率限制，返回 True 表示允许。"""
-    from app.models import RateLimit
+def check_and_record_rate_limit(
+    action: str, ip: str, limit: int, window_seconds: int = 300, *, fail_closed: bool = False
+) -> bool:
+    """检查并记录一次频率限制，返回 True 表示允许。
+
+    计数走数据库端条件更新,并发下放行数不超过阈值;fail_closed 为 True 时
+    数据库异常拒绝请求(安全敏感动作),否则放行。
+    """
+    from app.models import RateLimitCounter
 
     try:
-        threshold = _rate_limit_window_str(window_seconds)
-        # 惰性清理窗口外的旧记录，单独提交，避免被超限回滚一并撤销
-        db.session.execute(db.delete(RateLimit).where(RateLimit.action == action, RateLimit.create_time < threshold))
-        db.session.commit()
-        count = (
-            db.session.scalar(
-                db.select(db.func.count(RateLimit.id)).where(
-                    RateLimit.action == action,
-                    RateLimit.ip == ip,
-                    RateLimit.create_time >= threshold,
+        floor = _rate_limit_window_str(window_seconds)
+
+        def _conditional_increment():
+            return db.session.execute(
+                update(RateLimitCounter)
+                .where(
+                    RateLimitCounter.action == action,
+                    RateLimitCounter.ip == ip,
+                    or_(RateLimitCounter.window_start < floor, RateLimitCounter.count < limit),
+                )
+                .values(
+                    count=case((RateLimitCounter.window_start < floor, 1), else_=RateLimitCounter.count + 1),
+                    window_start=case(
+                        (RateLimitCounter.window_start < floor, floor), else_=RateLimitCounter.window_start
+                    ),
                 )
             )
-            or 0
+
+        db.session.execute(
+            db.delete(RateLimitCounter).where(RateLimitCounter.action == action, RateLimitCounter.window_start < floor)
         )
-        if count >= limit:
-            return False
-        db.session.add(RateLimit(ip=ip, action=action, create_time=utc_now_str()))
+        res = _conditional_increment()
         db.session.commit()
-        return True
+        if res.rowcount == 1:
+            return True
+        exists = db.session.scalar(
+            db.select(RateLimitCounter.id).where(RateLimitCounter.action == action, RateLimitCounter.ip == ip)
+        )
+        if exists is not None:
+            return False
+        try:
+            db.session.execute(db.insert(RateLimitCounter).values(action=action, ip=ip, window_start=floor, count=1))
+            db.session.commit()
+            return True
+        except IntegrityError:
+            db.session.rollback()
+            res = _conditional_increment()
+            db.session.commit()
+            return res.rowcount == 1
     except Exception:
         db.session.rollback()
-        log.warning("rate_limit 查询失败,放行 action=%s ip=%s", action, ip, exc_info=True)
+        if fail_closed:
+            log.warning("rate_limit 数据库异常,拒绝 action=%s ip=%s", action, ip, exc_info=True)
+            return False
+        log.warning("rate_limit 数据库异常,放行 action=%s ip=%s", action, ip, exc_info=True)
         return True
 
 
-def rate_limit(action: str, limit: int = 10, window_seconds: int = 300):
+def rate_limit(action: str, limit: int = 10, window_seconds: int = 300, *, fail_closed: bool = False):
     """视图装饰器：按 IP 限制动作频率，超限则回退到来源页或首页。"""
 
     def decorator(f):
         @wraps(f)
         def decorated(*args, **kwargs):
             ip = get_client_ip()
-            if not check_and_record_rate_limit(action, ip, limit, window_seconds):
+            if not check_and_record_rate_limit(action, ip, limit, window_seconds, fail_closed=fail_closed):
                 flash(_("操作过于频繁，请 %(min)s 分钟后再试", min=max(1, window_seconds // 60)), "warning")
                 return redirect(safe_redirect_path(request.referrer) or url_for("blog.index"))
             return f(*args, **kwargs)

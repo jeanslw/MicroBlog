@@ -18,6 +18,7 @@ from app.forms import BannerForm
 from app.models import Banner
 from app.timeutil import utc_now_str
 from app.utils import (
+    ImageProcessError,
     build_safe_filename,
     process_and_save_image,
     remove_uploaded_file,
@@ -66,7 +67,12 @@ def banner_add():
             save_path,
             ext,
             max_width=current_app.config.get("BANNER_MAX_WIDTH", 1920),
+            gif_max_frames=current_app.config.get("GIF_MAX_FRAMES", 200),
+            gif_max_frame_height=current_app.config.get("GIF_MAX_FRAME_HEIGHT", 10000),
         )
+    except ImageProcessError as e:
+        flash(str(e), "danger")
+        return redirect(url_for("banner.banner_list"))
     except Exception as e:
         log.error("Banner 图片处理失败: %s", e, exc_info=True)
         flash(_("图片处理失败,请重试"), "danger")
@@ -114,6 +120,8 @@ def banner_edit(bid):
     banner.update_time = utc_now_str()
 
     img = form.banner_img.data
+    old_path = banner.img_path
+    new_path = None
     if img and img.filename:
         try:
             ext = img.filename.rsplit(".", 1)[1].lower()
@@ -134,17 +142,30 @@ def banner_edit(bid):
                 save_path,
                 ext,
                 max_width=current_app.config.get("BANNER_MAX_WIDTH", 1920),
+                gif_max_frames=current_app.config.get("GIF_MAX_FRAMES", 200),
+                gif_max_frame_height=current_app.config.get("GIF_MAX_FRAME_HEIGHT", 10000),
             )
+        except ImageProcessError as e:
+            flash(str(e), "danger")
+            return redirect(url_for("banner.banner_list"))
         except Exception as e:
             log.error("Banner 图片处理失败: %s", e, exc_info=True)
             flash(_("图片处理失败,请重试"), "danger")
             return redirect(url_for("banner.banner_list"))
-        # 删除旧文件(失败仅告警;兼容迁移前的 /static/banner 旧路径)
-        if banner.img_path and not remove_uploaded_file(banner.img_path):
-            log.info("旧 banner 文件不存在或无需删除 bid=%s path=%s", bid, banner.img_path)
-        banner.img_path = f"/uploads/banner/{final_name}"
+        new_path = f"/uploads/banner/{final_name}"
+        banner.img_path = new_path
 
-    db.session.commit()
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        if new_path:
+            remove_uploaded_file(new_path)
+        log.error("Banner 保存失败 bid=%s: %s", bid, e, exc_info=True)
+        flash(_("保存失败,请重试"), "danger")
+        return redirect(url_for("banner.banner_list"))
+    if new_path and old_path and old_path != new_path and not remove_uploaded_file(old_path):
+        log.info("旧 banner 文件不存在或无需删除 bid=%s path=%s", bid, old_path)
     flash(_("修改完成"), "success")
     return redirect(url_for("banner.banner_list"))
 
@@ -152,18 +173,23 @@ def banner_edit(bid):
 @banner_bp.route("/del/<int:bid>", methods=["POST"])
 @admin_required
 def banner_del(bid):
-    """删除 banner 记录 + 物理文件(文件删除失败不阻断)"""
+    """删除 banner 记录 + 物理文件(数据库提交成功后再清理文件,兼容迁移前的 /static/banner 旧路径)"""
     banner = db.session.get(Banner, bid)
     if not banner:
         flash(_("轮播图不存在"), "warning")
         return redirect(url_for("banner.banner_list"))
 
-    # 先删除物理文件(文件删除失败不阻断;兼容迁移前的 /static/banner 旧路径)
-    if banner.img_path and not remove_uploaded_file(banner.img_path):
-        log.info("banner 物理文件不存在或无需删除 bid=%s path=%s", bid, banner.img_path)
-
-    db.session.delete(banner)
-    db.session.commit()
+    img_path = banner.img_path
+    try:
+        db.session.delete(banner)
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        log.error("Banner 删除失败 bid=%s: %s", bid, e, exc_info=True)
+        flash(_("删除失败,请重试"), "danger")
+        return redirect(url_for("banner.banner_list"))
+    if img_path and not remove_uploaded_file(img_path):
+        log.info("banner 物理文件不存在或无需删除 bid=%s path=%s", bid, img_path)
     flash(_("已删除"), "success")
     return redirect(url_for("banner.banner_list"))
 

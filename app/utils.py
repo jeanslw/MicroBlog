@@ -127,12 +127,18 @@ def configure_pillow(max_pixels: int = 50_000_000):
     ImageFile.LOAD_TRUNCATED_IMAGES = False  # 默认 False 更严格,损坏图直接报错
 
 
+class ImageProcessError(ValueError):
+    """图片处理被主动拒绝(如 GIF 帧数超限),消息可直接展示给用户."""
+
+
 def process_and_save_image(
     file_storage,
     save_path: str,
     ext: str,
     max_width: int = 1200,
     quality: int = 85,
+    gif_max_frames: int = 200,
+    gif_max_frame_height: int = 10000,
 ) -> None:
     """打开上传图，必要时等比缩放，按格式保存到 save_path。"""
     with Image.open(file_storage) as image:
@@ -140,7 +146,7 @@ def process_and_save_image(
 
         if ext_lower == "gif":
             # GIF 单独处理:逐帧缩放 + 保留动画
-            _save_gif(image, save_path, max_width)
+            _save_gif(image, save_path, max_width, gif_max_frames, gif_max_frame_height)
             return
 
         # 非 GIF:等比缩放(仅当超过 max_width 时)
@@ -168,8 +174,11 @@ def process_and_save_image(
                 resized.close()
 
 
-def _save_gif(image: Image.Image, save_path: str, max_width: int) -> None:
+def _save_gif(image: Image.Image, save_path: str, max_width: int, max_frames: int, max_frame_height: int) -> None:
     """保存 GIF 并保留动画帧、逐帧时长与循环次数;超宽时逐帧等比缩放"""
+    n_frames = getattr(image, "n_frames", 1)
+    if n_frames > max_frames:
+        raise ImageProcessError(f"GIF 帧数 {n_frames} 超过上限 {max_frames}，请压缩后再上传")
     # 迭代会改动 image.info，循环次数须在遍历前取出
     loop = image.info.get("loop", 0)
     durations: list[int] = []
@@ -177,6 +186,8 @@ def _save_gif(image: Image.Image, save_path: str, max_width: int) -> None:
     for frame in ImageSequence.Iterator(image):
         # Iterator 每次迭代返回的是同一个 Image 对象（只是 seek 到不同帧），
         # 必须先拷出当前帧再继续，否则列表里全是同一个对象、保存时帧被重复写入
+        if frame.height > max_frame_height:
+            raise ImageProcessError(f"GIF 单帧高度 {frame.height} 超过上限 {max_frame_height}，请压缩后再上传")
         durations.append(int(frame.info.get("duration") or 0))
         if frame.width > max_width:
             ratio = max_width / frame.width
@@ -237,6 +248,16 @@ def build_safe_filename(original_filename: str, base_name_max_len: int = 100) ->
 def project_root() -> str:
     """返回项目根目录绝对路径（app/ 的父目录）"""
     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+def restore_isolated_marker_path() -> str:
+    """恢复隔离标记文件路径（backups/.restore_isolated）.
+
+    恢复失败且回滚未完成时站点进入恢复隔离状态;该状态必须跨进程重启
+    保持有效(半残数据库不能因为 worker 重启就恢复对外服务),故落盘标记,
+    启动时读取置位,恢复成功后清除.
+    """
+    return os.path.join(project_root(), "backups", ".restore_isolated")
 
 
 # 上传资源目录（项目根 uploads/，与内置 static/ 分离）：banner = 轮播图，image = 正文插图 / Logo / 头像 / 背景

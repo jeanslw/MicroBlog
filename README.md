@@ -1,19 +1,16 @@
 # Blog System Deployment Documentation
 
-Version: v1.3.5
-
 Built with Flask 3.1, it features article publishing and management, Markdown uploads, code highlighting, image uploads, comments and likes, article categories, a banner carousel, and bilingual support (Chinese/English). 
 The UI rocks a glassmorphism transparent style with awesome dynamic backgrounds (aurora / starry sky / flowing light / bubbles / classic). There's a floating color palette button at the bottom right to switch styles with one click, and your choice is saved in localStorage. 
 All static resources are loaded locally, it supports SQLite and MySQL, and comes with 301 automated tests built in.
 
-<p align="center">
-  <a href="https://github.com/jeanslw/MicroBlog/releases/tag/v1.3.3"><img src="https://img.shields.io/github/v/release/jeanslw/MicroBlog?style=flat-square&label=Release" alt="Release"></a>
-  <a href="https://github.com/jeanslw/MicroBlog"><img src="https://img.shields.io/github/last-commit/jeanslw/MicroBlog?style=flat-square&label=Last%20Commit" alt="Last Commit"></a>
-  <a href="https://www.python.org"><img src="https://img.shields.io/badge/Python-3.11+-777BB4?logo=python&logoColor=white" alt="Language"></a>
-  <a href="https://flask.palletsprojects.com"><img src="https://img.shields.io/badge/Flask-3.1.0+-777BB4?logo=Flask&logoColor=white" alt="framework"></a>
-  <a href="https://github.com/jeanslw/MicroBlog/blob/main/LICENSE"><img src="https://img.shields.io/github/license/jeanslw/MicroBlog?style=flat-square" alt="License"></a>
-  <a href="https://hub.docker.com/r/jeanslw/microblog/tags"><img src="https://img.shields.io/docker/v/jeanslw/microblog/latest?label=version&logo=docker" alt="docker"></a>
-</p>
+[![Releases](https://img.shields.io/github/v/release/jeanslw/MicroBlog?style=flat-square&label=Release)](https://github.com/jeanslw/MicroBlog/releases/latest)
+[![CI Pipeline](https://github.com/jeanslw/MicroBlog/actions/workflows/ci.yml/badge.svg)](https://github.com/jeanslw/MicroBlog/actions/workflows/ci.yml)
+[![Security Check](https://github.com/jeanslw/MicroBlog/actions/workflows/security.yml/badge.svg)](https://github.com/jeanslw/MicroBlog/actions/workflows/security.yml)
+[![Last Commit](https://img.shields.io/github/last-commit/jeanslw/MicroBlog?style=flat-square&label=Last%20Commit)](https://github.com/jeanslw/MicroBlog/commits/main/)
+[![Docker Tag](https://img.shields.io/docker/v/jeanslw/microblog/latest?label=version&logo=docker)](https://hub.docker.com/r/jeanslw/microblog/tags)
+[![Docker Pulls](https://img.shields.io/docker/pulls/jeanslw/microblog)](https://hub.docker.com/r/jeanslw/microblog)
+[![framework](https://img.shields.io/badge/Flask-3.1.0+-777BB4?logo=Flask&logoColor=white)](https://flask.palletsprojects.com)
 
 > **[Chinese](README_ZH-CN.md)**
 

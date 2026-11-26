@@ -255,6 +255,20 @@ CREATE TABLE IF NOT EXISTS `rate_limit` (
 
 
 -- --------------------------------------------------------
+-- 表：rate_limit_counter（频率限制计数器，按 IP + 动作一行，数据库端条件更新保证并发阈值）
+-- --------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `rate_limit_counter` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `action` varchar(50) NOT NULL,
+  `ip` varchar(100) NOT NULL,
+  `window_start` varchar(50) NOT NULL,
+  `count` int NOT NULL DEFAULT '1',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_action_ip` (`action`, `ip`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- --------------------------------------------------------
 -- 表：schema_version（schema 版本履历，v1.3.6 引入版本化迁移框架）
 -- --------------------------------------------------------
 -- 每应用一级迁移追一行，version 为主键（同一版本只留一行）。

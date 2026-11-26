@@ -1,5 +1,84 @@
 """认证与登录安全测试."""
 
+import time
+from datetime import timedelta
+
+from app.timeutil import UTC_FORMAT, utc_now, utc_now_str
+
+
+def test_login_ip_rate_limit(client, admin_user):
+    """同一 IP 短时间内超过阈值后,登录入口被限流"""
+    for _ in range(20):
+        client.post("/admin/login", data={"username": "admin", "password": "wrong"})
+    rv = client.post("/admin/login", data={"username": "admin", "password": "wrong"}, follow_redirects=False)
+    assert rv.status_code == 302, "超过限流阈值应重定向回登录页"
+
+
+def test_login_records_retention_cleanup(app, db):
+    """登录历史与过期失败计数按保留期限惰性清理"""
+    import app.extensions as ext
+    from app.models import LoginAttempt, LoginHistory
+
+    old = (utc_now() - timedelta(days=100)).strftime(UTC_FORMAT)
+    recent = utc_now_str()
+    db.session.add(LoginHistory(username="u", ip="1.1.1.1", success=False, create_time=old))
+    db.session.add(LoginHistory(username="u", ip="1.1.1.1", success=True, create_time=recent))
+    db.session.add(LoginAttempt(ip="2.2.2.2", username="admin", fail_count=1, lock_until=0, update_time=old))
+    db.session.add(LoginAttempt(ip="3.3.3.3", username="admin", fail_count=1, lock_until=0, update_time=recent))
+    db.session.commit()
+
+    ext._login_records_last_cleanup = 0.0
+    ext._maybe_cleanup_login_records()
+
+    assert db.session.scalar(db.select(db.func.count(LoginHistory.id))) == 1
+    assert db.session.scalar(db.select(db.func.count(LoginAttempt.id))) == 1
+    assert db.session.scalar(db.select(LoginAttempt.ip)) == "3.3.3.3"
+
+
+def test_record_login_fail_counts_from_database_value(app, db):
+    """计数必须基于数据库当前值自增,不得依赖 Python 侧读到的旧值"""
+    from app.extensions import record_login_fail
+    from app.models import LoginAttempt
+
+    db.session.execute(db.insert(LoginAttempt).values(ip="1.1.1.1", username="admin", fail_count=3, lock_until=0))
+    db.session.commit()
+
+    assert record_login_fail("1.1.1.1", "admin") == 4
+    assert record_login_fail("1.1.1.1", "admin") == 5
+
+    rec = db.session.scalar(db.select(LoginAttempt).filter_by(ip="1.1.1.1", username="admin"))
+    assert rec.fail_count == 5
+    assert rec.lock_until > time.time() - 1, "达到阈值必须落库锁定时间"
+
+
+def test_record_login_fail_keeps_active_lock(app, db):
+    """锁定未过期期间继续失败不得延长或重置锁定时间"""
+    from app.extensions import record_login_fail
+    from app.models import LoginAttempt
+
+    lock_until = int(time.time()) + 300
+    db.session.execute(
+        db.insert(LoginAttempt).values(ip="2.2.2.2", username="admin", fail_count=6, lock_until=lock_until)
+    )
+    db.session.commit()
+
+    assert record_login_fail("2.2.2.2", "admin") == 7
+
+    rec = db.session.scalar(db.select(LoginAttempt).filter_by(ip="2.2.2.2", username="admin"))
+    assert rec.lock_until == lock_until
+
+
+def test_record_login_fail_first_insert(app, db):
+    """首次失败插入计数为 1 且不锁定"""
+    from app.extensions import record_login_fail
+    from app.models import LoginAttempt
+
+    assert record_login_fail("3.3.3.3", "admin") == 1
+
+    rec = db.session.scalar(db.select(LoginAttempt).filter_by(ip="3.3.3.3", username="admin"))
+    assert rec.fail_count == 1
+    assert rec.lock_until == 0
+
 
 def test_login_page_get(client):
     """GET /admin/login 返回 200"""

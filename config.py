@@ -54,7 +54,7 @@ def _normalize_trusted_host(entry: str) -> str:
 
 
 # 应用版本（SemVer）
-APP_VERSION = "1.4.0"
+APP_VERSION = "1.4.1"
 
 # 数据库结构版本；迁移登记见 app/database.py，初始结构见 MySQL/init.sql
 SCHEMA_VERSION = "1.4.0"
@@ -143,6 +143,11 @@ class Config:
     SEND_FILE_MAX_AGE_DEFAULT = int(os.environ.get("BLOG_STATIC_MAX_AGE", "0"))
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # Flask 整体请求上限
 
+    # GIF 动图处理帧数上限：逐帧载入内存，超限拒绝以防资源耗尽
+    GIF_MAX_FRAMES = int(os.environ.get("BLOG_GIF_MAX_FRAMES", "200"))
+    # GIF 单帧高度上限：像素总上限只约束首帧，超长单帧解码驻留内存
+    GIF_MAX_FRAME_HEIGHT = int(os.environ.get("BLOG_GIF_MAX_FRAME_HEIGHT", "10000"))
+
     LOG_DIR = os.environ.get("BLOG_LOG_DIR") or os.path.join(_BASE_DIR, "logs")
     LOG_MAX_BYTES = int(os.environ.get("BLOG_LOG_MAX_BYTES", str(10 * 1024 * 1024)))
     LOG_BACKUP_COUNT = int(os.environ.get("BLOG_LOG_BACKUP_COUNT", "5"))
@@ -153,6 +158,8 @@ class Config:
 
     AUTO_SCHEMA_MIGRATE = _env_bool("BLOG_AUTO_MIGRATE", "true")  # false = 手动模式
     ALLOW_SCHEMA_AHEAD = _env_bool("BLOG_ALLOW_SCHEMA_AHEAD", "false")  # 数据库版本高于程序版本时拒绝启动
+
+    IS_PRODUCTION = False  # ProductionConfig 覆写为 True，用于首次安装等生产专属行为
 
     WTF_CSRF_ENABLED = True
     WTF_CSRF_TIME_LIMIT = None  # 令牌不设过期时间
@@ -166,6 +173,9 @@ class Config:
 
     INIT_ADMIN_USERNAME = os.environ.get("BLOG_INIT_ADMIN_USER", "admin")
     INIT_ADMIN_PASSWORD = os.environ.get("BLOG_INIT_ADMIN_PWD", "")
+
+    # 首次安装引导准入令牌：生产环境配置后必须携带该令牌访问 /admin/setup，留空则禁用网页安装
+    SETUP_TOKEN = os.environ.get("BLOG_SETUP_TOKEN", "")
 
     PROXY_FIX_X_FOR = int(os.environ.get("BLOG_PROXY_XFOR", "0"))
     PROXY_FIX_X_PROTO = int(os.environ.get("BLOG_PROXY_XPROTO", "0"))
@@ -193,6 +203,7 @@ class DevelopmentConfig(Config):
 
 class ProductionConfig(Config):
     DEBUG = False
+    IS_PRODUCTION = True
     SESSION_COOKIE_SECURE = _env_bool("BLOG_COOKIE_SECURE", "true")
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
@@ -286,11 +297,11 @@ def get_config():
                 '请改为随机值: python -c "import secrets;print(secrets.token_hex(32))" '
                 "（容器部署删除该环境变量即可，入口脚本会自动生成并持久化随机密钥）"
             )
-        if not cls.CANONICAL_URL and not cls.HOST_WHITELIST:
+        if not cls.CANONICAL_URL or not cls.HOST_WHITELIST:
             raise RuntimeError(
-                "生产环境须配置 BLOG_CANONICAL_URL 或 BLOG_TRUSTED_HOSTS 之一："
-                "两者皆空时 Host 头不做任何校验，攻击者可用伪造 Host 污染找回密码邮件、"
-                "RSS / sitemap 中的链接，把用户引到钓鱼站点。"
+                "生产环境必须同时配置 BLOG_CANONICAL_URL 和 BLOG_TRUSTED_HOSTS："
+                "前者保证找回密码邮件、RSS / sitemap / robots 的绝对链接固定为规范域名，"
+                "后者拒绝伪造 Host 的请求，防止 Host 头投毒。"
             )
     elif _RESOLVED_SECRET_KEY in INSECURE_DEFAULT_SECRET_KEYS:
         warnings.warn(

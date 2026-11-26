@@ -38,6 +38,8 @@ When the `admin` table is empty, `/admin/login`, `/admin/panel` and friends **re
 - Fill in username, email (optional, used for password recovery — can be added later) and password (6–128 chars) twice;
 - Submitting creates the administrator and redirects you to the sign-in page.
 
+> **Production admission**: with `BLOG_SETUP_TOKEN` configured, `/admin/setup` requires `?setup_token=<token>`; when the token is empty the web wizard is **disabled** in production and the command-line / environment method below must be used. Remove the token after setup.
+
 You can also create it from the command line / environment instead:
 
 ```bash
@@ -350,6 +352,7 @@ The variables below shape the admin experience (for the full list with defaults 
 |----------|---------|--------|
 | `BLOG_AUTO_MIGRATE` | `true` | Auto vs manual migration mode (see [§9.2](#92-the-two-modes-blog_auto_migrate)) |
 | `BLOG_INIT_ADMIN_USER` / `BLOG_INIT_ADMIN_PWD` | `admin` / empty | Creates an admin when the database is empty (drop the password entry after bootstrapping) |
+| `BLOG_SETUP_TOKEN` | empty | Setup-wizard admission token: in production, `/admin/setup` requires `?setup_token=<value>`; when empty the web wizard is disabled and `flask create-admin` must be used |
 | `BLOG_RESET_TOKEN_MAX_AGE` | `1800` | Password-recovery token lifetime (seconds) |
 | `BLOG_SECRET_KEY` / `BLOG_SECRET_KEY_FILE` | random in dev | Session & token signing key; must be set explicitly in production (the public default refuses to start) |
 | `BLOG_SESSION_LIFETIME` | `86400` | Sign-in session lifetime (seconds) |

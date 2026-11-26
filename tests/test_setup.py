@@ -116,3 +116,106 @@ class TestSetupRace:
         rv = fresh_client.post("/admin/setup", data=SETUP_DATA, follow_redirects=False)
         assert rv.status_code == 302
         assert "/admin/login" in rv.headers["Location"]
+
+    def test_lock_recheck_rejects_concurrent_creation(self, fresh_client, no_admin, monkeypatch):
+        """锁内复查:入口检查通过后另一进程用不同用户名建号 -> 只保留一个管理员"""
+        from sqlalchemy.orm import Session
+
+        from app.extensions import db
+        from app.models import Admin
+
+        real_scalar = Session.scalar
+        calls = {"n": 0}
+
+        def racing_scalar(self, statement, *args, **kwargs):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return 0
+            return real_scalar(self, statement, *args, **kwargs)
+
+        monkeypatch.setattr(Session, "scalar", racing_scalar)
+        db.session.add(Admin(username="winner", password="x"))
+        db.session.commit()
+
+        rv = fresh_client.post("/admin/setup", data=SETUP_DATA, follow_redirects=False)
+        assert rv.status_code == 302
+        assert "/admin/login" in rv.headers["Location"]
+        assert db.session.scalar(db.select(db.func.count(Admin.id))) == 1
+
+
+class TestSetupTokenGate:
+    def test_production_without_token_disables_setup(self, fresh_client, no_admin):
+        """生产环境未配置初始化令牌时,网页安装被禁用,返回 403 信息页而非重定向(避免死循环)"""
+        no_admin.config["IS_PRODUCTION"] = True
+        no_admin.config["SETUP_TOKEN"] = ""
+        try:
+            for method, url in (
+                (fresh_client.get, "/admin/setup"),
+                (fresh_client.post, "/admin/setup"),
+            ):
+                rv = method(url, follow_redirects=False)
+                assert rv.status_code == 403
+                assert b"create-admin" in rv.data
+
+            from app.extensions import db
+            from app.models import Admin
+
+            assert db.session.scalar(db.select(db.func.count(Admin.id))) == 0
+        finally:
+            no_admin.config["IS_PRODUCTION"] = False
+
+    def test_production_with_wrong_token_rejected(self, fresh_client, no_admin):
+        """生产环境令牌不匹配时拒绝访问,且不得重定向(与 _require_setup 成环)"""
+        no_admin.config["IS_PRODUCTION"] = True
+        no_admin.config["SETUP_TOKEN"] = "real-token"
+        try:
+            for url in ("/admin/setup", "/admin/setup?setup_token=wrong-token"):
+                rv = fresh_client.get(url, follow_redirects=False)
+                assert rv.status_code == 403
+                assert b"BLOG_SETUP_TOKEN" in rv.data
+
+            from app.extensions import db
+            from app.models import Admin
+
+            assert db.session.scalar(db.select(db.func.count(Admin.id))) == 0
+        finally:
+            no_admin.config["IS_PRODUCTION"] = False
+
+    def test_non_ascii_token_does_not_crash(self, fresh_client, no_admin):
+        """令牌含非 ASCII 字符时不得因 compare_digest 抛 TypeError"""
+        no_admin.config["IS_PRODUCTION"] = True
+        no_admin.config["SETUP_TOKEN"] = "令牌-token"
+        try:
+            rv = fresh_client.get("/admin/setup?setup_token=令牌-token", follow_redirects=False)
+            assert rv.status_code == 200, "非 ASCII 令牌匹配时应正常渲染安装页"
+
+            rv = fresh_client.get("/admin/setup?setup_token=另一个", follow_redirects=False)
+            assert rv.status_code == 403, "不匹配时返回 403"
+        finally:
+            no_admin.config["IS_PRODUCTION"] = False
+
+    def test_production_with_valid_token_allows_setup(self, fresh_client, no_admin):
+        """生产环境携带正确令牌可完成安装"""
+        no_admin.config["IS_PRODUCTION"] = True
+        no_admin.config["SETUP_TOKEN"] = "real-token"
+        try:
+            rv = fresh_client.get("/admin/setup?setup_token=real-token", follow_redirects=False)
+            assert rv.status_code == 200
+
+            rv = fresh_client.post(
+                "/admin/setup", data=dict(SETUP_DATA, setup_token="real-token"), follow_redirects=False
+            )
+            assert rv.status_code == 302
+
+            from app.extensions import db
+            from app.models import Admin
+
+            assert db.session.scalar(db.select(Admin).filter_by(username="installer")) is not None
+        finally:
+            no_admin.config["IS_PRODUCTION"] = False
+
+    def test_development_without_token_still_works(self, fresh_client, no_admin):
+        """开发/测试环境不要求令牌"""
+        assert no_admin.config["IS_PRODUCTION"] is False
+        rv = fresh_client.get("/admin/setup", follow_redirects=False)
+        assert rv.status_code == 200
