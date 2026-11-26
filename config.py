@@ -145,6 +145,8 @@ class Config:
 
     # GIF 动图处理帧数上限：逐帧载入内存，超限拒绝以防资源耗尽
     GIF_MAX_FRAMES = int(os.environ.get("BLOG_GIF_MAX_FRAMES", "200"))
+    # GIF 单帧高度上限：像素总上限只约束首帧，超长单帧解码驻留内存
+    GIF_MAX_FRAME_HEIGHT = int(os.environ.get("BLOG_GIF_MAX_FRAME_HEIGHT", "10000"))
 
     LOG_DIR = os.environ.get("BLOG_LOG_DIR") or os.path.join(_BASE_DIR, "logs")
     LOG_MAX_BYTES = int(os.environ.get("BLOG_LOG_MAX_BYTES", str(10 * 1024 * 1024)))

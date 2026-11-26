@@ -55,8 +55,9 @@ def wait_for_database(max_wait: int = 90, interval: float = 3.0) -> None:
 def init_db() -> list[str]:
     """创建所有表（幂等），随后执行轻量迁移；返回失败的迁移步骤名列表。
 
-    _migrate_missing_indexes（索引补齐）与 _drop_legacy_mail_setting（旧表清理）
-    失败仅告警不视为致命；其余步骤失败由调用方进入维护模式。
+    _migrate_missing_indexes（索引补齐）、_drop_legacy_mail_setting（旧表清理）
+    与 _migrate_orphan_rows（悬挂行清理，纯卫生项）失败仅告警不视为致命；
+    其余步骤失败由调用方进入维护模式。
     """
     # 触发所有模型注册
     from app import models  # noqa: F401
@@ -76,7 +77,6 @@ def init_db() -> list[str]:
         _migrate_missing_indexes,
         _migrate_login_attempt,
         _migrate_site_setting_feed_switches,
-        _migrate_orphan_rows,
         _migrate_single_row_dedupe,
     ):
         try:
@@ -84,6 +84,10 @@ def init_db() -> list[str]:
         except Exception as e:
             failures.append(step.__name__)
             log.error("轻量迁移 %s 失败: %s", step.__name__, e, exc_info=True)
+    try:
+        _migrate_orphan_rows()
+    except Exception as e:
+        log.warning("悬挂行清理失败,下次启动重试: %s", e, exc_info=True)
     _drop_legacy_mail_setting()
     return failures
 

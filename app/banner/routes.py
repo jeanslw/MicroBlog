@@ -68,6 +68,7 @@ def banner_add():
             ext,
             max_width=current_app.config.get("BANNER_MAX_WIDTH", 1920),
             gif_max_frames=current_app.config.get("GIF_MAX_FRAMES", 200),
+            gif_max_frame_height=current_app.config.get("GIF_MAX_FRAME_HEIGHT", 10000),
         )
     except ImageProcessError as e:
         flash(str(e), "danger")
@@ -142,6 +143,7 @@ def banner_edit(bid):
                 ext,
                 max_width=current_app.config.get("BANNER_MAX_WIDTH", 1920),
                 gif_max_frames=current_app.config.get("GIF_MAX_FRAMES", 200),
+                gif_max_frame_height=current_app.config.get("GIF_MAX_FRAME_HEIGHT", 10000),
             )
         except ImageProcessError as e:
             flash(str(e), "danger")

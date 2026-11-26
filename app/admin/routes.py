@@ -359,6 +359,7 @@ def upload_image():
             ext,
             max_width=current_app.config.get("UPLOAD_MAX_WIDTH", 1200),
             gif_max_frames=current_app.config.get("GIF_MAX_FRAMES", 200),
+            gif_max_frame_height=current_app.config.get("GIF_MAX_FRAME_HEIGHT", 10000),
         )
     except ImageProcessError as e:
         log.warning("GIF 上传被拒绝: %s", e)
@@ -1037,6 +1038,8 @@ def migrate_db():
 
     current = sync_schema_version()
     pending = pending_schema_migrations(current)
+    if current_app.config.get("LIGHT_MIGRATE_FAILED"):
+        flash(_("数据库结构检查未全部完成，站点处于维护状态；点击下方按钮重试迁移"), "danger")
     ahead = current is not None and schema_version_cmp(current, SCHEMA_VERSION) > 0
     ver_cmp = 1 if current is None else schema_version_cmp(current, SCHEMA_VERSION)
     up_to_date = not pending and not ahead and ver_cmp == 0

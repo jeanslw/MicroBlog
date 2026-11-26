@@ -21,6 +21,16 @@ def test_init_db_returns_failed_steps(app, db, monkeypatch):
     assert database_mod.init_db() == ["boom"]
 
 
+def test_orphan_cleanup_failure_is_not_fatal(app, db, monkeypatch):
+    """悬挂行清理为卫生项,失败仅告警不进入维护失败列表"""
+
+    def boom():
+        raise RuntimeError("lock timeout")
+
+    monkeypatch.setattr(database_mod, "_migrate_orphan_rows", boom)
+    assert database_mod.init_db() == []
+
+
 def test_light_failure_enters_maintenance(monkeypatch):
     """启动时轻量迁移失败:站点进入维护模式,业务请求 503"""
 
@@ -130,6 +140,20 @@ def test_gif_frame_limit_rejects(app, tmp_path):
         process_and_save_image(_gif_bytes(3), str(tmp_path / "a.gif"), "gif", gif_max_frames=2)
 
 
+def test_gif_frame_height_limit_rejects(app, tmp_path):
+    """GIF 单帧高度超上限时拒绝处理"""
+
+    def tall_gif() -> io.BytesIO:
+        frames = [Image.new("RGB", (10, 20000), (10, 10, 10))]
+        buf = io.BytesIO()
+        frames[0].save(buf, "GIF", duration=100, loop=0)
+        buf.seek(0)
+        return buf
+
+    with pytest.raises(ImageProcessError):
+        process_and_save_image(tall_gif(), str(tmp_path / "t.gif"), "gif", gif_max_frame_height=10000)
+
+
 def test_gif_within_limit_keeps_frames(app, tmp_path):
     """未超上限的 GIF 正常保存且帧数完整"""
     out = tmp_path / "a.gif"
@@ -188,6 +212,53 @@ def test_article_edit_keeps_image_still_referenced(app, db, login_admin):
     rv = login_admin.post(
         f"/article/edit/{art.id}",
         data={"title": "b2", "content": "<p>no image</p>", "status": "publish", "category_id": 0},
+        follow_redirects=True,
+    )
+
+    assert rv.status_code == 200
+    assert os.path.exists(path)
+
+
+@pytest.mark.parametrize(
+    "kind",
+    ["banner", "bg", "logo", "favicon", "avatar"],
+)
+def test_removed_image_kept_when_referenced_outside_articles(app, db, login_admin, kind):
+    """图片被轮播图/站点设置/头像引用时,即使文章不再引用也不清理"""
+    from app.models import AboutProfile, Article, Banner, SiteSetting
+    from app.timeutil import utc_now_str
+
+    save_dir = upload_dir("image")
+    os.makedirs(save_dir, exist_ok=True)
+    name = f"ref_keep_{kind}.jpg"
+    path = os.path.join(save_dir, name)
+    with open(path, "wb") as f:
+        f.write(b"fake")
+    url = f"/uploads/image/{name}"
+
+    art = Article(title="t", content=f'<p><img src="{url}"></p>', status="publish", create_time=utc_now_str())
+    db.session.add(art)
+    db.session.commit()
+
+    if kind == "banner":
+        db.session.add(Banner(img_path=url, create_time=utc_now_str()))
+    elif kind in ("bg", "logo", "favicon"):
+        site = db.session.get(SiteSetting, 1)
+        if site is None:
+            site = SiteSetting(id=1)
+            db.session.add(site)
+        setattr(site, {"bg": "bg_custom", "logo": "logo_path", "favicon": "favicon_path"}[kind], url)
+    else:
+        profile = db.session.get(AboutProfile, 1)
+        if profile is None:
+            profile = AboutProfile(id=1)
+            db.session.add(profile)
+        profile.about_avatar = url
+    db.session.commit()
+
+    rv = login_admin.post(
+        f"/article/edit/{art.id}",
+        data={"title": "t2", "content": "<p>no image</p>", "status": "publish", "category_id": 0},
         follow_redirects=True,
     )
 

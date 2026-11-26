@@ -348,18 +348,27 @@ def article_del(aid):
 
 
 def _cleanup_removed_images(urls: set[str]) -> None:
-    """删除不再被任何文章内容引用的上传图片(调用方负责收集与异常处理)."""
+    """删除不再被文章内容、轮播图或站点配置引用的上传图片(调用方负责收集与异常处理)."""
+    from app.models import AboutProfile, Banner, SiteSetting
+
     for u in urls:
         # 同一文件存在新旧前缀两种写法(/uploads/image/x.jpg == /static/uploads/x.jpg),
-        # 引用判定须覆盖全部变体,否则漏判导致仍在使用的图片被误删
+        # 引用判定须覆盖全部变体,否则漏判导致仍在使用的图片被误删;
+        # 各表分别查询,跨表 OR 会因空表笛卡尔积漏判
         variants = upload_url_variants(u)
-        still_used = db.session.scalar(
-            db.select(func.count(Article.id)).where(
-                or_(*[Article.content.contains(v, autoescape=True) for v in variants])
-            )
+        checks = (
+            [Article.content.contains(v, autoescape=True) for v in variants],
+            [Banner.img_path.contains(v, autoescape=True) for v in variants],
+            [
+                col.contains(v, autoescape=True)
+                for col in (SiteSetting.bg_custom, SiteSetting.logo_path, SiteSetting.favicon_path)
+                for v in variants
+            ],
+            [AboutProfile.about_avatar.contains(v, autoescape=True) for v in variants],
         )
-        if not still_used:
-            remove_uploaded_file(u)
+        if any(db.session.scalar(db.select(or_(*conds))) for conds in checks):
+            continue
+        remove_uploaded_file(u)
 
 
 @blog_bp.route("/article/manage")

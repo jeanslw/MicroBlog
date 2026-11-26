@@ -13,7 +13,7 @@
   - The site enters maintenance mode when the database structure check does not fully succeed, and recovers automatically after the migration page retry succeeds.
   - Stale comments, replies and votes pointing to deleted articles or comments, plus surplus rows in single-row settings tables, are cleaned up at startup.
   - Images removed from an article body during editing are deleted from disk when no longer referenced by any article.
-  - Animated GIF uploads are limited to a frame cap (200 by default, adjustable via BLOG_GIF_MAX_FRAMES) with a clear rejection message.
+  - Animated GIF uploads are limited to a frame cap (200 by default, adjustable via BLOG_GIF_MAX_FRAMES) and a per-frame height cap (10000px by default, adjustable via BLOG_GIF_MAX_FRAME_HEIGHT), with a clear rejection message.
   - The sign-in endpoint is rate limited per IP (fixed-window buckets); login history and expired failure counters are cleaned up on a retention schedule.
   - Article share-card URLs are fixed to the canonical domain instead of following the request host.
 - **Changed**

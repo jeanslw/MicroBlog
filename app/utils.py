@@ -138,6 +138,7 @@ def process_and_save_image(
     max_width: int = 1200,
     quality: int = 85,
     gif_max_frames: int = 200,
+    gif_max_frame_height: int = 10000,
 ) -> None:
     """打开上传图，必要时等比缩放，按格式保存到 save_path。"""
     with Image.open(file_storage) as image:
@@ -145,7 +146,7 @@ def process_and_save_image(
 
         if ext_lower == "gif":
             # GIF 单独处理:逐帧缩放 + 保留动画
-            _save_gif(image, save_path, max_width, gif_max_frames)
+            _save_gif(image, save_path, max_width, gif_max_frames, gif_max_frame_height)
             return
 
         # 非 GIF:等比缩放(仅当超过 max_width 时)
@@ -173,7 +174,7 @@ def process_and_save_image(
                 resized.close()
 
 
-def _save_gif(image: Image.Image, save_path: str, max_width: int, max_frames: int) -> None:
+def _save_gif(image: Image.Image, save_path: str, max_width: int, max_frames: int, max_frame_height: int) -> None:
     """保存 GIF 并保留动画帧、逐帧时长与循环次数;超宽时逐帧等比缩放"""
     n_frames = getattr(image, "n_frames", 1)
     if n_frames > max_frames:
@@ -185,6 +186,8 @@ def _save_gif(image: Image.Image, save_path: str, max_width: int, max_frames: in
     for frame in ImageSequence.Iterator(image):
         # Iterator 每次迭代返回的是同一个 Image 对象（只是 seek 到不同帧），
         # 必须先拷出当前帧再继续，否则列表里全是同一个对象、保存时帧被重复写入
+        if frame.height > max_frame_height:
+            raise ImageProcessError(f"GIF 单帧高度 {frame.height} 超过上限 {max_frame_height}，请压缩后再上传")
         durations.append(int(frame.info.get("duration") or 0))
         if frame.width > max_width:
             ratio = max_width / frame.width
