@@ -130,6 +130,11 @@ def configure_pillow(max_pixels: int = 50_000_000):
 class ImageProcessError(ValueError):
     """图片处理被主动拒绝(如 GIF 帧数超限),消息可直接展示给用户."""
 
+    def __init__(self, message: str):
+        # 面向用户的消息显式存为属性,响应只取该值,不透出异常内部信息
+        self.user_message = message
+        super().__init__(message)
+
 
 def process_and_save_image(
     file_storage,
