@@ -127,12 +127,17 @@ def configure_pillow(max_pixels: int = 50_000_000):
     ImageFile.LOAD_TRUNCATED_IMAGES = False  # 默认 False 更严格,损坏图直接报错
 
 
+class ImageProcessError(ValueError):
+    """图片处理被主动拒绝(如 GIF 帧数超限),消息可直接展示给用户."""
+
+
 def process_and_save_image(
     file_storage,
     save_path: str,
     ext: str,
     max_width: int = 1200,
     quality: int = 85,
+    gif_max_frames: int = 200,
 ) -> None:
     """打开上传图，必要时等比缩放，按格式保存到 save_path。"""
     with Image.open(file_storage) as image:
@@ -140,7 +145,7 @@ def process_and_save_image(
 
         if ext_lower == "gif":
             # GIF 单独处理:逐帧缩放 + 保留动画
-            _save_gif(image, save_path, max_width)
+            _save_gif(image, save_path, max_width, gif_max_frames)
             return
 
         # 非 GIF:等比缩放(仅当超过 max_width 时)
@@ -168,8 +173,11 @@ def process_and_save_image(
                 resized.close()
 
 
-def _save_gif(image: Image.Image, save_path: str, max_width: int) -> None:
+def _save_gif(image: Image.Image, save_path: str, max_width: int, max_frames: int) -> None:
     """保存 GIF 并保留动画帧、逐帧时长与循环次数;超宽时逐帧等比缩放"""
+    n_frames = getattr(image, "n_frames", 1)
+    if n_frames > max_frames:
+        raise ImageProcessError(f"GIF 帧数 {n_frames} 超过上限 {max_frames}，请压缩后再上传")
     # 迭代会改动 image.info，循环次数须在遍历前取出
     loop = image.info.get("loop", 0)
     durations: list[int] = []

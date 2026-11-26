@@ -70,6 +70,8 @@ services:
       BLOG_INIT_ADMIN_PWD: ${BLOG_INIT_ADMIN_PWD:-}
       # 首次安装准入令牌：配置后 /admin/setup 必须携带 ?setup_token=<值>；留空则生产禁用网页安装
       BLOG_SETUP_TOKEN: ${BLOG_SETUP_TOKEN:-}
+      # 动图上传帧数上限：逐帧处理占内存，超限拒绝上传
+      BLOG_GIF_MAX_FRAMES: ${BLOG_GIF_MAX_FRAMES:-200}
     ports:
       # 仅绑定宿主机回环地址；端口冲突时在 .env.docker 设置 WEB_PORT
       - "127.0.0.1:${WEB_PORT:-5000}:5000"

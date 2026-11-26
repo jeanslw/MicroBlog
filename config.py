@@ -143,6 +143,9 @@ class Config:
     SEND_FILE_MAX_AGE_DEFAULT = int(os.environ.get("BLOG_STATIC_MAX_AGE", "0"))
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # Flask 整体请求上限
 
+    # GIF 动图处理帧数上限：逐帧载入内存，超限拒绝以防资源耗尽
+    GIF_MAX_FRAMES = int(os.environ.get("BLOG_GIF_MAX_FRAMES", "200"))
+
     LOG_DIR = os.environ.get("BLOG_LOG_DIR") or os.path.join(_BASE_DIR, "logs")
     LOG_MAX_BYTES = int(os.environ.get("BLOG_LOG_MAX_BYTES", str(10 * 1024 * 1024)))
     LOG_BACKUP_COUNT = int(os.environ.get("BLOG_LOG_BACKUP_COUNT", "5"))

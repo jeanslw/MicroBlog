@@ -272,6 +272,7 @@ def article_edit(aid):
             auto_desc, auto_kw = _auto_seo(form.content.data, form.title.data, category)
             seo_desc = seo_desc or auto_desc
             seo_kw = seo_kw or auto_kw
+        old_urls = collect_upload_urls(article.content)
         article.title = form.title.data.strip()
         article.content = form.content.data
         article.status = form.status.data
@@ -280,6 +281,11 @@ def article_edit(aid):
         article.seo_keywords = seo_kw
         article.update_time = now
         db.session.commit()
+        try:
+            _cleanup_removed_images(old_urls - collect_upload_urls(article.content))
+        except Exception:
+            db.session.rollback()
+            log.warning("编辑文章后清理孤儿图片失败 aid=%s", aid, exc_info=True)
         flash(_("修改成功"), "success")
         return redirect(url_for("blog.article_detail", aid=aid))
     # 同上：编辑页模板未渲染 form.errors，校验失败时须显式提示
@@ -333,22 +339,27 @@ def article_del(aid):
         return redirect(url_for("blog.index"))
     # 清理不再被任何文章引用的图片；此处失败不影响已提交的删除，只记日志
     try:
-        for u in old_urls:
-            # 同一文件存在新旧前缀两种写法(/uploads/image/x.jpg == /static/uploads/x.jpg),
-            # 引用判定须覆盖全部变体,否则漏判导致仍在使用的图片被误删
-            variants = upload_url_variants(u)
-            still_used = db.session.scalar(
-                db.select(func.count(Article.id)).where(
-                    or_(*[Article.content.contains(v, autoescape=True) for v in variants])
-                )
-            )
-            if not still_used:
-                remove_uploaded_file(u)
+        _cleanup_removed_images(old_urls)
     except Exception:
         db.session.rollback()
         log.warning("删除文章后清理孤儿图片失败 aid=%s", aid, exc_info=True)
     flash(_("文章已删除"), "success")
     return redirect(url_for("blog.index"))
+
+
+def _cleanup_removed_images(urls: set[str]) -> None:
+    """删除不再被任何文章内容引用的上传图片(调用方负责收集与异常处理)."""
+    for u in urls:
+        # 同一文件存在新旧前缀两种写法(/uploads/image/x.jpg == /static/uploads/x.jpg),
+        # 引用判定须覆盖全部变体,否则漏判导致仍在使用的图片被误删
+        variants = upload_url_variants(u)
+        still_used = db.session.scalar(
+            db.select(func.count(Article.id)).where(
+                or_(*[Article.content.contains(v, autoescape=True) for v in variants])
+            )
+        )
+        if not still_used:
+            remove_uploaded_file(u)
 
 
 @blog_bp.route("/article/manage")

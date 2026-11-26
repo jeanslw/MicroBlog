@@ -46,6 +46,7 @@ from app.database import (
     get_or_create_about_profile,
     get_or_create_site_setting,
     get_or_create_system_setting,
+    init_db,
     pending_schema_migrations,
     run_schema_migrations,
     schema_version_cmp,
@@ -82,6 +83,7 @@ from app.models import Admin, LoginHistory, SchemaVersion
 from app.settings import DEFAULT_RUNTIME_VALUES, apply_runtime_settings
 from app.timeutil import backup_stamp, from_epoch
 from app.utils import (
+    ImageProcessError,
     build_safe_filename,
     process_and_resize_logo,
     process_and_save_image,
@@ -265,6 +267,9 @@ def _site_setting_view(template):
                         "main.uploaded_file", category="image", filename=f"backgrounds/{final_name}"
                     )
                     site.bg_style = "custom"
+                except ImageProcessError as e:
+                    flash(str(e), "danger")
+                    return render_template(template, form=form, site=site)
                 except Exception:
                     log.error("背景图上传失败", exc_info=True)
                     flash(_("背景图上传失败，请重试"), "danger")
@@ -353,7 +358,11 @@ def upload_image():
             save_path,
             ext,
             max_width=current_app.config.get("UPLOAD_MAX_WIDTH", 1200),
+            gif_max_frames=current_app.config.get("GIF_MAX_FRAMES", 200),
         )
+    except ImageProcessError as e:
+        log.warning("GIF 上传被拒绝: %s", e)
+        return jsonify({"error": str(e)}), 400
     except Exception as e:
         # 图片本身非法(无法识别/损坏/超像素上限)属客户端错误,返回 400;
         # 其余(磁盘写失败等)才是服务端故障,返回 500
@@ -1006,11 +1015,18 @@ def migrate_db():
     """数据库 schema 迁移页：展示当前 / 目标版本与待应用迁移，支持手动触发。"""
     if request.method == "POST":
         try:
+            light_failures = init_db()
             applied = run_schema_migrations()
         except Exception as e:
             log.error("数据库迁移失败: %s", e, exc_info=True)
             flash(_("数据库迁移失败，详情请查看应用日志"), "danger")
             return redirect(url_for("admin.migrate_db"))
+        if light_failures:
+            current_app.config["LIGHT_MIGRATE_FAILED"] = True
+            current_app.config["SCHEMA_UPGRADE_PENDING"] = True
+            flash(_("迁移未全部成功（%(steps)s），详情请查看应用日志", steps="、".join(light_failures)), "danger")
+            return redirect(url_for("admin.migrate_db"))
+        current_app.config["LIGHT_MIGRATE_FAILED"] = False
         if applied:
             names = "、".join(f"v{v}（{desc}）" for v, desc in applied)
             flash(_("迁移完成：%(names)s", names=names), "success")

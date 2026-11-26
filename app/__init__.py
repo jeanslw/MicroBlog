@@ -263,12 +263,24 @@ def create_app(config_name: str | None = None):
         except OSError:
             app.logger.warning("旧上传目录迁移失败", exc_info=True)
 
-        # 各步骤相互独立，单步失败不影响其余步骤
-        for _init_step in (init_db, ensure_default_settings, ensure_admin_exists):
+        # 轻量迁移失败进入维护模式；其余步骤相互独立，单步失败不影响其余步骤
+        light_failures: list[str] = []
+        try:
+            light_failures = init_db()
+        except Exception as e:
+            light_failures = ["init_db"]
+            app.logger.error("init_db 执行失败: %s", e, exc_info=True)
+        for _init_step in (ensure_default_settings, ensure_admin_exists):
             try:
                 _init_step()
             except Exception as e:
                 app.logger.warning("%s 跳过: %s", _init_step.__name__, e)
+        if light_failures:
+            app.config["SCHEMA_UPGRADE_PENDING"] = True
+            app.config["LIGHT_MIGRATE_FAILED"] = True
+            app.logger.error("轻量迁移失败(%s),站点进入维护模式", ",".join(light_failures))
+        else:
+            app.config["LIGHT_MIGRATE_FAILED"] = False
 
         from app.settings import apply_runtime_settings
 
@@ -405,6 +417,13 @@ def create_app(config_name: str | None = None):
                 pending_schema_migrations,
             )
 
+            if app.config.get("LIGHT_MIGRATE_FAILED"):
+                return Response(
+                    "<h1>503 服务暂时不可用</h1><p>数据库结构检查未全部完成，"
+                    "请管理员登录后台在「迁移数据库」页重试。</p>",
+                    503,
+                    mimetype="text/html; charset=utf-8",
+                )
             pending = pending_schema_migrations(quiet=True)
             if not pending:
                 app.config["SCHEMA_UPGRADE_PENDING"] = False
@@ -527,11 +546,14 @@ def register_cli(app: Flask):
             run_schema_migrations,
         )
 
-        init_db()
+        failures = init_db()
         run_schema_migrations()
         ensure_default_settings()
         ensure_admin_exists()
-        click.echo("Initialized database, applied schema migrations and ensured admin/settings tables.")
+        if failures:
+            click.echo(f"Initialized database with migration failures: {', '.join(failures)}")
+        else:
+            click.echo("Initialized database, applied schema migrations and ensured admin/settings tables.")
 
     @app.cli.command("create-admin")
     @click.option("--username", prompt=True)

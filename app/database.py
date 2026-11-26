@@ -52,8 +52,12 @@ def wait_for_database(max_wait: int = 90, interval: float = 3.0) -> None:
             time.sleep(interval)
 
 
-def init_db():
-    """创建所有表（幂等），随后执行列级兼容迁移。"""
+def init_db() -> list[str]:
+    """创建所有表（幂等），随后执行轻量迁移；返回失败的迁移步骤名列表。
+
+    _migrate_missing_indexes（索引补齐）与 _drop_legacy_mail_setting（旧表清理）
+    失败仅告警不视为致命；其余步骤失败由调用方进入维护模式。
+    """
     # 触发所有模型注册
     from app import models  # noqa: F401
 
@@ -63,15 +67,25 @@ def init_db():
         if "already exists" not in str(e).lower():
             raise
         db.create_all()
-    _migrate_schema_version()
-    _migrate_admin()
-    _migrate_article()
-    _migrate_banner()
-    _migrate_missing_indexes()
-    _migrate_login_attempt()
-    _migrate_site_setting_feed_switches()
+    failures: list[str] = []
+    for step in (
+        _migrate_schema_version,
+        _migrate_admin,
+        _migrate_article,
+        _migrate_banner,
+        _migrate_missing_indexes,
+        _migrate_login_attempt,
+        _migrate_site_setting_feed_switches,
+        _migrate_orphan_rows,
+        _migrate_single_row_dedupe,
+    ):
+        try:
+            step()
+        except Exception as e:
+            failures.append(step.__name__)
+            log.error("轻量迁移 %s 失败: %s", step.__name__, e, exc_info=True)
     _drop_legacy_mail_setting()
-    # 带数据搬迁的迁移由版本化迁移框架驱动（见 run_schema_migrations）
+    return failures
 
 
 def _migrate_schema_version():
@@ -103,8 +117,8 @@ def _migrate_schema_version():
                 )
             conn.execute(db.text("DROP TABLE schema_version_v1_legacy"))
         log.info("schema_version 已由开发期单行结构重建为履历表(%s)", f"v{ver}" if ver else "无戳记")
-    except Exception as e:
-        log.warning("schema_version 结构迁移失败,可手动重建: %s", e)
+    except Exception:
+        raise
 
 
 def _migrate_admin():
@@ -119,8 +133,8 @@ def _migrate_admin():
                 conn.execute(db.text("ALTER TABLE admin ADD COLUMN email VARCHAR(200) NOT NULL DEFAULT ''"))
             if "token_version" not in cols:
                 conn.execute(db.text("ALTER TABLE admin ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0"))
-    except Exception as e:
-        log.warning("admin email 列迁移失败,可手动执行 ALTER TABLE: %s", e)
+    except Exception:
+        raise
 
 
 def _migrate_article():
@@ -137,8 +151,8 @@ def _migrate_article():
                 conn.execute(db.text("ALTER TABLE article ADD COLUMN seo_description VARCHAR(300) NOT NULL DEFAULT ''"))
             if "seo_keywords" not in cols:
                 conn.execute(db.text("ALTER TABLE article ADD COLUMN seo_keywords VARCHAR(300) NOT NULL DEFAULT ''"))
-    except Exception as e:
-        log.warning("article 列迁移失败,可手动执行 ALTER TABLE: %s", e)
+    except Exception:
+        raise
 
 
 def _migrate_banner():
@@ -157,8 +171,8 @@ def _migrate_banner():
                 conn.execute(db.text("ALTER TABLE banner ADD COLUMN is_active BOOLEAN NOT NULL DEFAULT 1"))
             if "update_time" not in cols:
                 conn.execute(db.text("ALTER TABLE banner ADD COLUMN update_time VARCHAR(50) NULL"))
-    except Exception as e:
-        log.warning("banner 列迁移失败,可手动执行 ALTER TABLE: %s", e)
+    except Exception:
+        raise
 
 
 def _migrate_login_attempt():
@@ -174,8 +188,8 @@ def _migrate_login_attempt():
         if "update_time" not in cols:
             with db.engine.begin() as conn:
                 conn.execute(db.text("ALTER TABLE login_attempt ADD COLUMN update_time VARCHAR(50) NULL"))
-    except Exception as e:
-        log.warning("login_attempt update_time 列迁移失败,可手动执行 ALTER TABLE: %s", e)
+    except Exception:
+        raise
 
 
 def _migrate_site_setting_feed_switches():
@@ -190,8 +204,8 @@ def _migrate_site_setting_feed_switches():
                 conn.execute(db.text("ALTER TABLE site_setting ADD COLUMN rss_enabled BOOLEAN NOT NULL DEFAULT 1"))
             if "atom_enabled" not in cols:
                 conn.execute(db.text("ALTER TABLE site_setting ADD COLUMN atom_enabled BOOLEAN NOT NULL DEFAULT 1"))
-    except Exception as e:
-        log.warning("site_setting 订阅源开关列迁移失败,可手动执行 ALTER TABLE: %s", e)
+    except Exception:
+        raise
 
 
 def _migrate_site_config_split():
@@ -708,6 +722,38 @@ def _migrate_missing_indexes():
                 log.info("已为 %s 创建索引 %s(%s)", table.name, index.name, columns)
             except Exception as e:
                 log.warning("为 %s 创建索引 %s 失败: %s", table.name, index.name, e)
+
+
+def _migrate_orphan_rows():
+    """轻量迁移:清理悬挂引用行(幂等).
+
+    评论/回复/点赞的归属列无数据库外键约束,恢复旧备份或历史缺陷可能留下
+    指向已删除文章/评论的行;这些行对前台不可见,仅占用存储,启动时统一清理.
+    """
+    statements = (
+        "DELETE FROM comment WHERE article_id IS NOT NULL AND article_id NOT IN (SELECT id FROM article)",
+        "DELETE FROM reply WHERE comment_id IS NOT NULL AND comment_id NOT IN (SELECT id FROM comment)",
+        "DELETE FROM vote_log WHERE article_id IS NOT NULL AND article_id NOT IN (SELECT id FROM article)",
+    )
+    with db.engine.begin() as conn:
+        for stmt in statements:
+            conn.execute(db.text(stmt))
+
+
+def _migrate_single_row_dedupe():
+    """轻量迁移:单行配置表多余行清理(幂等).
+
+    site_setting / about_profile / system_settings 全站各一行;历史缺陷或
+    手工操作可能留下多行,导致后台与前台读到不同配置.保留最小 id 行.
+    """
+    for table in ("site_setting", "about_profile", "system_settings"):
+        with db.engine.begin() as conn:
+            cnt = conn.execute(db.text(f"SELECT COUNT(*) FROM {table}")).scalar()
+            if not cnt or cnt <= 1:
+                continue
+            keep_id = conn.execute(db.text(f"SELECT MIN(id) FROM {table}")).scalar()
+            conn.execute(db.text(f"DELETE FROM {table} WHERE id != :keep"), {"keep": keep_id})
+            log.warning("单行配置表 %s 存在 %d 行,已保留最早一行", table, cnt)
 
 
 def _get_single_row(model):

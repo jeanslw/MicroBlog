@@ -18,6 +18,7 @@ from app.forms import BannerForm
 from app.models import Banner
 from app.timeutil import utc_now_str
 from app.utils import (
+    ImageProcessError,
     build_safe_filename,
     process_and_save_image,
     remove_uploaded_file,
@@ -66,7 +67,11 @@ def banner_add():
             save_path,
             ext,
             max_width=current_app.config.get("BANNER_MAX_WIDTH", 1920),
+            gif_max_frames=current_app.config.get("GIF_MAX_FRAMES", 200),
         )
+    except ImageProcessError as e:
+        flash(str(e), "danger")
+        return redirect(url_for("banner.banner_list"))
     except Exception as e:
         log.error("Banner 图片处理失败: %s", e, exc_info=True)
         flash(_("图片处理失败,请重试"), "danger")
@@ -136,7 +141,11 @@ def banner_edit(bid):
                 save_path,
                 ext,
                 max_width=current_app.config.get("BANNER_MAX_WIDTH", 1920),
+                gif_max_frames=current_app.config.get("GIF_MAX_FRAMES", 200),
             )
+        except ImageProcessError as e:
+            flash(str(e), "danger")
+            return redirect(url_for("banner.banner_list"))
         except Exception as e:
             log.error("Banner 图片处理失败: %s", e, exc_info=True)
             flash(_("图片处理失败,请重试"), "danger")
