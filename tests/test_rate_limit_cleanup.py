@@ -19,7 +19,11 @@ def _boom(self):
     raise RuntimeError("db down")
 
 
-def test_limit_enforced_across_calls(app, db):
+def test_limit_enforced_across_calls(app, db, monkeypatch):
+    """连续调用累计计数并正确拒绝;冻结时间避免跨越桶边界"""
+    import time as _time
+
+    monkeypatch.setattr(_time, "time", lambda: 1000000000.5)
     assert check_and_record_rate_limit("vote", "9.9.9.9", limit=2, window_seconds=300) is True
     assert check_and_record_rate_limit("vote", "9.9.9.9", limit=2, window_seconds=300) is True
     assert check_and_record_rate_limit("vote", "9.9.9.9", limit=2, window_seconds=300) is False
@@ -87,27 +91,27 @@ def test_concurrent_first_insert_race(app, db, monkeypatch):
     assert counter.count == 2
 
 
-def test_rate_limit_window_is_bucket_aligned():
+def test_rate_limit_window_is_bucket_aligned(app, monkeypatch):
     """窗口起点必须对齐固定桶:滑动下沿会让桶切换重置丢掉窗内未过期计数,放行可达约 2 倍阈值"""
     import time as _time
 
     from app.extensions import _rate_limit_window_str
 
-    epoch = int(_time.time())
-    expect = epoch // 300 * 300
+    monkeypatch.setattr(_time, "time", lambda: 1000000000.5)
+    expect = 1000000000 // 300 * 300
     assert _rate_limit_window_str(300) == _time.strftime(UTC_FORMAT, _time.gmtime(expect))
 
 
-def test_counter_reset_only_at_bucket_boundary(app, db):
+def test_counter_reset_only_at_bucket_boundary(app, db, monkeypatch):
     """上一桶的行重置为 1;当前桶的行累加且达阈值即拒"""
     import time as _time
 
     from app.extensions import _rate_limit_window_str
 
     window = 300
-    epoch = int(_time.time())
+    monkeypatch.setattr(_time, "time", lambda: 1000000000.5)
     floor = _rate_limit_window_str(window)
-    prev_bucket = _time.strftime(UTC_FORMAT, _time.gmtime(epoch // window * window - window))
+    prev_bucket = _time.strftime(UTC_FORMAT, _time.gmtime(1000000000 // window * window - window))
 
     db.session.add(RateLimitCounter(action="vote", ip="9.8.7.6", window_start=prev_bucket, count=5))
     db.session.commit()
