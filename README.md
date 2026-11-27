@@ -146,7 +146,7 @@ Open `http://127.0.0.1:5000`. When running behind Nginx you can reuse [nginx/ngi
 | pytest | 9.0.3 | Testing framework |
 | pytest-cov | 5.0.0 | Test coverage |
 
-> uWSGI users can `pip install uwsgi` separately; config file [uwsgi.ini](uwsgi.ini) is provided.
+> uWSGI users can uncomment `#uwsgi==2.0.31` in [requirements.txt](requirements.txt) before installation; config file [uwsgi.ini](uwsgi.ini) is provided.
 
 ### 4.2 Frontend Static Assets (static/lib/)
 

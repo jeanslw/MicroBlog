@@ -55,8 +55,7 @@ EXPOSE 5000
 HEALTHCHECK --interval=15s --timeout=5s --start-period=40s --retries=5 \
     CMD curl -fsS http://127.0.0.1:5000/healthz || curl -fsS http://127.0.0.1:5001/healthz || exit 1
 
-# 启动命令(切换 uWSGI:安装 uwsgi 后改为 ["uwsgi", "--ini", "uwsgi.ini"],
-# 切换步骤见 docs/部署文档.md uWSGI 章节)
+# 启动命令(切换 uWSGI:取消 #uwsgi==2.0.31 注释，并补 libc6-dev 后改为 ["uwsgi", "--ini", "uwsgi.ini"],切换步骤见 docs/部署文档.md uWSGI 章节)
 CMD ["gunicorn", \
      "-w", "4", \
      "-b", "0.0.0.0:5000", \
