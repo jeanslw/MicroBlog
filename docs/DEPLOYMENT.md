@@ -193,7 +193,7 @@ python run.py
 gunicorn -w 4 -b 127.0.0.1:5000 --access-logfile - --error-logfile - "app:create_app()"
 # The prebuilt WSGI entry point also works: gunicorn -w 4 -b 127.0.0.1:5000 wsgi:application
 
-# Option 2: uWSGI (Linux; uwsgi is not in requirements.txt, install it manually: pip install uwsgi)
+# Option 2: uWSGI (Linux; uWSGI builds from source and needs gcc and libc6-dev; uncomment #uwsgi==2.0.31 in requirements.txt before pip install -r requirements.txt)
 uwsgi --ini uwsgi.ini
 
 # Option 3: waitress (cross-platform, for production/testing on Windows; already in requirements.txt)
@@ -219,9 +219,9 @@ Health checks work identically in both modes and are independent of the WSGI ser
 - `uwsgi.ini` always opens the probe port `http-socket = 127.0.0.1:5001` (HTTP protocol): once you switch to the uwsgi protocol, port 5000 speaks the binary uwsgi protocol and curl no longer works there — the Docker healthcheck then probes 5001 automatically (the Dockerfile has a dual-port fallback)
 - For bare-metal probes use `curl http://127.0.0.1:5001/healthz`
 
-To switch to uWSGI inside the container: add `RUN pip install uwsgi` to the Dockerfile and change `CMD` to
+To switch to uWSGI inside the container: add `libc6-dev` to the system packages and uncomment `#uwsgi==2.0.31` in `requirements.txt`, then change `CMD` to
 `["uwsgi", "--ini", "uwsgi.ini"]`; the paths and probe port in `uwsgi.ini` work for both bare metal and containers.
-In a bare-metal virtualenv, install and run uwsgi inside the venv (the uwsgi binary then comes from the venv), so no `virtualenv` setting is needed.
+In a bare-metal virtualenv, uncomment `#uwsgi==2.0.31` in `requirements.txt`, run `pip install -r requirements.txt`, and start uwsgi from the venv (the uwsgi binary then comes from the venv), so no `virtualenv` setting is needed.
 
 ### 2.6 Docker Compose Deployment (recommended for production)
 

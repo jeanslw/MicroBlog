@@ -146,7 +146,7 @@ waitress-serve --listen=127.0.0.1:5000 wsgi:application
 | pytest | 9.0.3 | 测试框架 |
 | pytest-cov | 5.0.0 | 测试覆盖率 |
 
-> uWSGI 用户可额外 `pip install uwsgi`，配置文件已提供 [uwsgi.ini](uwsgi.ini)。
+> uWSGI 用户可先取消 [requirements.txt](requirements.txt) 中 `#uwsgi==2.0.31` 的注释再安装，配置文件已提供 [uwsgi.ini](uwsgi.ini)。
 
 ### 4.2 前端静态资源（static/lib/）
 

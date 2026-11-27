@@ -18,3 +18,4 @@ feedgen==1.0.0
 tzdata==2026.3
 pytest==9.0.3
 pytest-cov==5.0.0
+#uwsgi==2.0.31
