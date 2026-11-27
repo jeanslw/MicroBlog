@@ -34,10 +34,12 @@ services:
       BLOG_MYSQL_HOST: db
       BLOG_MYSQL_USER: ${MYSQL_USER:-blog}
       BLOG_MYSQL_PWD: ${MYSQL_PASSWORD:-blog123456-change-me}
-      BLOG_MYSQL_DB: ${MYSQL_DATABASE:-flask_blog}
+      BLOG_MYSQL_DB: ${MYSQL_DATABASE:-microblog}
 
       # SQLite 路径，仅 BLOG_DB_TYPE=sqlite 时使用
-      BLOG_SQLITE_PATH: data/blog.db
+      # 已有部署的库文件在 data/blog.db，升级后请重命名为 data/microblog.db
+      # 或在此显式设置 BLOG_SQLITE_PATH: data/blog.db，否则会指向空库
+      BLOG_SQLITE_PATH: data/microblog.db
 
       # 业务参数
       # Session 有效期（秒，默认 86400 = 24 小时）
@@ -171,7 +173,7 @@ services:
     environment:
       # 默认密码仅本机测试用，生产须在 .env.docker 中覆盖
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root123456-change-me}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-flask_blog}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-microblog}
       MYSQL_USER: ${MYSQL_USER:-blog}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-blog123456-change-me}
     # MySQL 8.4 已移除 --default-authentication-plugin（保留会启动失败），

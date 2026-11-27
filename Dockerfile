@@ -50,10 +50,13 @@ EXPOSE 5000
 
 # 健康检查:/healthz 同时校验进程与数据库连通性,且豁免 Host 白名单.
 # start-period 给到 40s,兼容 MySQL 容器首次初始化较慢的场景.
+# 双端口兜底:gunicorn 与 uwsgi HTTP 模式监听 5000;切换 uwsgi 协议模式后
+# 5000 变为 uwsgi 二进制协议,curl 改探 uwsgi.ini 恒开的 HTTP 探针口 5001.
 HEALTHCHECK --interval=15s --timeout=5s --start-period=40s --retries=5 \
-    CMD curl -fsS http://127.0.0.1:5000/healthz || exit 1
+    CMD curl -fsS http://127.0.0.1:5000/healthz || curl -fsS http://127.0.0.1:5001/healthz || exit 1
 
-# 启动命令
+# 启动命令(切换 uWSGI:安装 uwsgi 后改为 ["uwsgi", "--ini", "uwsgi.ini"],
+# 切换步骤见 docs/部署文档.md uWSGI 章节)
 CMD ["gunicorn", \
      "-w", "4", \
      "-b", "0.0.0.0:5000", \

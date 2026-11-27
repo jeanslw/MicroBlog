@@ -91,7 +91,7 @@ Common variables:
 | `BLOG_PROXY_XFOR` / `BLOG_PROXY_XPROTO` / `BLOG_PROXY_XHOST` | `0` / `0` / `0` | Behind a reverse proxy set the first two to `1` (real IP/proto); keep `XHOST` at `0` because nginx forwards the Host header |
 | `BLOG_DB_TYPE` | `sqlite` | `sqlite` or `mysql`; when set to `mysql` with missing connection fields the app refuses to start (no silent fallback) |
 | `BLOG_MYSQL_HOST` / `BLOG_MYSQL_USER` / `BLOG_MYSQL_PWD` / `BLOG_MYSQL_DB` | - | MySQL connection info |
-| `BLOG_SQLITE_PATH` | `data/blog.db` | SQLite file path; the app refuses to start (with fix instructions) when its directory is not writable, e.g. a serverless read-only code dir — see [2.7 Deploying to Vercel](#27-deploying-to-vercel-serverless-demo-only) |
+| `BLOG_SQLITE_PATH` | `data/microblog.db` | SQLite file path; the app refuses to start (with fix instructions) when its directory is not writable, e.g. a serverless read-only code dir — see [2.7 Deploying to Vercel](#27-deploying-to-vercel-serverless-demo-only) |
 | `BLOG_AUTO_MIGRATE` | `true` | Schema migration mode: `true` applies pending migrations automatically on startup; `false` is manual mode — the site enters maintenance (503) when migrations are pending and an admin applies them from the admin "Migrate Database" page, see [2.8 Upgrading and Schema Migrations](#28-upgrading-and-schema-migrations) |
 | `BLOG_PAGE_SIZE` | `10` | Articles per page |
 | `BLOG_STATIC_MAX_AGE` | `0` | Static file cache seconds (compose template defaults to 43200) |
@@ -136,7 +136,7 @@ No extra config needed — just set `BLOG_DB_TYPE=sqlite`. On first startup the 
 1. Install MySQL and create the database:
 
 ```sql
-CREATE DATABASE flask_blog DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE DATABASE microblog DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
 2. Set environment variables:
@@ -146,14 +146,14 @@ export BLOG_DB_TYPE=mysql
 export BLOG_MYSQL_HOST=localhost
 export BLOG_MYSQL_USER=root
 export BLOG_MYSQL_PWD='your-mysql-password'
-export BLOG_MYSQL_DB=flask_blog
+export BLOG_MYSQL_DB=microblog
 export BLOG_INIT_ADMIN_PWD='your-admin-password'
 ```
 
 3. Import schema (optional, equivalent to the app's own table creation):
 
 ```bash
-mysql -u root -p flask_blog < MySQL/init.sql
+mysql -u root -p microblog < MySQL/init.sql
 ```
 
 ### 2.4 Manual Schema Init SQL (for MySQL users)
@@ -193,7 +193,7 @@ python run.py
 gunicorn -w 4 -b 127.0.0.1:5000 --access-logfile - --error-logfile - "app:create_app()"
 # The prebuilt WSGI entry point also works: gunicorn -w 4 -b 127.0.0.1:5000 wsgi:application
 
-# Option 2: uWSGI (Linux)
+# Option 2: uWSGI (Linux; uwsgi is not in requirements.txt, install it manually: pip install uwsgi)
 uwsgi --ini uwsgi.ini
 
 # Option 3: waitress (cross-platform, for production/testing on Windows; already in requirements.txt)
@@ -204,6 +204,24 @@ waitress-serve --listen=127.0.0.1:5000 wsgi:application
 > and make sure the proxy forwards the `Host` and `X-Forwarded-*` headers (you can reuse [nginx/nginx.conf](../nginx/nginx.conf)).
 > Plain-HTTP testing also requires `BLOG_COOKIE_SECURE=false`, otherwise the session cookie is never sent back after login.
 > In MySQL mode the app waits for the database to become ready on startup (probes every 3s, up to 90s) — no extra sleep script needed.
+
+#### 2.5.1 uWSGI with nginx (optional)
+
+The default setup is HTTP proxying: `uwsgi.ini` serves plain HTTP on port 5000 and nginx keeps using `proxy_pass` — no changes needed. Switching to the uwsgi protocol only touches two files:
+
+1. `uwsgi.ini`: comment out `http = 0.0.0.0:5000` and uncomment `socket = 0.0.0.0:5000`
+2. `nginx/nginx.conf`: in `location /` and `location = /healthz` (plus the 443 block when HTTPS is enabled),
+   comment out the `proxy_*` lines and uncomment `include uwsgi_params;` / `uwsgi_pass`
+
+Health checks work identically in both modes and are independent of the WSGI server:
+
+- The app's `/healthz` bypasses the Host allowlist and the maintenance gate, so it behaves the same under any server
+- `uwsgi.ini` always opens the probe port `http-socket = 127.0.0.1:5001` (HTTP protocol): once you switch to the uwsgi protocol, port 5000 speaks the binary uwsgi protocol and curl no longer works there — the Docker healthcheck then probes 5001 automatically (the Dockerfile has a dual-port fallback)
+- For bare-metal probes use `curl http://127.0.0.1:5001/healthz`
+
+To switch to uWSGI inside the container: add `RUN pip install uwsgi` to the Dockerfile and change `CMD` to
+`["uwsgi", "--ini", "uwsgi.ini"]`; the paths and probe port in `uwsgi.ini` work for both bare metal and containers.
+In a bare-metal virtualenv, install and run uwsgi inside the venv (the uwsgi binary then comes from the venv), so no `virtualenv` setting is needed.
 
 ### 2.6 Docker Compose Deployment (recommended for production)
 
@@ -262,7 +280,7 @@ docker compose --env-file .env.docker --profile mysql up -d
 # automatically when its profile is not enabled; requires Compose v2.20+)
 docker compose up -d web
 ```
-- Access: `http://127.0.0.1:5000`; the database file lives in `./data/blog.db` on the host
+- Access: `http://127.0.0.1:5000`; the database file lives in `./data/microblog.db` on the host
 - Note: compose implicitly reads a root-level `.env`, but the app-side config file is now `app.env` and is **never read by compose**. Only a leftover legacy `.env` (e.g. containing `BLOG_DB_TYPE=mysql`) can still skew this mode — delete it, or pass `--env-file` pointing to a file containing only `BLOG_DB_TYPE=sqlite`
 
 #### 2.6.4 Container Architecture
@@ -339,7 +357,7 @@ docker compose --env-file .env.docker --profile full up -d
 | Health probe | `curl http://localhost/healthz` | `{"status":"ok"}` |
 | Home access | `curl -I http://localhost/` | `HTTP/1.1 200` |
 | Admin page | `curl -I http://localhost/admin/login` | `HTTP/1.1 200` (a 302 redirect to `/admin/setup` is also fine when no admin exists) |
-| Admin account | After creating the admin via `/admin/setup` in the browser: `docker exec -i microblog-db mysql -uroot -p<PASSWORD> flask_blog -e "SELECT count(*) FROM admin"` | `count(*) >= 1` (0 before setup is expected) |
+| Admin account | After creating the admin via `/admin/setup` in the browser: `docker exec -i microblog-db mysql -uroot -p<PASSWORD> microblog -e "SELECT count(*) FROM admin"` | `count(*) >= 1` (0 before setup is expected) |
 | Firewall | `sudo ufw status` | Only 80/443 allowed; 5000/3306 not exposed publicly |
 
 #### 2.6.8 Reverse Proxy Domain & HTTPS
@@ -365,7 +383,7 @@ Vercel's Python runtime picks up `wsgi.py` at the repository root as the WSGI en
 
 | Platform constraint | Impact on this project |
 |---------------------|------------------------|
-| Read-only code directory | Inside a function the code directory (Vercel: `/var/task`) is read-only; only `/tmp` is writable. SQLite defaults to `data/blog.db`, so startup fails with `OSError: [Errno 30] Read-only file system: '/var/task/data'` (logged as "cannot import wsgi.py / Python process exited with status 1"). An external MySQL is mandatory |
+| Read-only code directory | Inside a function the code directory (Vercel: `/var/task`) is read-only; only `/tmp` is writable. SQLite defaults to `data/microblog.db`, so startup fails with `OSError: [Errno 30] Read-only file system: '/var/task/data'` (logged as "cannot import wsgi.py / Python process exited with status 1"). An external MySQL is mandatory |
 | `/tmp` is not persistent | Each instance has its own `/tmp`, wiped when the instance is recycled. Keeping SQLite in `/tmp` is demo-only: articles/settings written by the admin vanish on the next cold start, and concurrent instances do not even share the same file |
 | Uploads/backups unavailable | Logo/avatar/background/article images are written under `uploads/` (`uploads/image/`, `uploads/banner/`), which is not writable on Vercel (upload requests return 500); the admin "database backup/restore" feature needs local disk plus `mysqldump` and is equally unusable |
 
@@ -381,7 +399,7 @@ BLOG_DB_TYPE=mysql
 BLOG_MYSQL_HOST=<external MySQL host>
 BLOG_MYSQL_USER=<user>
 BLOG_MYSQL_PWD=<password>
-BLOG_MYSQL_DB=flask_blog
+BLOG_MYSQL_DB=microblog
 BLOG_TRUSTED_HOSTS=<your Vercel domain, e.g. microblog.vercel.app>
 BLOG_CANONICAL_URL=https://<your Vercel domain>
 ```
@@ -389,7 +407,7 @@ BLOG_CANONICAL_URL=https://<your Vercel domain>
 3. Set Framework Preset to `Other` (or let it auto-detect) and keep Build Command / Output Directory at their defaults — the root `wsgi.py` is detected as the entrypoint
 4. After deploying, open `https://<domain>/healthz`; `{"status":"ok"}` means both the app and the database are reachable. Visit `/admin/setup` to create the first admin
 
-> Just want to try it out without a database? Set `BLOG_SQLITE_PATH=/tmp/blog.db` (data may be lost at any time — **never use this for a real site**).
+> Just want to try it out without a database? Set `BLOG_SQLITE_PATH=/tmp/microblog.db` (data may be lost at any time — **never use this for a real site**).
 > Conclusion: Vercel fits a "read-only site + external MySQL" setup. If you need local image uploads, admin backup/restore, or dependency-free SQLite, use [2.6 Docker Compose](#26-docker-compose-deployment-recommended-for-production) or [2.5 Start the Service](#25-start-the-service).
 
 ### 2.8 Upgrading and Schema Migrations
@@ -415,7 +433,12 @@ Maintenance mode (HTTP 503) in manual mode:
 
 > **Why maintenance mode exists**: during a structural upgrade the old code may be unable to read the new schema (and vice versa), and even logging in can fail. That is why the three tables used by the login path (`admin`, `login_attempt`, `rate_limit`) **keep their structure across versions**, and the upgrade page reads no business table at all — the "log in → migrate" path therefore works whatever state the database is in.
 
-Before upgrading: export a backup from the admin "Database Backup" page and **verify it can be restored** (ideally restore it once in a scratch environment). Note that in manual mode, once the site is in maintenance mode the admin "Database Backup" page is itself gated with a 503 (it is not on the allow-list) — take the backup **before** changing the config or restarting, or use `mysqldump` (MySQL) / copy `data/blog.db` (SQLite) on the server instead. A failed migration is logged (`数据库迁移失败` with a traceback) and **never blocks startup** — fix the cause (disk space, account privileges, …) and retry; failing to acquire the MySQL named lock (60s wait) is likewise only logged, and a restart or the next request retries.
+**SQLite upgrade note for existing deployments (since v1.4.1)**: the default database filename changed from `data/blog.db` to `data/microblog.db`.
+When upgrading an existing deployment, do one of the following — otherwise the app will point at a brand-new empty database:
+- rename `data/blog.db` to `data/microblog.db` (while the site is stopped);
+- or set `BLOG_SQLITE_PATH=data/blog.db` explicitly in `app.env` / compose to keep the old path.
+
+Before upgrading: export a backup from the admin "Database Backup" page and **verify it can be restored** (ideally restore it once in a scratch environment). Note that in manual mode, once the site is in maintenance mode the admin "Database Backup" page is itself gated with a 503 (it is not on the allow-list) — take the backup **before** changing the config or restarting, or use `mysqldump` (MySQL) / copy `data/microblog.db` (SQLite) on the server instead. A failed migration is logged (`数据库迁移失败` with a traceback) and **never blocks startup** — fix the cause (disk space, account privileges, …) and retry; failing to acquire the MySQL named lock (60s wait) is likewise only logged, and a restart or the next request retries.
 
 ---
 

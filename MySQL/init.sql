@@ -3,7 +3,7 @@
 -- 兼容 MySQL 5.7+ / 8.0+，已通过 STRICT_TRANS_TABLES 严格模式校验
 --
 -- 使用方法：
---   mysql -uroot -p flask_blog < MySQL/init.sql
+--   mysql -uroot -p microblog < MySQL/init.sql
 --   或 Docker 容器首次启动自动执行（挂载到 /docker-entrypoint-initdb.d/）
 --
 -- 本脚本是幂等的：建表用 CREATE TABLE IF NOT EXISTS，初始化数据用 INSERT IGNORE。
@@ -26,9 +26,9 @@
 -- --------------------------------------------------------
 -- 数据库
 -- --------------------------------------------------------
-CREATE DATABASE IF NOT EXISTS `flask_blog`
+CREATE DATABASE IF NOT EXISTS `microblog`
     /*!40100 DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci */;
-USE `flask_blog`;
+USE `microblog`;
 
 
 -- --------------------------------------------------------
@@ -299,7 +299,7 @@ VALUES ('1.4.0', DATE_FORMAT(UTC_TIMESTAMP(), '%Y-%m-%dT%H:%i:%SZ'), '新装环�
 --
 -- 方式 A：用 Python 生成哈希后 INSERT
 --   docker exec -it microblog-web python -c "from werkzeug.security import generate_password_hash as g; print(g('你的密码'))"
---   mysql -uroot -p flask_blog -e "INSERT INTO admin (username, password) VALUES ('admin', '<上面输出的哈希>')"
+--   mysql -uroot -p microblog -e "INSERT INTO admin (username, password) VALUES ('admin', '<上面输出的哈希>')"
 --
 -- 方式 B：用 SQLite 模式首次启动（设 BLOG_INIT_ADMIN_PWD），数据库自动建管理员后导出再导入 MySQL
 --

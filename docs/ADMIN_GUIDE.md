@@ -310,7 +310,7 @@ Since v1.3.6 the app records the database **schema version inside the database**
 
 ### 9.3 Recovering in manual mode
 
-1. **Back up first**: the admin "Database Backup" page is **not on the maintenance allow-list** (it returns 503), so make sure you backed up **before** the upgrade; if you are already in maintenance mode, take a manual backup on the server (copy `data/blog.db` for SQLite, `mysqldump` for MySQL).
+1. **Back up first**: the admin "Database Backup" page is **not on the maintenance allow-list** (it returns 503), so make sure you backed up **before** the upgrade; if you are already in maintenance mode, take a manual backup on the server (copy `data/microblog.db` for SQLite, `mysqldump` for MySQL).
 2. Open `/admin/login?next=/admin/migrate` and sign in (sign-in is **always** available in maintenance mode).
 3. Open **Operations & Security → Migrate Database**; the page shows the database version, the target version and the pending migration list.
 4. Click "Run migration" (a confirmation is required).
