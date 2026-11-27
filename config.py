@@ -222,10 +222,10 @@ def _prepare_sqlite_dir(abs_path: str) -> str:
         raise RuntimeError(
             f"SQLite 库文件目录不可用: {directory}（{exc}）。"
             "Serverless 平台（Vercel / AWS Lambda）的代码目录是只读的，仅 /tmp 可写，"
-            "无法按默认路径 data/blog.db 建库。请任选其一：\n"
+            "无法按默认路径 data/microblog.db 建库。请任选其一：\n"
             "  1) 生产推荐：改用外部 MySQL —— 设置 BLOG_DB_TYPE=mysql 与 BLOG_MYSQL_HOST / "
             "BLOG_MYSQL_USER / BLOG_MYSQL_PWD / BLOG_MYSQL_DB；\n"
-            "  2) 仅演示/试跑：设置 BLOG_SQLITE_PATH=/tmp/blog.db（临时目录非持久化，"
+            "  2) 仅演示/试跑：设置 BLOG_SQLITE_PATH=/tmp/microblog.db（临时目录非持久化，"
             "实例重启或缩容后数据会丢失，多实例之间也不共享）。"
         ) from exc
     return abs_path
@@ -254,7 +254,7 @@ def _resolve_db_uri_for_class(cls):
             },
         }
         return
-    abs_path = _prepare_sqlite_dir(os.path.abspath(os.environ.get("BLOG_SQLITE_PATH") or "data/blog.db"))
+    abs_path = _prepare_sqlite_dir(os.path.abspath(os.environ.get("BLOG_SQLITE_PATH") or "data/microblog.db"))
     cls.SQLALCHEMY_DATABASE_URI = "sqlite:///" + abs_path
     cls.SQLALCHEMY_ENGINE_OPTIONS = {}
 

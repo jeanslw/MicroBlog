@@ -55,7 +55,7 @@ def test_prepare_sqlite_dir_reports_readonly_filesystem(tmp_path, monkeypatch):
 
     message = str(excinfo.value)
     assert "Read-only file system" in message
-    assert "/tmp/blog.db" in message
+    assert "/tmp/microblog.db" in message
 
 
 def test_resolve_db_uri_sqlite_uses_absolute_path(tmp_path, monkeypatch):

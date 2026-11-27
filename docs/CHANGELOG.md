@@ -2,6 +2,11 @@
 
 ## v1.4.1 (2026-11-26)
 
+- **Added**
+  - uWSGI deployment support: nginx can switch between HTTP proxying and the uwsgi protocol by editing uwsgi.ini and the nginx config only, with health checks working in both modes (uwsgi is not bundled with the dependencies and must be installed manually).
+  - The default MySQL database name is unified as `microblog` (schema script, compose defaults and docs kept in sync).
+  - The default SQLite database filename is now `data/microblog.db`; when upgrading an existing deployment, rename the data file or set `BLOG_SQLITE_PATH` explicitly, otherwise the app points at an empty database.
+
 - **Fixed**
   - The setup wizard in production now requires an admission token when configured, and is disabled without one; concurrent first-time account creation is serialized so exactly one admin can exist.
   - A failed MySQL restore automatically rolls back to the pre-restore snapshot; if the rollback fails, the site enters an isolated restore state that survives process restarts, with the restore entry kept reachable. A failed pre-restore snapshot aborts the restore with an honest message and leaves the database untouched.

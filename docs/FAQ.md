@@ -9,12 +9,12 @@ Confirm all 10 JS/CSS files in `static/lib/` and the fonts in `static/lib/fonts/
 - Confirm MySQL service is running
 - Confirm `BLOG_MYSQL_*` environment variables are correct
 - Confirm `BLOG_DB_TYPE=mysql`
-- Confirm database `flask_blog` exists
+- Confirm database `microblog` exists
 
 **Q: Database connection failed (SQLite)?**
 - Confirm `BLOG_DB_TYPE=sqlite`
 - Confirm `data/` directory exists and is writable
-- Delete `data/blog.db` and restart to reset the database
+- Delete `data/microblog.db` and restart to reset the database
 
 **Q: How to switch databases?**
 Change `BLOG_DB_TYPE` environment variable (`mysql` or `sqlite`); code adapts automatically.
@@ -50,7 +50,7 @@ The app enforces a Host allowlist to prevent Host header injection. Add the host
 **Q: The web container stays unhealthy, or `/healthz` returns 503?**
 `/healthz` runs `SELECT 1` against the database; a 503 means the app process is fine but the database is unreachable:
 - Compose deployment: check `docker compose logs web` and `docker compose logs db`. During MySQL first-boot initialization the app retries every 3s for up to 90s; if it still fails after that, verify the `BLOG_MYSQL_*` credentials match the db container
-- Direct MySQL deployment: confirm the database is running, the account has access to `flask_blog`, `BLOG_DB_TYPE=mysql` is set, and all required fields are present (the app refuses to start rather than silently falling back when fields are missing)
+- Direct MySQL deployment: confirm the database is running, the account has access to `microblog`, `BLOG_DB_TYPE=mysql` is set, and all required fields are present (the app refuses to start rather than silently falling back when fields are missing)
 
 **Q: Permission denied when uploading images or writing SQLite in the container?**
 On native Linux Docker, bind-mounted directories are owned by root by default, while the container runs as a non-root user. The image entrypoint [docker-entrypoint.sh](../docker-entrypoint.sh) automatically fixes ownership of `data/`, `uploads/banner`, `uploads/image`, and `backups/` at startup — rebuild with the latest image. If you customize the image, do not bypass this entrypoint.
@@ -111,7 +111,7 @@ On Linux / WSL2 / inside Docker keep using gunicorn: `gunicorn -w 4 -b 127.0.0.1
 **Q: "Database backup/restore" fails with `returned non-zero exit status 2`?**
 Exit code 2 means the mysql/mysqldump client rejected the command during **option parsing** (typically `unknown option '--xxx'`) — it **never even connected to the database**, so this is not a corrupt database or a data problem. The classic cause is a client-version difference: `--skip-ssl` only exists in MariaDB / MySQL ≤8.0 clients, and **MySQL 8.4 clients have removed that spelling** (they only accept `--ssl-mode=DISABLED`), so both backup and restore can fail. The app is now **behaviour-driven**: it first runs with `--skip-ssl`, and if the client reports an unknown option it automatically retries with `--ssl-mode=DISABLED` (an unknown option fails during parsing, so nothing connects and nothing is written), finally dropping the flag to keep the client default; whichever spelling worked is cached. Note that **`--version` probing cannot be trusted**: `mysql --skip-ssl --version` prints the version and exits 0 (that client returns early on `--version` without validating the remaining options) while `mysqldump --skip-ssl --version` does report the error — the same flag is validated at different moments in the two clients. On failure the client's raw stderr is shown on the page instead of only an exit code. If the page shows a different message, act on that text:
 - `Can't connect to MySQL server` / `Access denied`: wrong host, account, or `BLOG_MYSQL_*` values
-- `Unknown database 'flask_blog'`: the target database does not exist — create it or switch to SQLite
+- `Unknown database 'microblog'`: the target database does not exist — create it or switch to SQLite
 - `[WinError 2]` / `command not found`: no client installed on the host — bare-metal runs need the MySQL/MariaDB client with its `bin` on `PATH` (container images bundle it, so they are unaffected)
 
 **Q: After restoring a Windows backup into a Linux container the blog name reads "My Blog My Blog" (or images are broken)?**
@@ -127,9 +127,9 @@ Re-uploading the logo, avatar and background from "Site Settings" / "About" also
 Confirm `.mo` compiled files exist in `translations/`. If `.po` files were modified, run `pybabel compile -d translations` to recompile.
 
 **Q: Deploying to Vercel / serverless fails with `OSError: [Errno 30] Read-only file system: '/var/task/data'` (or repeated "cannot import wsgi.py")?**
-On serverless platforms (Vercel / AWS Lambda) the function's code directory is read-only (Vercel: `/var/task`) and only `/tmp` is writable, so SQLite cannot create the default `data/blog.db`. The app now raises a configuration error with fix instructions instead of crashing with a bare `OSError`. Pick one:
+On serverless platforms (Vercel / AWS Lambda) the function's code directory is read-only (Vercel: `/var/task`) and only `/tmp` is writable, so SQLite cannot create the default `data/microblog.db`. The app now raises a configuration error with fix instructions instead of crashing with a bare `OSError`. Pick one:
 - **Recommended for production**: use an external MySQL — set `BLOG_DB_TYPE=mysql` plus `BLOG_MYSQL_HOST` / `BLOG_MYSQL_USER` / `BLOG_MYSQL_PWD` / `BLOG_MYSQL_DB` (configure them under Settings → Environment Variables in Vercel; the database must be reachable from Vercel outbound)
-- **Demo only**: set `BLOG_SQLITE_PATH=/tmp/blog.db` (`/tmp` is not persistent — data is lost when instances restart or scale down, and instances do not share it; never use this for a real site)
+- **Demo only**: set `BLOG_SQLITE_PATH=/tmp/microblog.db` (`/tmp` is not persistent — data is lost when instances restart or scale down, and instances do not share it; never use this for a real site)
 
 On Vercel you must also set `BLOG_ENV=production`, `BLOG_SECRET_KEY` (otherwise the app refuses to start) and `BLOG_TRUSTED_HOSTS=<your domain>` (otherwise requests return 400). Note that `uploads/` is not writable on Vercel (uploads fail) and the admin backup/restore feature is unusable. See [Deployment Guide 2.7](DEPLOYMENT.md#27-deploying-to-vercel-serverless-demo-only).
 

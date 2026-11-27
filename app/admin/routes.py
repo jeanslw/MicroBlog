@@ -688,7 +688,7 @@ def _mysql_creds():
         "host": os.environ.get("BLOG_MYSQL_HOST") or "localhost",
         "user": os.environ.get("BLOG_MYSQL_USER") or "root",
         "pwd": os.environ.get("BLOG_MYSQL_PWD") or "",
-        "db": os.environ.get("BLOG_MYSQL_DB") or "flask_blog",
+        "db": os.environ.get("BLOG_MYSQL_DB") or "microblog",
     }
 
 
